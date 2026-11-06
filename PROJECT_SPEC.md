@@ -1,7 +1,7 @@
-# Jackpot Jock: Snowstorm Match-3 — Project Specification & Roadmap
+# Coffee Match: Match-3 Demo — Project Specification & Roadmap
 
 > **Status:** Draft v1.0 · **Purpose:** single source of truth for implementation with Codex  
-> **Last updated:** 2026-11-05  
+> **Last updated:** 2026-11-06
 > **Product:** browser-based, mobile-friendly, coffee-themed Match-3 MVP with 10 levels and a public leaderboard.
 
 ## 0. Instructions for Codex (read this first)
@@ -25,7 +25,7 @@ This file is the authoritative specification and execution roadmap. Before makin
 
 ### 1.1 Overview
 
-Jackpot Jock is a fictional cartoon character trapped in a Canadian snowstorm. Players complete coffee-themed tile-matching puzzles to clear snow and help Jock survive. The game is an engagement widget for an existing website, **not** a full-scale commercial mobile game.
+Coffee Match is an independent coffee-themed puzzle demo. The planned snowstorm mode features a fictional traveler trapped in a Canadian snowstorm. Players complete tile-matching puzzles to clear snow and help the traveler survive. The game is an engagement widget for an existing website, **not** a full-scale commercial mobile game.
 
 ### 1.2 MVP success criteria
 
@@ -177,7 +177,7 @@ These are **starting values only**. Implement the exact snow coordinates in JSON
 ## 6. Visuals, animation, and sound
 
 - Brand tone: friendly cartoon, coffee and winter; visually distinct from Royal Match branding.
-- Character: **Jackpot Jock**, client-supplied art preferred; temporary placeholder must be easily replaceable.
+- Character: **a fictional traveler**, original or appropriately licensed art preferred; temporary placeholder must be easily replaceable.
 - Tile assets: at least 5–6 clear coffee-themed symbols with shapes distinguishable without relying only on color.
 - Feedback: select highlight, swap, invalid-swap bounce, match pop, tile fall, snow crack/break, combo, win/lose.
 - Animation targets: responsive rather than elaborate; do not block the board unnecessarily.
@@ -336,27 +336,33 @@ Mark a task `[x]` **only when acceptance criteria are actually met**. Never chan
 - [x] Add `.env.example`, `.gitignore`, base README, empty game shell, placeholder assets.
 - [x] Confirm dev/build/test commands work.
 
-**Done when:** clean install and scripts run, page loads in desktop/mobile viewport, initial CI job succeeds.
+**Done when:** clean install and local scripts run, page loads in desktop/mobile viewport.
+
+**Accepted:** M0 is complete based on local verification. By user decision on 2026-11-06, CI setup and the initial remote CI run are deferred and are not required to close M0. Revisit CI when remote repository/server workflows are needed.
 
 ### M1 — Pure Match-3 engine (vertical slice)
 
-- [ ] Implement typed grid, tile data model, seeded RNG.
-- [ ] Generate stable match-free boards with at least one legal move.
-- [ ] Validate swaps and find all horizontal/vertical matches.
-- [ ] Resolve clear → gravity → refill → cascades deterministically.
-- [ ] Add legal-move detection and safe reshuffle.
-- [ ] Add comprehensive unit/property tests for these mechanics.
+- [x] Implement typed grid, tile data model, seeded RNG.
+- [x] Generate stable match-free boards with at least one legal move.
+- [x] Validate swaps and find all horizontal/vertical matches.
+- [x] Resolve clear → gravity → refill → cascades deterministically.
+- [x] Add legal-move detection and safe reshuffle.
+- [x] Add comprehensive unit/property tests for these mechanics.
 
 **Done when:** logic is fully testable without Phaser and test seeds cannot freeze or enter an endless cascade.
 
+**Verified (2026-11-06):** M1 engine corrections pass 101 real unit tests, including seeded invariants and an adversarial constant RNG. Typecheck, lint and build pass. This acceptance covers the pure engine; the browser scene still uses legacy logic and requires M2 integration.
+
 ### M2 — Playable scene and controls
 
-- [ ] Render game board with placeholders using Phaser.
-- [ ] Implement touch swipe and two-tap swap, mouse input, selection feedback.
-- [ ] Animate swap/revert, removal, falling/refill; lock inputs during processing.
-- [ ] Render HUD and clear loading/error states; responsive layout.
+- [x] Render game board with placeholders using Phaser.
+- [x] Implement touch swipe and two-tap swap, mouse input, selection feedback.
+- [x] Animate swap/revert, removal, falling/refill; lock inputs during processing.
+- [x] Render HUD and clear loading/error states; responsive layout.
 
 **Done when:** a user can reliably play an endless temporary board on desktop and mobile.
+
+**Verified (2026-11-06):** integrated pure-engine playback on the endless board; 102 unit tests and 20 desktop/mobile Chromium browser tests pass, including 40 consecutive moves per browser profile. Lint, typecheck and production build pass. Manual desktop smoke: a two-tap match resolves, tiles refill, score updates and input remains available.
 
 ### M3 — Snow, goals, scoring, 10 levels
 
@@ -371,7 +377,7 @@ Mark a task `[x]` **only when acceptance criteria are actually met**. Never chan
 ### M4 — Menus, map, art, sounds, polish
 
 - [ ] Add start, instructions, map, pause, victory/defeat, final completion screens.
-- [ ] Integrate coffee tiles, snow, Jackpot Jock art or replaceable placeholders.
+- [ ] Integrate coffee tiles, snow, traveler art or replaceable placeholders.
 - [ ] Add essential animations, sound effects and mute/reduced-motion handling.
 - [ ] Improve layout and interaction feedback on mobile.
 
@@ -411,7 +417,7 @@ Any requested change not already specified must be noted in a **Change Request**
 Keep the MVP defaults above unless explicitly changed. Confirm before production handoff:
 
 - [ ] Are the 10 levels and visuals intended as simple branded MVP, or close to premium Royal Match polish?
-- [ ] Does the client provide finalized Jackpot Jock images, coffee tile icons, music/SFX, logo, and rights to use them?
+- [ ] Does the client provide finalized traveler images, coffee tile icons, music/SFX, logo, and rights to use them?
 - [ ] Is completion of all 10 levels required for leaderboard eligibility? **Default: yes.**
 - [ ] Is leaderboard rank based on cumulative run score, or per-level scores / fastest completion? **Default: cumulative run score.**
 - [ ] Should weekly ranking reset exactly Monday at 00:00 UTC? **Default: yes.**
@@ -433,6 +439,11 @@ Keep the MVP defaults above unless explicitly changed. Confirm before production
 6. **Offline:** gameplay may continue after initial load while leaderboard requires connectivity; offline service worker is not required.
 7. **Accessibility:** keyboard interactions and clear text labels should be supported where reasonably practical; do not advertise full WCAG compliance without auditing it.
 8. **Deployment:** actual domain, environment IDs, credentials and artwork are unknown; never invent them.
+9. **CI deferred (2026-11-06):** the user does not currently need remote execution. Local checks are sufficient for M0 acceptance; CI setup and a successful remote run remain deferred.
+
+10. **M1 bounded generation (2026-11-06):** the pure generator supports integer boards of at least 2×3 or 3×2 with 3–6 colors (production levels use 8×8 and 5–6). Unsupported configurations and invalid attempt limits throw `RangeError`. After bounded shuffle attempts, tile colors may be regenerated; the original color multiset is not guaranteed, but cell snow and move/score counters are preserved. After 100 cascade steps, a deterministic safety reshuffle stabilizes the board without awarding points for the reshuffle itself. `BoardState.rngSeed` is the current RNG state, not the original run seed. M2 must integrate this engine; the existing browser scene still has a known post-move input lock.
+
+11. **M2 temporary free play (2026-11-06):** the browser uses an 8×8, five-color, snow-free endless board with seed 12345. `simulateMove(..., { endless: true })` skips move consumption and victory/defeat/remaining-move bonuses while retaining cascades, score and automatic reshuffle. Default level behavior is unchanged. Independent cascade frames drive rendering. Snow levels, run progression and persistence remain M3; basic pause and reduced-motion support are included for scene usability. Browser checks use desktop/mobile Chromium emulation; real-device and cross-browser QA remain M6.
 
 ## 17. Progress log
 
@@ -449,6 +460,31 @@ Known issues / next step: ...
 Files: package.json, tsconfig.json, vite.config.ts, eslint.config.js, .prettierrc, vitest.config.ts, playwright.config.ts, .gitignore, .env.example, index.html, src/main.ts, src/styles/main.css, src/game/scenes/BootScene.ts, src/game/scenes/GameScene.ts, README.md, tests/unit/board.test.ts, tests/e2e/game.spec.ts
 Checks: npm install → ok; npm run typecheck → ok; npm run lint → ok; npm run test → 13 passed; npm run build → ok; npm run test:e2e → 10 passed (Chromium + Mobile Chrome)
 Known issues / next step: Firefox/WebKit require system deps (npx playwright install-deps). Ready for M1 — Pure Match-3 engine.
+
+2026-11-06 — M0 / acceptance: Accepted repository foundation based on local verification; user deferred CI as unnecessary for the current local workflow.
+Files: PROJECT_SPEC.md, README.md
+Checks: prior local audit on 2026-11-05 → clean install, lint, typecheck, build, 13 placeholder unit tests and 10 Playwright tests passed; GameScene loaded at widths 320/375/768/1280 without JavaScript errors or horizontal overflow. Documentation-only update; checks not rerun.
+Known issues / next step: CI is deferred, not implemented or verified. Unit tests are scaffolding only; mobile HUD overlap and limited browser assertions remain for later scene/testing work. M1 has not started.
+
+2026-11-06 — Scene layout / user-requested visual revision: Reserved a separate HUD area, fit the board to the remaining viewport, and relayout on resize/orientation changes. Replaced individual tile backgrounds with one translucent board surface and thin light-beige dashed cell dividers. Corrected scaled pointer mapping and duplicate selection handling.
+Files: src/main.ts, src/game/scenes/BootScene.ts, src/game/scenes/GameScene.ts, tests/e2e/game.spec.ts
+Checks: npm run lint → passed; npm run typecheck → passed; npm test → 13 placeholder tests passed; npm run build → passed (existing Phaser chunk-size warning); npm run test:e2e -- --reporter=line → 12 passed. New browser checks cover board/HUD separation, viewport containment, and cell selection after resizing at 320/375/768/1280 px and 667×375 landscape. Screenshot smoke review at 836×648 and 375×667 → board fully visible, HUD unobstructed; no JavaScript errors at these sizes or 667×375.
+Known issues / next step: Existing gameplay logic and placeholder unit coverage remain provisional; this visual revision does not complete M1–M4. CI remains deferred.
+
+2026-11-06 — M1 / Pure Match-3 engine: Implemented pure TypeScript game logic module (src/game/logic/) with seeded RNG, match detection, board generation, resolution with cascades, reshuffle, and scoring. All 84 unit tests pass.
+Files: src/game/logic/types.ts, rng.ts, matches.ts, resolve.ts, generate.ts, reshuffle.ts, index.ts; tests/unit/logic/*.test.ts (7 test files)
+Checks: npm run typecheck → passed; npm run lint → passed; npm run test → 84 tests passed; npm run build → passed; npm run test:e2e → 12 tests passed
+Known issues / next step: Logic module ready for integration into GameScene for M2. Level configurations 2-10 need final snow coordinates.
+
+2026-11-06 — M1 / Review corrections: Replaced rejection-only generation with match-free construction and a guaranteed legal-swap fallback, including tile colors under snow. Safe reshuffle now regenerates colors after bounded attempts instead of returning an invalid board, preserving cell snow and counters. Added integer bounds checks, swapped-tile match validation, exhausted-move rejection, current RNG-state persistence, and a 100-step cascade safety reshuffle. Corrected existing pure-model snow handling (cell-bound, one layer per clear) and limited cascade multipliers to tile points. No browser scene changes were made in this increment.
+Files: src/game/logic/{generate,reshuffle,matches,resolve,index,types}.ts; tests/unit/board.test.ts; tests/unit/logic/{generate,integration,resolve}.test.ts; README.md; PROJECT_SPEC.md
+Checks: npm test → 101 passed across 7 files (all 13 placeholder tests replaced). Seeded invariants cover 1000 seeds each for 5/6-color generation, 1000 each for normal/forced-fallback reshuffle, 100 seeds each for four fallback board shapes, and replay simulations up to 25 moves for each of 100 seeds. Constant-RNG cascade termination, impossible multisets, incomplete boards, snow preservation and malformed swaps are covered. npm run typecheck → passed; npm run lint → passed; npm run build → passed (existing Phaser chunk-size warning); npm run test:e2e -- --reporter=line → 12 passed.
+Known issues / next step: M1 is verified as a pure engine. M2 must integrate it and replace legacy scene logic, including the confirmed post-move input lock. Browser tests currently cover loading/layout/selection, not completed gameplay. M3 still owns complete level configurations, progression and balancing. CI remains deferred. Earlier M1 acceptance results above are superseded by this correction entry.
+
+2026-11-06 — M2 / Playable scene and controls: Replaced legacy scene logic with M1 simulation and independent cascade frames. Added endless Free Play, mouse/touch swipes, two-tap swaps, selection, keyboard swaps, sequential swap/revert/clear/fall/refill animations, processing lock, pause, reduced motion and visible loading/board errors. Retained the continuous board surface and dashed dividers. Removed duplicate canvas centering and observed container size to correct stale Phaser dimensions after mobile orientation changes.
+Files: src/game/scenes/{GameScene,BootScene}.ts; src/game/logic/{types,resolve,index}.ts; src/main.ts; tests/unit/logic/playback.test.ts; tests/e2e/game.spec.ts; README.md; PROJECT_SPEC.md
+Checks: npm run lint → passed; npm run typecheck → passed; npm test → 102 passed across 8 files, including 200 endless-model moves and independent cascade playback; npm run build → passed (existing Phaser chunk-size warning); npm run test:e2e -- --reporter=line --workers=1 → 20 passed (2.3m). Browser coverage includes invalid revert, input lock, engine/display parity, native touch swipe at 320px, 40 consecutive moves in each profile, pause, keyboard swap, resize during animation, canvas containment and no horizontal overflow at 320/375/768/1280 and landscape 667×375. Manual desktop browser smoke at 1280×720: two taps cleared matches, refilled the board, updated score and returned to playable state; HUD and board remained distinct.
+Known issues / next step: M2 accepted. Temporary endless mode has no snow, move limit or win/lose screen. M3 owns ten complete level configurations, goals, progression, persistence and balancing. Mobile Chrome is emulated Chromium; real-device/Safari/Firefox QA remains M6. CI remains deferred.
 
 ## 18. First Codex prompt
 

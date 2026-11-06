@@ -1,6 +1,6 @@
-# Jackpot Jock: Snowstorm Match-3
+# Coffee Match: Match-3 Demo
 
-Браузерная кофейная Match-3 игра с 10 уровнями и публичным лидербордом.
+Браузерная кофейная Match-3 игра. Сейчас доступно бесконечное тестовое поле (M2); 10 уровней и публичный лидерборд запланированы в следующих этапах.
 
 ## Быстрый старт
 
@@ -239,8 +239,36 @@ supabase functions invoke admin-reset --data '{"action": "new_period"}'
 
 См. `PROJECT_SPEC.md` §12 — Roadmap с этапами M0-M6.
 
-Текущий этап: **M0 - Repository foundation** ✓
+Текущий этап: **M2 — Playable scene and controls** ✓. Следующий этап — **M3: Snow, goals, scoring, 10 levels**.
+
+Движок `src/game/logic/` работает независимо от Phaser. Генерация создаёт поле без готовых совпадений и с допустимым ходом, включая клетки со снегом. Поддерживаются целочисленные размеры от 2×3 или 3×2 и 3–6 типов тайлов; игровые конфигурации используют 8×8 и 5–6 типов. Неподдерживаемые размеры, число типов и некорректный лимит попыток отклоняются с `RangeError`.
+
+Генерация сначала заполняет поле без троек, а при отсутствии допустимого хода после лимита попыток использует конструкцию с гарантированным обменом. Перемешивание пробует сохранить набор цветов; если подходящей перестановки не найдено, цвета генерируются заново. Снег в каждой клетке, счёт и оставшиеся ходы при этом сохраняются. После 100 каскадов выполняется безопасное перемешивание без дополнительных очков за саму перестановку. `BoardState.rngSeed` хранит текущее состояние RNG после генерации/хода; исходный seed передаётся отдельно в `initializeGame` для воспроизведения.
+
+Все 102 юнит-теста проходят; 13 тестов-заглушек заменены реальными проверками. Регрессии охватывают тысячи seed, принудительный резервный путь, неизменность входного состояния, продолжение после сериализации и ограничение каскадов даже при постоянном результате RNG.
+
+Сцена подключена к движку M1. Временный режим **Free Play**: поле 8×8, пять типов плиток, неограниченные ходы, счёт и число успешных обменов. Нет снега, условий победы/поражения и бонуса за оставшиеся ходы. Конфигурации 2–10, прогресс и баланс остаются в M3.
+
+Управление: свайп мышью/пальцем либо два нажатия на соседние плитки. Повторное нажатие снимает выделение; нажатие на дальнюю плитку переносит его. Стрелки перемещают выделение, Space/Enter начинают выбор, Shift + стрелка выполняет обмен. Pause/Resume и Escape приостанавливают ввод между ходами.
+
+Неверный обмен анимируется обратно без изменения счёта и счётчика обменов. Каскады проигрываются последовательно: удаление → падение → заполнение; ввод блокируется до конца анимации. При отсутствии ходов движок автоматически перемешивает поле. `prefers-reduced-motion` сокращает анимации. Изменение размера окна сохраняет поле; ResizeObserver синхронизирует canvas с контейнером после смены ориентации, центрирование выполняется через CSS. Ошибка загрузки предлагает повторную загрузку, ошибка поля показывает явное сообщение.
+
+`simulateMove(config, state, from, to, { endless: true })` включает режим без лимита ходов и завершения уровня; обычный вызов сохраняет правила M1. `MoveResult.frames` содержит независимые снимки каскадов для анимации, `boardState` — окончательное состояние после возможного перемешивания. Сцена не реализует повторно правила совпадений, гравитации или подсчёта очков.
+
+Проверки: `npm run lint`, `npm run typecheck`, `npm test` (102 теста), `npm run build` и `npm run test:e2e -- --reporter=line --workers=1` (20 тестов) проходят. При сборке остаётся предупреждение о размере чанка Phaser.
+
+Браузерные проверки охватывают обмен двумя нажатиями, настоящий touch-свайп, откат неверного обмена, блокировку ввода, каскады, паузу, клавиатуру, изменение размера во время анимации и 40 последовательных ходов. Поле и HUD проверяются на ширинах 320/375/768/1280 и в ландшафтном режиме. Проверки Mobile Chrome используют эмуляцию Chromium; Safari/Firefox и реальные устройства остаются для M6.
+
+M0 принят по результатам локальных проверок. По решению от 2026-11-06 настройка и первый запуск CI отложены до появления необходимости в удалённом рабочем процессе и не блокируют закрытие M0.
 
 ---
 
 *Разработано в соответствии с PROJECT_SPEC.md v1.0*
+
+### Falling rows mode
+
+Open **Settings** in the game HUD to choose **Classic** or **Falling rows**. Switching modes starts a fresh game; the selection is remembered on this device. Opening settings freezes the current game, and Cancel resumes it.
+
+Falling rows starts with the bottom three rows filled and four tile colors. Tap an orthogonally connected group of at least two matching tiles to remove it. Surviving tiles fall down, then nonempty columns gather in the center while retaining their order. Tiles spin around their vertical axis when removed. Each removal takes one eighth of the current row interval (0.625 seconds initially), including with reduced motion enabled; clicks during resolution are ignored.
+
+A full-size preview directly above the board builds the next row from left to right over the countdown, with each tile aligned to its destination column. Rows arrive every five seconds, gradually speeding up by a quarter second every ten rows to a four-second minimum. Removal time scales with the interval to preserve roughly eight moves per row. The **Drop next row** button below the board completes the preview and releases the next row early, restarting the countdown. If a removal is underway, the requested row waits for it to finish. The countdown continues through removal animations; a due row waits for the current move to settle. Pause and settings freeze the timer. A new row that cannot fit ends the game; use Restart to begin again. Larger groups earn more points per tile.

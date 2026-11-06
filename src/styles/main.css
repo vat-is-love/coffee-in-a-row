@@ -1,4 +1,4 @@
-/* Jackpot Jock: Snowstorm Match-3 - Main Styles */
+/* Coffee Match: Match-3 Demo - Main Styles */
 
 /* CSS Custom Properties */
 :root {
@@ -182,3 +182,44 @@ canvas {
   white-space: nowrap !important;
   border: 0 !important;
 }
+.settings-dialog {
+  margin: auto;
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  touch-action: pan-y;
+  padding: 24px;
+  border: 1px solid #e8a87c;
+  border-radius: 16px;
+  background: #16213e;
+  color: #f5f0e8;
+  box-shadow: 0 16px 60px #0008;
+}
+.settings-dialog::backdrop { background: #0d0d1acc; }
+.settings-dialog h1 { font-size: 24px; margin-bottom: 18px; }
+.settings-dialog fieldset { border: 0; }
+.settings-dialog legend { margin-bottom: 10px; color: #e8a87c; }
+.mode-option { display: flex; gap: 12px; padding: 12px; border: 1px solid #e4cfad44; border-radius: 10px; margin-bottom: 12px; cursor: pointer; }
+.mode-option:has(input:checked) { border-color: #e8a87c; background: #e8a87c12; }
+.mode-option input { flex-shrink: 0; accent-color: #e8a87c; width: 18px; }
+.mode-option strong, .mode-option small { display: block; }
+.mode-option small { color: #c7bcb0; margin-top: 4px; line-height: 1.45; }
+.settings-dialog p { font-size: 13px; color: #c7bcb0; margin: 4px 0 20px; }
+.settings-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.settings-actions button { font: inherit; padding: 10px 18px; border: 1px solid #e4cfad66; border-radius: 8px; background: transparent; color: #f5f0e8; cursor: pointer; }
+.settings-actions .primary { background: #e8a87c; color: #1a1a2e; border-color: #e8a87c; }
+
+.mode-picker .mode-option {
+  display: block;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  color: var(--color-text);
+}
+.mode-picker .mode-option:hover,
+.mode-picker .mode-option:focus-visible {
+  border-color: var(--color-accent);
+  background: #e8a87c12;
+}
+.mode-picker p { margin: 18px 0 0; text-align: center; }

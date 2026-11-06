@@ -5,6 +5,7 @@
 import { Scene, GameObjects } from 'phaser';
 
 export class BootScene extends Scene {
+  private failed = false;
   private loadingText!: GameObjects.Text;
   private progressBar!: GameObjects.Graphics;
   private progressBox!: GameObjects.Graphics;
@@ -20,7 +21,9 @@ export class BootScene extends Scene {
     this.createLoadingUI(width, height);
 
     // Load placeholder assets (generated programmatically in create)
-    this.loadAssets();
+    this.failed = false;
+    try { this.loadAssets(); } catch (error) { this.showLoadError(error); }
+    this.load.on('loaderror', () => this.showLoadError(new Error('Asset loading failed')));
 
     // Set up load events
     this.load.on('progress', (value: number) => {
@@ -37,15 +40,15 @@ export class BootScene extends Scene {
     this.cameras.main.setBackgroundColor('#1a1a2e');
 
     // Title
-    this.add.text(width / 2, height / 2 - 80, 'JACKPOT JOCK', {
+    this.add.text(width / 2, height / 2 - 80, 'COFFEE MATCH', {
       fontFamily: 'Fredoka One, Nunito, cursive',
-      fontSize: '48px',
+      fontSize: `${Math.min(48, width / 9)}px`,
       color: '#e8a87c',
       stroke: '#6f4e37',
       strokeThickness: 4
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, height / 2 - 20, 'Snowstorm Match-3', {
+    this.add.text(width / 2, height / 2 - 20, 'Match-3 Demo', {
       fontFamily: 'Nunito, sans-serif',
       fontSize: '24px',
       color: '#f5f0e8'
@@ -54,7 +57,7 @@ export class BootScene extends Scene {
     // Progress box
     this.progressBox = this.add.graphics();
     this.progressBox.fillStyle(0x16213e, 1);
-    this.progressBox.fillRoundedRect(width / 2 - 160, height / 2 + 40, 320, 20, 10);
+    this.progressBox.fillRoundedRect(width / 2 - Math.min(320, width - 32) / 2, height / 2 + 40, Math.min(320, width - 32), 20, 10);
 
     // Progress bar
     this.progressBar = this.add.graphics();
@@ -104,10 +107,6 @@ export class BootScene extends Scene {
       ];
 
       const color = colors[i];
-
-      // Draw tile background (rounded square)
-      graphics.fillStyle(0x2d2d44, 1);
-      graphics.fillRoundedRect(0, 0, tileSize, tileSize, 8);
 
       // Draw coffee bean/icon shape in the center
       graphics.fillStyle(color, 1);
@@ -247,13 +246,15 @@ export class BootScene extends Scene {
   private updateProgress(value: number): void {
     const width = this.scale.width;
     const height = this.scale.height;
+    if (this.failed) return;
+    const barWidth = Math.min(320, width - 32) - 8;
 
     this.progressBar.clear();
     this.progressBar.fillStyle(0xe8a87c, 1);
     this.progressBar.fillRoundedRect(
-      width / 2 - 156,
+      width / 2 - barWidth / 2,
       height / 2 + 44,
-      312 * value,
+      barWidth * value,
       12,
       6
     );
@@ -261,10 +262,22 @@ export class BootScene extends Scene {
     this.loadingText.setText(`Loading... ${Math.round(value * 100)}%`);
   }
 
+  private showLoadError(error: unknown): void {
+    console.error('Unable to load game', error);
+    this.failed = true;
+    this.loadingText.setText('Loading failed. Tap to reload.')
+      .setInteractive({ useHandCursor: true })
+      .once('pointerdown', () => window.location.reload());
+  }
+
   private loadingComplete(): void {
+    if (this.failed) return;
     this.loadingText.setText('Ready!');
     this.time.delayedCall(300, () => {
-      this.scene.start('GameScene');
+      this.game.events.once('game-mode-selected', () => {
+        this.scene.start(this.registry.get('gameMode') === 'falling' ? 'FallingScene' : 'GameScene');
+      });
+      this.game.events.emit('choose-game-mode');
     });
   }
 }
