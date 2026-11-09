@@ -23,6 +23,8 @@ export class FallingScene extends Scene {
   private droppingRow = false;
   private dropButton!: GameObjects.Text;
   private isProcessing = false;
+  private pendingTile: TileView | null = null;
+  private removingTiles = new Set<TileView>();
   private paused = false;
   private gameOver = false;
   private reducedMotion = false;
@@ -39,6 +41,8 @@ export class FallingScene extends Scene {
     this.selected = { row: 7, col: 0 };
     this.isProcessing = this.paused = this.gameOver = false;
     this.elapsed = 0;
+    this.pendingTile = null;
+    this.removingTiles.clear();
     this.board = [];
     this.highlights = [];
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -60,6 +64,8 @@ export class FallingScene extends Scene {
     this.scale.on('resize', this.layout, this);
     this.game.events.on('language-changed', this.layout, this);
     this.events.once('shutdown', () => {
+      this.pendingTile = null;
+      this.removingTiles.clear();
       this.input.off('pointerup', this.click, this);
       this.input.off('pointermove', this.hover, this);
       this.input.keyboard?.off('keydown', this.keyDown, this);
@@ -171,7 +177,31 @@ export class FallingScene extends Scene {
 
   private click(pointer: Input.Pointer): void {
     const pos = this.position(pointer);
-    if (pos) void this.remove(pos);
+    if (!pos || this.paused || this.gameOver) return;
+    if (this.isProcessing) {
+      // Follow the visible tile through gravity and column centering, not its old cell.
+      const x = (pointer.x - this.boardContainer.x) / this.boardContainer.scaleX;
+      const y = (pointer.y - this.boardContainer.y) / this.boardContainer.scaleY;
+      this.pendingTile = this.board.flat().find(tile => tile && tile.sprite.active
+        && !this.removingTiles.has(tile)
+        && Math.abs(tile.sprite.x - x) <= 32 && Math.abs(tile.sprite.y - y) <= 32) ?? null;
+      return;
+    }
+    void this.remove(pos);
+  }
+
+  private processPending(): void {
+    if (this.isProcessing || this.paused || this.gameOver) return;
+    // An expired timer always releases its row before another removal.
+    if (this.remaining <= 0) {
+      void this.dropRow();
+      return;
+    }
+    const tile = this.pendingTile;
+    this.pendingTile = null;
+    if (tile && this.board[tile.row]?.[tile.col] === tile && tile.sprite.active) {
+      void this.remove({ row: tile.row, col: tile.col });
+    }
   }
 
   private hover(pointer: Input.Pointer): void {
@@ -247,7 +277,8 @@ export class FallingScene extends Scene {
     this.showGroup(null);
     const started = this.time.now;
     this.updateHUD();
-    const removed = result.removed.map(p => this.board[p.row][p.col]!.sprite);
+    this.removingTiles = new Set(result.removed.map(p => this.board[p.row][p.col]!));
+    const removed = [...this.removingTiles].map(tile => tile.sprite);
     const turnMs = turnDuration(this.state.rowsAdded);
     await this.spinAway(removed, turnMs * 0.48);
     removed.forEach(sprite => sprite.destroy());
@@ -262,8 +293,10 @@ export class FallingScene extends Scene {
     this.state = result.state;
     // Reduced motion and short falls retain the same gameplay rate limit.
     await this.wait(Math.max(1, turnMs - (this.time.now - started)));
+    this.removingTiles.clear();
     this.isProcessing = false;
     this.updateHUD();
+    this.processPending();
   }
 
   private async dropRow(): Promise<void> {
@@ -275,6 +308,7 @@ export class FallingScene extends Scene {
     const result = addFallingRow(this.state);
     if (result.overflow) {
       this.gameOver = true;
+      this.pendingTile = null;
       vibrate('loss');
       this.isProcessing = false;
       this.droppingRow = false;
@@ -296,5 +330,6 @@ export class FallingScene extends Scene {
     this.previewRow = [...this.state.nextRow];
     this.isProcessing = false;
     this.createHUD();
+    this.processPending();
   }
 }

@@ -195,3 +195,24 @@ test('leaderboard keeps top ten, shows a lower current rank, and persists across
   await expect(dialog.locator('tbody tr').first().locator('td')).toHaveText(['1', '30', '2000', /.+/]);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-falling-records')!).length)).toBe(14);
 });
+
+test('buffers only the last tapped tile and follows it as columns move', async ({ page }) => {
+  await startFalling(page);
+  const points = await page.evaluate(() => {
+    const scene = (window as any).__GAME__.scene.getScene('FallingScene');
+    scene.state.grid = Array.from({ length: 8 }, () => Array(8).fill(-1));
+    scene.state.grid[7] = [0, 0, 1, 1, 2, 2, 3, 3];
+    scene.renderBoard();
+    return [0, 4, 6].map(col => ({
+      x: scene.boardContainer.x + (col * 64 + 32) * scene.boardContainer.scaleX,
+      y: scene.boardContainer.y + 480 * scene.boardContainer.scaleY
+    }));
+  });
+  for (const point of points) await page.mouse.click(point.x, point.y);
+  await page.waitForFunction(() => {
+    const scene = (window as any).__GAME__.scene.getScene('FallingScene');
+    return scene.state.score === 200 && !scene.isProcessing;
+  });
+  expect(await sceneValue(page, `${falling}.state.grid.flat().filter(n=>n>=0).sort()`)).toEqual([1, 1, 2, 2]);
+  expect(await sceneValue(page, `${falling}.pendingTile`)).toBe(null);
+});
