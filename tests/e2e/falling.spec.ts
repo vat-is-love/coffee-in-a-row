@@ -100,12 +100,8 @@ test('row waits for resolution, lands from preview, overflows and restarts on mo
     scene.remaining = 0;
   });
   await page.waitForFunction(() => (window as any).__GAME__.scene.getScene('FallingScene').gameOver);
-  const restart = await page.evaluate(() => {
-    const scene = (window as any).__GAME__.scene.getScene('FallingScene');
-    const b = scene.hudContainer.list.find((item: any) => item.text === 'Restart').getBounds();
-    return { x: b.centerX, y: b.centerY };
-  });
-  await page.mouse.click(restart.x, restart.y);
+  await expect(page.getByRole('dialog', { name: 'Game over · Top 10' })).toBeVisible();
+  await page.getByRole('button', { name: 'Start again', exact: true }).click();
   await page.waitForFunction(() => !(window as any).__GAME__.scene.getScene('FallingScene').gameOver);
   expect(await sceneValue(page, `${falling}.state.score`)).toBe(0);
 });
@@ -166,4 +162,36 @@ test('early drop completes the preview and waits for the current spinning remova
   await page.waitForFunction(() => (window as any).__GAME__.scene.getScene('FallingScene').state.rowsAdded === 1);
   await page.waitForFunction(() => !(window as any).__GAME__.scene.getScene('FallingScene').isProcessing);
   expect(await sceneValue(page, `${falling}.state.grid.flat().filter(n=>n>=0).length`)).toBe(14);
+});
+
+
+test('leaderboard keeps top ten, shows a lower current rank, and persists across games', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('coffee-falling-records', JSON.stringify(Array.from({ length: 12 }, (_, i) => ({
+      score: 1200 - i * 100, rows: 20 - i, playedAt: 1700000000000 + i * 1000
+    }))));
+  });
+  await startFalling(page);
+  const lose = async (score: number, rows: number) => {
+    await page.evaluate(({ score, rows }) => {
+      const scene = (window as any).__GAME__.scene.getScene('FallingScene');
+      scene.state.score = score;
+      scene.state.rowsAdded = rows;
+      scene.state.grid[0][0] = 1;
+      scene.remaining = 0;
+    }, { score, rows });
+    await expect(page.getByRole('dialog', { name: 'Game over · Top 10' })).toBeVisible();
+  };
+  await lose(50, 3);
+  const dialog = page.getByRole('dialog', { name: 'Game over · Top 10' });
+  await expect(dialog.locator('tbody tr')).toHaveCount(12);
+  await expect(dialog.locator('.leaderboard-gap')).toHaveText('···');
+  await expect(dialog.locator('.current-result td')).toHaveText(['13', '3', '50', /.+/]);
+  await page.getByRole('button', { name: 'Start again', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await lose(2000, 30);
+  await expect(dialog.locator('tbody tr')).toHaveCount(10);
+  await expect(dialog.locator('.leaderboard-gap')).toHaveCount(0);
+  await expect(dialog.locator('tbody tr').first().locator('td')).toHaveText(['1', '30', '2000', /.+/]);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-falling-records')!).length)).toBe(14);
 });

@@ -1,6 +1,7 @@
 import { Scene, GameObjects, Input } from 'phaser';
 import { FALLING, createFalling, clearGroup, findGroup, addFallingRow, rowInterval, turnDuration, type FallingState } from '../logic/falling';
 import type { Position } from '../logic/types';
+import { showFallingLeaderboard } from '../../ui/fallingLeaderboard';
 
 type TileView = Position & { sprite: GameObjects.Image };
 
@@ -273,6 +274,8 @@ export class FallingScene extends Scene {
       this.isProcessing = false;
       this.droppingRow = false;
       this.createHUD();
+      const cleanup = showFallingLeaderboard(this.state.score, this.state.rowsAdded, () => this.scene.restart());
+      this.events.once('shutdown', cleanup);
       return;
     }
     this.state = result.state;

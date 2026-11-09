@@ -223,3 +223,22 @@ canvas {
   background: #e8a87c12;
 }
 .mode-picker p { margin: 18px 0 0; text-align: center; }
+
+.falling-leaderboard { width: min(560px, calc(100vw - 24px)); padding: 20px; }
+.falling-leaderboard[open] { display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+.falling-leaderboard h1 { font-size: 22px; margin: 0; }
+.falling-leaderboard p { margin: 0; }
+.leaderboard-scroll { overflow: auto; min-height: 0; touch-action: pan-y; }
+.falling-leaderboard table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.falling-leaderboard th, .falling-leaderboard td { padding: 8px 6px; text-align: right; border-bottom: 1px solid #e4cfad22; }
+.falling-leaderboard th { color: #e8a87c; position: sticky; top: 0; background: #16213e; }
+.falling-leaderboard th:last-child, .falling-leaderboard td:last-child { text-align: left; }
+.falling-leaderboard .current-result { background: #e8a87c24; color: #ffe0b5; font-weight: bold; }
+.falling-leaderboard .leaderboard-gap td { text-align: center; padding: 2px; }
+.falling-leaderboard .settings-actions { flex-shrink: 0; }
+.falling-leaderboard button { width: 100%; }
+@media (max-width: 400px) {
+  .falling-leaderboard { padding: 14px; }
+  .falling-leaderboard table { font-size: 12px; }
+  .falling-leaderboard th, .falling-leaderboard td { padding: 7px 4px; }
+}
