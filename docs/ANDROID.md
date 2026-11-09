@@ -99,3 +99,49 @@ gradle -p android :app:assembleDebug :app:lintDebug
 Debug APK не следует использовать вместо подписанной release APK для передачи и
 дальнейших обновлений. В репозитории нет Gradle Wrapper: в Actions нужную версию
 устанавливает `gradle/actions/setup-gradle`.
+
+## Recovery and diagnostics (2026-11)
+
+Supported: Android 8/API 26 or newer **with Android System WebView/Chrome 102+**.
+API 26 is required for the renderer-process recovery callback.
+OS version alone does not guarantee a compatible WebView. Google Play Services are not required.
+The web build targets Chrome 102 and checks native dialog support before startup.
+
+Web deployment (`npm run build`, publish the complete `dist` through the existing Pages workflow)
+adds an independent inline loading/recovery screen, a 20-second watchdog and local diagnostic export.
+Startup succeeds only after the mode picker is shown. No automatic reload occurs. Diagnostics
+contain only error categories/names, source basenames, timestamps, build/APK identifiers and UA;
+they never include saved values or error payloads. The bounded journal lives in memory and is lost
+on reload: copy it before Retry. If clipboard access fails, select the displayed text manually.
+Corrupt falling records are copied verbatim to `coffee-falling-records-recovery-<timestamp>` before
+replacement. If backup fails, writing records is disabled for that attempt; the original survives.
+Existing arrays are version 0; preference objects accept legacy/no version and version 1.
+
+Service worker installs only after every precached file matches its build digest. No skipWaiting
+or forced reload: close **all** game tabs/app windows to let a waiting update activate. Cache cleanup
+only touches this game's scoped prefix; storage is never cleared. First launch still needs internet.
+A previously installed broken worker may keep serving the previous site until its windows close.
+
+The native timeout, renderer recovery, native diagnostic dialog, APK user-agent identifier and
+debug-only remote inspection require an **updated APK**. Build using the existing Android workflow
+with a higher `versionCode`, the same application ID and signing key. Install over the old APK
+(`adb install -r <apk>`); do not uninstall or clear app data, as that deletes local records.
+For local Gradle builds use `gradle -p android assembleDebug` or signed `assembleRelease` with
+existing signing environment variables (see above). No Gradle wrapper is included in this project.
+
+On the affected phone:
+1. Copy existing diagnostics before retrying. Record Android and System WebView versions.
+2. Publish the web build, close every game window, reopen online, then install the updated signed APK.
+3. Open both modes and verify existing records/settings; play Falling rows through a loss.
+4. Relaunch offline after a successful online launch; test airplane mode on first launch separately.
+5. Test native main-page HTTP/network failures and renderer termination using a debug APK/device.
+6. On a debug build inspect via desktop Chrome `chrome://inspect`; release inspection is disabled.
+7. To verify update safety, start a round on release A, publish B, confirm the round is uninterrupted,
+   close every client, reopen and copy diagnostics to confirm B. Never clear app storage to update.
+
+Checks: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`,
+`node scripts/check-service-worker.mjs`, `npm run test:e2e -- tests/e2e/recovery.spec.ts`.
+Browser tests cover interface readiness, missing main JS, startup exception/timeouts, clipboard
+fallback and denied storage/vibration. Unit tests cover exact backup and preserved legacy records.
+Native callbacks and real-device WebView behavior require a device/emulator; web recovery cannot
+handle a totally frozen renderer thread, which must be closed/reopened through Android.

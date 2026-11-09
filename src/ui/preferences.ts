@@ -4,15 +4,17 @@ let language: Language = 'en';
 let vibration = true;
 try {
   const saved = JSON.parse(localStorage.getItem(PREFERENCES_KEY) ?? '{}');
+  if (saved && typeof saved === 'object' && !Array.isArray(saved) && (saved.version === undefined || saved.version === 1)) {
   if (saved?.language === 'ru' || saved?.language === 'en') language = saved.language;
   if (typeof saved?.vibration === 'boolean') vibration = saved.vibration;
+  }
 } catch { /* Preferences are optional when storage is unavailable. */ }
 export function getPreferences() { return { language, vibration }; }
 export function savePreferences(next: { language: Language; vibration: boolean }): void {
   language = next.language;
   vibration = next.vibration;
   document.documentElement.lang = language;
-  try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify(next)); } catch { /* Keep in memory. */ }
+  try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ ...next, version: 1 })); } catch { /* Keep in memory. */ }
   if (!vibration) { try { navigator.vibrate?.(0); } catch { /* Unsupported device. */ } }
 }
 document.documentElement.lang = language;

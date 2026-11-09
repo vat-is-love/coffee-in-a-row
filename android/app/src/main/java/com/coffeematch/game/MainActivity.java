@@ -21,10 +21,27 @@ public class MainActivity extends Activity {
     private LinearLayout root;
     private LinearLayout error;
     private boolean failed;
+    private String diagnostic = "startup";
+    private final android.os.Handler watchdog = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable timeout = () -> showError("native-load-timeout");
+    private final Runnable checkReady = new Runnable() {
+        @Override public void run() {
+            if (web == null || failed) return;
+            web.evaluateJavascript("!!(window.CoffeeRecovery && window.CoffeeRecovery.isReady())", value -> {
+                if (failed || web == null) return;
+                if ("true".equals(value)) watchdog.removeCallbacks(timeout);
+                else watchdog.postDelayed(this, 500);
+            });
+        }
+    };
+    private boolean ru;
+    private String label(String en, String russian) { return ru ? russian : en; }
 
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
+        ru = getPreferences(0).getBoolean("ru", java.util.Locale.getDefault().getLanguage().equals("ru"));
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.rgb(26, 26, 46));
@@ -38,6 +55,7 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(Color.rgb(26, 26, 46));
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
+        settings.setUserAgentString(settings.getUserAgentString() + " CoffeeAPK/" + BuildConfig.VERSION_NAME + "." + BuildConfig.VERSION_CODE);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
@@ -59,21 +77,36 @@ public class MainActivity extends Activity {
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) {
                 failed = false;
+                watchdog.removeCallbacks(timeout);
+                watchdog.postDelayed(timeout, 20000);
                 error.setVisibility(View.GONE);
                 web.setVisibility(View.VISIBLE);
             }
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError detail) {
-                if (request.isForMainFrame()) showError();
+                if (request.isForMainFrame()) showError("main-frame-network:" + detail.getErrorCode());
             }
             @Override
             public void onReceivedHttpError(WebView view, WebResourceRequest request,
                     android.webkit.WebResourceResponse response) {
-                if (request.isForMainFrame()) showError();
+                if (request.isForMainFrame()) showError("main-frame-http:" + response.getStatusCode());
+            }
+            @Override
+            public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                showError("renderer-gone:" + detail.didCrash());
+                root.removeView(view);
+                view.destroy();
+                web = null;
+                return true;
             }
             @Override
             public void onPageFinished(WebView view, String url) {
                 if (failed) return;
+                watchdog.removeCallbacks(checkReady);
+                watchdog.post(checkReady);
+                view.evaluateJavascript("document.documentElement.lang", value -> {
+                    if ("\"ru\"".equals(value) || "\"en\"".equals(value)) getPreferences(0).edit().putBoolean("ru", "\"ru\"".equals(value)).apply();
+                });
                 // Check for web updates on every launch; never interrupt a running game.
                 view.evaluateJavascript("if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistration().then(function(r) { if(r) r.update().catch(function() {}); }); }", null);
             }
@@ -82,12 +115,22 @@ public class MainActivity extends Activity {
         error.setOrientation(LinearLayout.VERTICAL);
         error.setPadding(32, 32, 32, 32);
         TextView message = new TextView(this);
-        message.setText("Не удалось загрузить игру. Проверьте интернет. Для первого запуска нужна связь и опубликованная игра на GitHub Pages.");
+        message.setText(label("Unable to load game. Check your connection and update Android System WebView (Chrome 102+).", "Не удалось загрузить игру. Проверьте интернет и обновите Android System WebView (Chrome 102+)."));
         message.setTextColor(Color.WHITE);
         error.addView(message);
         Button retry = new Button(this);
-        retry.setText("Повторить");
-        retry.setOnClickListener(v -> web.loadUrl(BuildConfig.GAME_URL));
+        retry.setText(label("Retry", "Повторить"));
+        retry.setOnClickListener(v -> { if (web == null) recreate(); else web.loadUrl(BuildConfig.GAME_URL); });
+        Button copy = new Button(this);
+        copy.setText(label("Copy diagnostics", "Скопировать диагностику"));
+        copy.setOnClickListener(v -> {
+            String report = "APK " + BuildConfig.VERSION_NAME + "." + BuildConfig.VERSION_CODE + " Android " + android.os.Build.VERSION.RELEASE
+                + "\n" + diagnostic + "\n" + (web == null ? "renderer unavailable" : web.getSettings().getUserAgentString());
+            try { ((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(android.content.ClipData.newPlainText("Coffee diagnostics", report)); }
+            catch (RuntimeException ignored) { }
+            new AlertDialog.Builder(this).setMessage(report).setPositiveButton("OK", null).show();
+        });
+        error.addView(copy);
         error.addView(retry);
         error.setVisibility(View.GONE);
         root.addView(error);
@@ -96,9 +139,12 @@ public class MainActivity extends Activity {
         web.loadUrl(BuildConfig.GAME_URL);
     }
 
-    private void showError() {
+    private void showError(String code) {
+        watchdog.removeCallbacks(checkReady);
+        watchdog.removeCallbacks(timeout);
+        diagnostic = new java.util.Date().toString() + " " + code;
         failed = true;
-        web.setVisibility(View.GONE);
+        if (web != null) web.setVisibility(View.GONE);
         error.setVisibility(View.VISIBLE);
     }
 
@@ -110,13 +156,25 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    protected void onPause() { web.onPause(); super.onPause(); }
+    protected void onPause() {
+        if (web != null) {
+            web.evaluateJavascript("document.documentElement.lang", value -> {
+                if ("\"ru\"".equals(value) || "\"en\"".equals(value)) {
+                    ru = "\"ru\"".equals(value);
+                    getPreferences(0).edit().putBoolean("ru", ru).apply();
+                }
+            });
+            web.onPause();
+        }
+        super.onPause();
+    }
     @Override
-    protected void onResume() { super.onResume(); web.onResume(); }
+    protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
     @Override
     protected void onDestroy() {
-        root.removeView(web);
-        web.destroy();
+        watchdog.removeCallbacks(timeout);
+        watchdog.removeCallbacks(checkReady);
+        if (web != null) { root.removeView(web); web.destroy(); }
         super.onDestroy();
     }
 }

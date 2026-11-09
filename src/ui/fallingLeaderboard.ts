@@ -1,3 +1,4 @@
+import { readRecords } from './storage';
 import { t, getPreferences } from './preferences';
 export const FALLING_RECORDS_KEY = 'coffee-falling-records';
 
@@ -17,16 +18,13 @@ function isRecord(value: unknown): value is FallingRecord {
 
 /** Returns cleanup so scene shutdown also removes the native modal. */
 export function showFallingLeaderboard(score: number, rows: number, restart: () => void): () => void {
-  let records: FallingRecord[] = [];
-  try {
-    const saved: unknown = JSON.parse(localStorage.getItem(FALLING_RECORDS_KEY) ?? '[]');
-    if (Array.isArray(saved)) records = saved.filter(isRecord);
-  } catch { /* An unavailable or corrupt store must not prevent another game. */ }
+  const stored = readRecords(FALLING_RECORDS_KEY, isRecord);
+  const records = stored.records;
   const current: FallingRecord = { score, rows, playedAt: Date.now() };
   records.push(current);
   records.sort((a, b) => b.score - a.score || b.rows - a.rows || a.playedAt - b.playedAt);
   let saved = true;
-  try { localStorage.setItem(FALLING_RECORDS_KEY, JSON.stringify(records)); }
+  try { if (!stored.writable) throw new Error('Original preserved'); localStorage.setItem(FALLING_RECORDS_KEY, JSON.stringify(records)); }
   catch { saved = false; }
   const rank = records.indexOf(current);
   const dialog = document.createElement('dialog');

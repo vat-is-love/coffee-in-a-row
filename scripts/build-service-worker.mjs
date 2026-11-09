@@ -13,13 +13,24 @@ files.sort();
 const hash = createHash('sha256');
 for (const file of files) hash.update(file).update(await readFile(`dist/${file}`));
 const version = hash.digest('hex').slice(0, 16);
+const digests = Object.fromEntries(await Promise.all(files.map(async file => [new URL(file, 'https://placeholder/').pathname.slice(1), createHash('sha256').update(await readFile('dist/' + file)).digest('hex')])));
 await writeFile('dist/sw.js', `
 const ROOT = new URL('./', self.location.href);
 const PREFIX = 'coffee-match-' + ROOT.pathname + '-';
 const CACHE = PREFIX + '${version}';
+const DIGESTS = ${JSON.stringify(digests)};
 const FILES = ${JSON.stringify(files)}.map(file => new URL(file, ROOT).href);
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)));
+  event.waitUntil(caches.open(CACHE).then(async cache => {
+    await Promise.all(FILES.map(async url => {
+      const response = await fetch(new Request(url, { cache: 'reload' }));
+      if (!response.ok) throw new Error('Precache HTTP error');
+      const bytes = await response.clone().arrayBuffer();
+      const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))).map(b => b.toString(16).padStart(2, '0')).join('');
+      if (digest !== DIGESTS[url.slice(ROOT.href.length)]) throw new Error('Build mismatch');
+      await cache.put(url, response);
+    }));
+  }));
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(

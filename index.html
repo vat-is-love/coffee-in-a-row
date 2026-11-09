@@ -13,6 +13,54 @@
     <link rel="stylesheet" href="/src/styles/main.css">
   </head>
   <body>
+    <div id="recovery" style="position:fixed;inset:0;z-index:99999;background:#1a1a2e;color:#fff;padding:24px;font:18px sans-serif;overflow:auto">
+      <p id="recovery-message">Loading… / Загрузка…</p>
+      <div id="recovery-actions" hidden><button id="recovery-retry">Retry / Повторить</button> <button id="recovery-copy">Copy diagnostics / Скопировать диагностику</button></div>
+      <textarea id="recovery-text" hidden readonly style="width:100%;height:240px" aria-label="Diagnostics"></textarea>
+    </div>
+    <script>(function () {
+  var panel = document.getElementById('recovery'), actions = document.getElementById('recovery-actions');
+  var events = [], stage = 'html', ready = false, ru = false;
+  try { ru = JSON.parse(localStorage.getItem('coffee-preferences') || '{}').language === 'ru'; } catch (_) {}
+  function log(kind, detail) {
+    try {
+      // Only controlled codes, error names and source basenames; never exception payloads or URLs with queries.
+      events.push({time: new Date().toISOString(), kind: String(kind).slice(0,64), detail: String(detail || '').replace(/[^a-zA-Z0-9_.:\/ -]/g, '').slice(0,120)});
+      if (events.length > 40) events.shift();
+    } catch (_) {}
+  }
+  function fail(code) {
+    log('failure', code);
+    try { Array.prototype.forEach.call(document.querySelectorAll('dialog[open]'), function (d) { d.close(); }); } catch (_) {}
+    panel.hidden = false; actions.hidden = false;
+    document.getElementById('recovery-message').textContent = ru ? 'Не удалось запустить игру. Повторите запуск. Если ошибка повторяется, скопируйте диагностику.' : 'The game could not start. Retry, or copy diagnostics if the problem persists.';
+  }
+  window.CoffeeRecovery = {
+    isReady: function () { return ready; }, log: log, stage: function (value) { stage = value; log('stage', value); },
+    ready: function () { ready = true; stage = 'interface-ready'; clearTimeout(timer); panel.hidden = true; log('ready'); },
+    fail: fail
+  };
+  window.addEventListener('error', function (e) {
+    if (e.target && e.target !== window) {
+      var source = e.target.src || e.target.href || '';
+      log('resource-error', source.split('?')[0].split('/').pop());
+    } else { log('javascript-error', (e.error && e.error.name || 'Error') + ':' + e.lineno + ':' + e.colno); fail('javascript-error'); }
+    if (!ready) fail('startup-error');
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) { log('unhandledrejection', e.reason instanceof Error ? e.reason.name : 'rejected'); fail('unhandled-rejection'); });
+  var timer = setTimeout(function () { if (!ready) fail('startup-timeout-20s'); }, 20000);
+  document.getElementById('recovery-retry').onclick = function () { location.reload(); };
+  document.getElementById('recovery-copy').onclick = function () {
+    var text = JSON.stringify({webBuild:'__WEB_BUILD__', apk: navigator.userAgent.match(/CoffeeAPK\/[^ ]+/g), userAgent:navigator.userAgent, stage:stage, online:navigator.onLine, events:events}, null, 2);
+    function fallback() { var box = document.getElementById('recovery-text'); box.hidden = false; box.value = text; box.focus(); box.select(); }
+    try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(fallback); else fallback(); } catch (_) { fallback(); }
+  };
+  if (!window.Promise || !window.HTMLDialogElement || !HTMLDialogElement.prototype.showModal) {
+    fail('unsupported-webview-update-required');
+    document.getElementById('recovery-message').textContent = ru ? 'Обновите Android System WebView или браузер (Chrome/WebView 102+).' : 'Please update Android System WebView or your browser (Chrome/WebView 102+).';
+  }
+}());
+</script>
     <div id="game-container"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

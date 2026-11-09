@@ -11,7 +11,7 @@ android {
     compileSdk 35
     defaultConfig {
         applicationId 'com.coffeematch.game'
-        minSdk 23
+        minSdk 26
         targetSdk 35
         versionCode Integer.parseInt(providers.gradleProperty('versionCode').getOrElse('1'))
         versionName '1.0'

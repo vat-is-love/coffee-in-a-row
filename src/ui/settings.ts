@@ -37,6 +37,7 @@ export function installSettings(game: Game): void {
   const chooseMode = () => {
     modePicker.returnValue = '';
     modePicker.showModal();
+    requestAnimationFrame(() => window.CoffeeRecovery?.ready());
   };
   game.events.once('choose-game-mode', chooseMode);
 

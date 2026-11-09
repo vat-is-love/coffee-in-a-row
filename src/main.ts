@@ -34,19 +34,20 @@ const config: Types.Core.GameConfig = {
     roundPixels: false
   },
   audio: {
-    disableWebAudio: false
+    noAudio: true
   },
   scene: [BootScene, GameScene, FallingScene]
 };
 
 // Initialize the game when DOM is ready
+window.CoffeeRecovery?.stage('phaser-init');
 const game = new Game(config);
 installSettings(game);
 
 // Mobile orientation events can precede the parent's new layout. Observe the
 // actual container so Phaser always resizes against its final dimensions.
 const gameHost = document.getElementById('game-container');
-const resizeObserver = new ResizeObserver(([entry]) => {
+const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(([entry]) => {
   const width = Math.floor(entry.contentRect.width);
   const height = Math.floor(entry.contentRect.height);
   if (width > 0 && height > 0 && (game.scale.width !== width || game.scale.height !== height)) {
@@ -54,9 +55,9 @@ const resizeObserver = new ResizeObserver(([entry]) => {
   }
 });
 game.events.once(Phaser.Core.Events.READY, () => {
-  if (gameHost) resizeObserver.observe(gameHost);
+  if (gameHost) resizeObserver?.observe(gameHost);
 });
-game.events.once(Phaser.Core.Events.DESTROY, () => resizeObserver.disconnect());
+game.events.once(Phaser.Core.Events.DESTROY, () => resizeObserver?.disconnect());
 
 
 // Make game globally accessible for debugging (dev only)
