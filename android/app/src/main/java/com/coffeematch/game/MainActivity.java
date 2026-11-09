@@ -22,15 +22,23 @@ public class MainActivity extends Activity {
     private LinearLayout error;
     private boolean failed;
     private String diagnostic = "startup";
+    private String webDiagnostic = "not-observed";
     private final android.os.Handler watchdog = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable timeout = () -> showError("native-load-timeout");
     private final Runnable checkReady = new Runnable() {
         @Override public void run() {
             if (web == null || failed) return;
-            web.evaluateJavascript("!!(window.CoffeeRecovery && window.CoffeeRecovery.isReady())", value -> {
+            web.evaluateJavascript("JSON.stringify({documentState:document.readyState,recovery:window.CoffeeRecovery ? (window.CoffeeRecovery.diagnostics ? window.CoffeeRecovery.diagnostics() : {ready:window.CoffeeRecovery.isReady()}) : null})", value -> {
                 if (failed || web == null) return;
-                if ("true".equals(value)) watchdog.removeCallbacks(timeout);
-                else watchdog.postDelayed(this, 500);
+                try {
+                    webDiagnostic = new org.json.JSONTokener(value).nextValue().toString();
+                    org.json.JSONObject recovery = new org.json.JSONObject(webDiagnostic).optJSONObject("recovery");
+                    if (recovery != null && recovery.optBoolean("ready")) {
+                        watchdog.removeCallbacks(timeout);
+                        return;
+                    }
+                } catch (org.json.JSONException ignored) { }
+                watchdog.postDelayed(this, 500);
             });
         }
     };
@@ -77,6 +85,9 @@ public class MainActivity extends Activity {
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) {
                 failed = false;
+                webDiagnostic = "navigation-started";
+                watchdog.removeCallbacks(checkReady);
+                watchdog.post(checkReady);
                 watchdog.removeCallbacks(timeout);
                 watchdog.postDelayed(timeout, 20000);
                 error.setVisibility(View.GONE);
@@ -125,7 +136,7 @@ public class MainActivity extends Activity {
         copy.setText(label("Copy diagnostics", "Скопировать диагностику"));
         copy.setOnClickListener(v -> {
             String report = "APK " + BuildConfig.VERSION_NAME + "." + BuildConfig.VERSION_CODE + " Android " + android.os.Build.VERSION.RELEASE
-                + "\n" + diagnostic + "\n" + (web == null ? "renderer unavailable" : web.getSettings().getUserAgentString());
+                + "\n" + diagnostic + "\nWeb: " + webDiagnostic + "\n" + (web == null ? "renderer unavailable" : web.getSettings().getUserAgentString());
             try { ((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(android.content.ClipData.newPlainText("Coffee diagnostics", report)); }
             catch (RuntimeException ignored) { }
             new AlertDialog.Builder(this).setMessage(report).setPositiveButton("OK", null).show();

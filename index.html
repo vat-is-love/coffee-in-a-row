@@ -36,6 +36,7 @@
     document.getElementById('recovery-message').textContent = ru ? 'Не удалось запустить игру. Повторите запуск. Если ошибка повторяется, скопируйте диагностику.' : 'The game could not start. Retry, or copy diagnostics if the problem persists.';
   }
   window.CoffeeRecovery = {
+    diagnostics: function () { return {webBuild:'__WEB_BUILD__', stage:stage, ready:ready, online:navigator.onLine, events:events}; },
     isReady: function () { return ready; }, log: log, stage: function (value) { stage = value; log('stage', value); },
     ready: function () { ready = true; stage = 'interface-ready'; clearTimeout(timer); panel.hidden = true; log('ready'); },
     fail: fail
