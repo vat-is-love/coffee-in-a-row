@@ -1,3 +1,5 @@
+import { createBoardSurface } from '../render/boardSurface';
+import { showClassicLeaderboard, formatDuration } from '../../ui/fallingLeaderboard';
 import { iconButton } from '../../ui/iconButton';
 import { t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
@@ -8,7 +10,7 @@ import {
 
 const TILE_SIZE = 64;
 const BOARD_PADDING = 12;
-const HUD_BOTTOM = 112;
+const HUD_BOTTOM = 120;
 const VIEW_MARGIN = 12;
 const FREE_PLAY: GameConfig = { rows: 8, cols: 8, tileTypes: 5, maxMoves: 0, snow: [] };
 
@@ -19,6 +21,10 @@ interface TileView extends Position {
 /** Rendering follows the pure engine's frames; input stays locked until all tweens finish. */
 export class GameScene extends Scene {
   private config = FREE_PLAY;
+  private clearedCells = new Set<string>();
+  private coating!: GameObjects.Graphics;
+  private completed = false;
+  private elapsed = 0;
   private state!: BoardState;
   private board: TileView[][] = [];
   private selectedTile: TileView | null = null;
@@ -39,6 +45,10 @@ export class GameScene extends Scene {
   constructor() { super({ key: 'GameScene' }); }
 
   create(): void {
+    this.completed = false;
+    this.elapsed = 0;
+    this.clearedCells = new Set();
+    this.board = [];
     this.isProcessing = false;
     this.paused = false;
     this.failed = false;
@@ -76,36 +86,38 @@ export class GameScene extends Scene {
   }
 
   private createBoardSurface(): void {
-    const size = TILE_SIZE * 8;
-    const bg = this.add.graphics();
-    bg.fillStyle(0x0d0d1a, 0.38);
-    bg.fillRoundedRect(-12, -12, size + 24, size + 24, 16);
-    bg.lineStyle(1.5, 0xe4cfad, 0.55);
-    bg.strokeRoundedRect(-12, -12, size + 24, size + 24, 16);
-    bg.lineStyle(1, 0xe4cfad, 0.48);
-    for (let cell = 1; cell < 8; cell++) {
-      for (let offset = 0; offset < size; offset += 9) {
-        bg.lineBetween(cell * 64, offset, cell * 64, Math.min(offset + 4, size));
-        bg.lineBetween(offset, cell * 64, Math.min(offset + 4, size), cell * 64);
-      }
+    this.boardContainer.add(createBoardSurface(this));
+    this.coating = this.add.graphics();
+    this.boardContainer.add(this.coating);
+    this.drawCoating();
+  }
+
+  private drawCoating(): void {
+    this.coating.clear().fillStyle(0xffffff, 0.24);
+    for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
+      if (!this.clearedCells.has(`${row},${col}`)) this.coating.fillRect(col * 64 + 1, row * 64 + 1, 62, 62);
     }
-    this.boardContainer.add(bg);
+  }
+
+  update(_time: number, delta: number): void {
+    if (this.paused || this.failed || this.completed || document.hidden) return;
+    this.elapsed += delta;
+    this.updateProgress();
   }
 
   private createHUD(): void {
     const width = Math.min(this.scale.width - 24, 620);
-    this.hudContainer = this.add.container((this.scale.width - width) / 2, 12).setDepth(20);
-    const bg = this.add.graphics().fillStyle(0x16213e, 0.8);
-    bg.fillRoundedRect(0, 0, width, 96, 14);
-    bg.lineStyle(1, 0xe4cfad, 0.35).strokeRoundedRect(0, 0, width, 96, 14);
-    const style = { fontFamily: 'Nunito, sans-serif', fontSize: '16px', color: '#f5f0e8' };
-    const title = this.add.text(12, 10, t('FREE PLAY'), { ...style, color: '#e8a87c', fontStyle: 'bold' });
+    this.hudContainer = this.add.container((this.scale.width - width) / 2, 10).setDepth(20);
+    const bg = this.add.graphics().fillStyle(0x16213e, 0.95);
+    bg.fillRoundedRect(0, 0, width, 104, 14);
+    const style = { fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#f5f0e8' };
+    const title = this.add.text(12, 10, t('Match three'), { ...style, color: '#e8a87c', fontStyle: 'bold' });
     if (title.width > width - 128) title.setScale((width - 128) / title.width);
-    const settings = iconButton(this, width - 104, 10, 'settings', () => window.dispatchEvent(new Event('game-settings')));
-    this.movesText = this.add.text(12, 52, '', { ...style, fontSize: '12px' });
-    this.scoreText = this.add.text(12, 30, '', style);
-    const pause = iconButton(this, width - 54, 10, this.paused ? 'play' : 'pause', () => this.togglePause());
-    this.statusText = this.add.text(12, 72, '', { ...style, fontSize: '12px', color: '#e4cfad' });
+    const settings = iconButton(this, width - 104, 8, 'settings', () => window.dispatchEvent(new Event('game-settings')));
+    this.movesText = this.add.text(12, 62, '', { ...style, fontSize: '12px' });
+    this.scoreText = this.add.text(12, 36, '', style);
+    const pause = iconButton(this, width - 54, 8, this.paused ? 'play' : 'pause', () => this.togglePause());
+    this.statusText = this.add.text(12, 84, '', { ...style, fontSize: '11px', color: '#e4cfad' });
     this.hudContainer.add([bg, title, settings, this.movesText, this.scoreText, pause, this.statusText]);
     if (this.state) this.updateHUD();
   }
@@ -128,9 +140,13 @@ export class GameScene extends Scene {
   }
 
   private updateHUD(message = t('Swipe or tap two tiles · Arrows + Space')): void {
-    this.movesText.setText(`${t('Moves')}: ${this.movesPlayed}`);
+    this.updateProgress();
     this.scoreText.setText(`${t('Score')}: ${this.state.score}`);
     this.statusText.setText(this.failed ? t('Board error. Reload to try again.') : this.paused ? t('Paused · Resume or press Escape') : message);
+  }
+
+  private updateProgress(): void {
+    this.movesText.setText(`${t('Cleared')}: ${this.clearedCells.size}/64 · ${t('Time')}: ${formatDuration(this.elapsed)}`);
   }
 
   private createTile(row: number, col: number, type: number, y = row * 64 + 32): TileView {
@@ -152,7 +168,7 @@ export class GameScene extends Scene {
   }
 
   private pointerDown(pointer: Input.Pointer): void {
-    if (this.isProcessing || this.paused || this.failed || this.gesture) return;
+    if (this.isProcessing || this.paused || this.failed || this.completed || this.gesture) return;
     const tile = this.tileAt(pointer.x, pointer.y);
     if (tile) this.gesture = { tile, x: pointer.x, y: pointer.y, id: pointer.id };
     else this.clearSelection();
@@ -162,7 +178,7 @@ export class GameScene extends Scene {
     const start = this.gesture;
     if (!start || start.id !== pointer.id) return;
     this.gesture = null;
-    if (this.isProcessing || this.paused || this.failed) return;
+    if (this.isProcessing || this.paused || this.failed || this.completed) return;
     const dx = pointer.x - start.x;
     const dy = pointer.y - start.y;
     const threshold = Math.max(8, 64 * this.boardContainer.scaleX * 0.25);
@@ -199,7 +215,7 @@ export class GameScene extends Scene {
 
   private keyDown(event: KeyboardEvent): void {
     if (event.key === 'Escape') { this.togglePause(); return; }
-    if (this.isProcessing || this.paused || this.failed) return;
+    if (this.isProcessing || this.paused || this.failed || this.completed) return;
     const directions: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
     const delta = directions[event.key];
     if (delta) {
@@ -218,7 +234,7 @@ export class GameScene extends Scene {
   }
 
   private togglePause(): void {
-    if (this.isProcessing || this.failed) return;
+    if (this.isProcessing || this.failed || this.completed) return;
     this.paused = !this.paused;
     this.cancelGesture();
     this.clearSelection();
@@ -233,7 +249,7 @@ export class GameScene extends Scene {
   }
 
   private async attemptSwap(a: TileView, b: TileView): Promise<void> {
-    if (this.isProcessing || this.paused || this.failed) return;
+    if (this.isProcessing || this.paused || this.failed || this.completed) return;
     this.isProcessing = true;
     this.clearSelection();
     this.cancelGesture();
@@ -266,6 +282,12 @@ export class GameScene extends Scene {
       }
       this.state = result.boardState;
       this.renderBoard();
+      if (this.clearedCells.size === this.config.rows * this.config.cols) {
+        this.completed = true;
+        this.clearSelection();
+        const cleanup = showClassicLeaderboard(this.state.score, this.elapsed, () => this.scene.restart());
+        this.events.once('shutdown', cleanup);
+      }
       this.updateHUD(result.gameOver === 'reshuffle' ? t('Board shuffled · Keep playing') : t('Swipe or tap two tiles · Shift + Arrow swaps'));
     } catch (error) { this.showError(error); }
     finally { this.isProcessing = false; }
@@ -276,6 +298,8 @@ export class GameScene extends Scene {
     const cleared = new Set(frame.matches.flatMap(match => match.tiles.map(pos => `${pos.row},${pos.col}`)));
     const removed = this.board.flat().filter(tile => cleared.has(`${tile.row},${tile.col}`));
     await this.animate(removed.map(tile => tile.sprite), { scaleX: 0, scaleY: 0, alpha: 0 }, 170);
+    cleared.forEach(cell => this.clearedCells.add(cell));
+    this.drawCoating();
     removed.forEach(tile => tile.sprite.destroy());
     const next: TileView[][] = Array.from({ length: this.config.rows }, () => []);
     const falls: Promise<void>[] = [];

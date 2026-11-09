@@ -49,6 +49,10 @@ export function vibrate(event: 'match' | 'loss'): void {
   requestVibration(event);
 }
 const russian: Record<string, string> = {
+  "Board cleared · Top 10": "Поле очищено · Топ-10",
+  "Time": "Время",
+  "Cleared": "Очищено",
+  "Match lines of 3 to clear every cell's pale background.": "Собирайте линии от 3, чтобы очистить светлый фон каждой клетки.",
   "Continue": "Продолжить",
   "FREE PLAY": "СВОБОДНАЯ ИГРА",
   "Choose game mode": "Выберите режим игры",

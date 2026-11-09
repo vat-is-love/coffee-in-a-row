@@ -25,7 +25,7 @@ export function installSettings(game: Game): void {
       </button>
       <button class="mode-option" value="classic">
         <strong>${t('Match three')}</strong>
-        <small>${t('Swap tiles to make lines of 3.')}</small>
+        <small>${t("Match lines of 3 to clear every cell's pale background.")}</small>
       </button>
       `}
       <p id="mode-picker-hint">${t('You can change the mode in settings.')}</p>
@@ -71,7 +71,7 @@ export function installSettings(game: Game): void {
         <legend>${t('Game mode')}</legend>
         <label class="mode-option">
           <input type="radio" name="mode" value="classic">
-          <span><strong>${t('Match three')}</strong><small>${t('Swap tiles to make lines of 3. New tiles refill the board.')}</small></span>
+          <span><strong>${t('Match three')}</strong><small>${t("Match lines of 3 to clear every cell's pale background.")}</small></span>
         </label>
         <label class="mode-option">
           <input type="radio" name="mode" value="falling">

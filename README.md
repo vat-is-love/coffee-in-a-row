@@ -298,3 +298,16 @@ APK-оболочка с Android WebView, открывающая HTTPS-адрес
 а изменения самой оболочки потребуют установки новой APK. Оболочка добавлена в `android/`, сборка — `.github/workflows/android.yml`.
 Пошаговая настройка подписи, скачивание APK и установка: [docs/ANDROID.md](docs/ANDROID.md).
 Для HarmonyOS NEXT требуется отдельное решение: Android APK там не поддерживаются.
+
+### Match three: clear the board
+
+Both modes use the same board surface and grid. In Match three, all 64 cells
+start with a pale coating. Matching tiles removes the coating at their cell
+positions, including cascade matches. Gravity, refills and reshuffles never
+restore it. Clear every cell to finish the game.
+
+The HUD shows cleared cells and active play time (excluding pause, settings and
+hidden tabs). Completing a board opens a separate local top ten with score,
+completion time and date. Shorter completion times rank first; ties favor higher scores.
+The current result is highlighted, including below the top ten. Start again
+resets the board, coating and timer while keeping records on the device.

@@ -157,7 +157,7 @@ async function candidate(page: import('@playwright/test').Page, valid = true) {
           x: scene.boardContainer.x + (p.col * 64 + 32) * scene.boardContainer.scaleX,
           y: scene.boardContainer.y + (p.row * 64 + 32) * scene.boardContainer.scaleY
         });
-        return { a: point(a), b: point(b), expected: result.boardState, cascades: result.cascades };
+        return { a: point(a), b: point(b), expected: result.boardState, cascades: result.cascades, cleared: result.frames.flatMap((frame: any) => frame.matches.flatMap((match: any) => match.tiles.map((p: any) => `${p.row},${p.col}`))) };
       }
     }
     throw new Error('No candidate swap');
@@ -265,4 +265,60 @@ test('keyboard swap and resize during animation finish without losing input', as
   await page.mouse.click(next.b.x, next.b.y);
   await settled(page);
   expect((await snapshot(page)).moves).toBe(2);
+});
+
+test('matches clean fixed cells, completion saves once and restart resets progress', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await ready(page);
+  const move = await candidate(page);
+  const expectedCells = await page.evaluate(async () => {
+    const logic = await import('/src/game/logic/index.ts' as string);
+    const scene = (window as any).__GAME__.scene.getScene('GameScene');
+    for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
+      for (const [dr, dc] of [[0, 1], [1, 0]]) {
+        if (row + dr >= 8 || col + dc >= 8) continue;
+        const result = logic.simulateMove(scene.config, scene.state, { row, col }, { row: row + dr, col: col + dc }, { endless: true });
+        if (result.valid) return [...new Set(result.frames.flatMap((frame: any) => frame.matches.flatMap((match: any) => match.tiles.map((p: any) => `${p.row},${p.col}`))))].sort();
+      }
+    }
+    return [];
+  });
+  await page.mouse.click(move.a.x, move.a.y);
+  await page.mouse.click(move.b.x, move.b.y);
+  await settled(page);
+  expect(await page.evaluate(() => [...(window as any).__GAME__.scene.getScene('GameScene').clearedCells].sort())).toEqual(expectedCells);
+  // Leave only one cell uncleared; a real successful move must finish the game.
+  const last = await candidate(page);
+  await page.evaluate((uncleared) => {
+    const scene = (window as any).__GAME__.scene.getScene('GameScene');
+    scene.clearedCells = new Set(Array.from({ length: 64 }, (_, i) => `${Math.floor(i / 8)},${i % 8}`).filter(cell => cell !== uncleared));
+    scene.drawCoating();
+  }, last.cleared[0]);
+  await page.mouse.click(last.a.x, last.a.y);
+  await page.mouse.click(last.b.x, last.b.y);
+  const dialog = page.getByRole('dialog', { name: 'Board cleared · Top 10' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.current-result td')).toHaveText(['1', /\d+:\d{2}\.\d/, String(last.expected.score), /.+/]);
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-classic-records')!));
+  expect(stored).toHaveLength(1);
+  const frozen = await page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed);
+  await page.waitForTimeout(150);
+  expect(await page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed)).toBe(frozen);
+  await dialog.getByRole('button', { name: 'Start again' }).click();
+  expect(await page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').clearedCells.size)).toBe(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-classic-records')!).length)).toBe(1);
+});
+
+test('classic timer stops during pause and settings', async ({ page }) => {
+  await ready(page);
+  await page.keyboard.press('Escape');
+  const elapsed = await page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed);
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed)).toBe(elapsed);
+  await page.keyboard.press('Escape');
+  await expect.poll(() => page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed)).toBeGreaterThan(elapsed);
+  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  const paused = await page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed);
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed)).toBe(paused);
 });

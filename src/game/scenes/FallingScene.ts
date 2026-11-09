@@ -1,3 +1,4 @@
+import { createBoardSurface } from '../render/boardSurface';
 import { iconButton } from '../../ui/iconButton';
 import { t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
@@ -51,13 +52,7 @@ export class FallingScene extends Scene {
     this.highlights = [];
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.boardContainer = this.add.container(0, 0);
-    const surface = this.add.graphics();
-    surface.fillStyle(0x0d0d1a, 0.5).fillRoundedRect(-12, -12, 536, 536, 16);
-    surface.lineStyle(1, 0xe4cfad, 0.3);
-    for (let n = 0; n <= 8; n++) {
-      surface.lineBetween(n * 64, 0, n * 64, 512);
-      surface.lineBetween(0, n * 64, 512, n * 64);
-    }
+    const surface = createBoardSurface(this);
     this.danger = this.add.graphics();
     this.boardContainer.add([surface, this.danger]);
     this.renderBoard();

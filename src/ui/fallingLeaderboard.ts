@@ -5,6 +5,7 @@ export const FALLING_RECORDS_KEY = 'coffee-falling-records';
 interface FallingRecord {
   score: number;
   rows: number;
+  durationMs?: number;
   playedAt: number;
 }
 
@@ -16,25 +17,45 @@ function isRecord(value: unknown): value is FallingRecord {
     Number.isSafeInteger(record.playedAt) && record.playedAt >= 0 && record.playedAt <= 8640000000000000;
 }
 
+export const CLASSIC_RECORDS_KEY = 'coffee-classic-records';
+
+export function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}.${Math.floor(ms % 1000 / 100)}`;
+}
+
+export function showClassicLeaderboard(score: number, durationMs: number, restart: () => void): () => void {
+  return showLeaderboard(score, 0, restart, Math.round(durationMs));
+}
+
 /** Returns cleanup so scene shutdown also removes the native modal. */
 export function showFallingLeaderboard(score: number, rows: number, restart: () => void): () => void {
-  const stored = readRecords(FALLING_RECORDS_KEY, isRecord);
+  return showLeaderboard(score, rows, restart);
+}
+
+function showLeaderboard(score: number, rows: number, restart: () => void, durationMs?: number): () => void {
+  const classic = durationMs !== undefined;
+  const key = classic ? CLASSIC_RECORDS_KEY : FALLING_RECORDS_KEY;
+  const stored = readRecords(key, (value): value is FallingRecord => isRecord(value) &&
+    (!classic || (Number.isSafeInteger(value.durationMs) && value.durationMs! >= 0)));
   const records = stored.records;
-  const current: FallingRecord = { score, rows, playedAt: Date.now() };
+  const current: FallingRecord = { score, rows, playedAt: Date.now(), ...(classic ? { durationMs } : {}) };
   records.push(current);
-  records.sort((a, b) => b.score - a.score || b.rows - a.rows || a.playedAt - b.playedAt);
+  records.sort((a, b) => (classic
+    ? a.durationMs! - b.durationMs! || b.score - a.score
+    : b.score - a.score || b.rows - a.rows) || a.playedAt - b.playedAt);
   let saved = true;
-  try { if (!stored.writable) throw new Error('Original preserved'); localStorage.setItem(FALLING_RECORDS_KEY, JSON.stringify(records)); }
+  try { if (!stored.writable) throw new Error('Original preserved'); localStorage.setItem(key, JSON.stringify(records)); }
   catch { saved = false; }
   const rank = records.indexOf(current);
   const dialog = document.createElement('dialog');
   dialog.className = 'settings-dialog falling-leaderboard';
   dialog.setAttribute('aria-labelledby', 'falling-results-title');
   dialog.innerHTML = `
-    <h1 id="falling-results-title">${t('Game over · Top 10')}</h1>
+    <h1 id="falling-results-title">${t(classic ? 'Board cleared · Top 10' : 'Game over · Top 10')}</h1>
     <p>${t('Best results on this device. Your result is highlighted.')}</p>
     <div class="leaderboard-scroll">
-      <table><thead><tr><th scope="col">#</th><th scope="col">${t('Rows')}</th><th scope="col">${t('Score')}</th><th scope="col">${t('Date / time')}</th></tr></thead><tbody></tbody></table>
+      <table><thead><tr><th scope="col">#</th><th scope="col">${t(classic ? 'Time' : 'Rows')}</th><th scope="col">${t('Score')}</th><th scope="col">${t('Date / time')}</th></tr></thead><tbody></tbody></table>
     </div>
     <p class="leaderboard-save-status"></p>
     <div class="settings-actions"><button class="primary" type="button">${t('Start again')}</button></div>`;
@@ -45,7 +66,7 @@ export function showFallingLeaderboard(score: number, rows: number, restart: () 
       row.className = 'current-result';
       row.setAttribute('aria-current', 'true');
     }
-    for (const value of [index + 1, record.rows, record.score, new Date(record.playedAt).toLocaleString(getPreferences().language, {
+    for (const value of [index + 1, classic ? formatDuration(record.durationMs!) : record.rows, record.score, new Date(record.playedAt).toLocaleString(getPreferences().language, {
       year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
     })]) {
       const cell = document.createElement('td');
