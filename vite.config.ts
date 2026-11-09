@@ -3,7 +3,7 @@ import path from 'path';
 
 export default defineConfig({
   root: '.',
-  plugins: [{ name: 'build-id', transformIndexHtml(html) { return html.replace('__WEB_BUILD__', new Date().toISOString()); } }],
+  plugins: [{ name: 'build-id', transformIndexHtml(html) { return html.replaceAll('__WEB_BUILD__', new Date().toISOString()); } }],
   base: './',
   publicDir: 'public',
   build: {

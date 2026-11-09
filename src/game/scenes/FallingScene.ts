@@ -64,6 +64,9 @@ export class FallingScene extends Scene {
     this.input.keyboard?.on('keydown', this.keyDown, this);
     this.scale.on('resize', this.layout, this);
     this.game.events.on('language-changed', this.layout, this);
+    // Readiness belongs to the playable interface, including when the saved
+    // mode bypasses the first-launch picker. Wait until its first frame renders.
+    this.game.events.once('postrender', () => window.CoffeeRecovery?.ready());
     this.events.once('shutdown', () => {
       this.settlingPreview = null;
       this.pendingTile = null;

@@ -68,3 +68,20 @@ test('APK starts with Canvas and remains ready after restoring the selected mode
   await expect(page.locator('dialog[open]')).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => window.CoffeeRecovery?.isReady())).toBe(true);
 });
+
+for (const mode of ['classic', 'falling']) {
+  test(`saved ${mode} mode signals readiness without opening the picker`, async ({ page }) => {
+    await page.addInitScript(selected => {
+      localStorage.setItem('coffee-preferences', JSON.stringify({ language: 'en', mode: selected, vibration: false }));
+    }, mode);
+    await page.goto('/');
+    await expect(page.locator('#recovery')).toBeHidden();
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => window.CoffeeRecovery?.diagnostics().stage)).toBe('interface-ready');
+    await page.waitForTimeout(21000);
+    await expect(page.locator('#recovery')).toBeHidden();
+    expect(await page.evaluate(() => window.CoffeeRecovery?.diagnostics().events)).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: 'failure' })])
+    );
+  });
+}

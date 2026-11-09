@@ -73,6 +73,9 @@ export class GameScene extends Scene {
     this.input.keyboard?.on('keydown', this.keyDown, this);
     this.scale.on('resize', this.resizeLayout, this);
     this.game.events.on('language-changed', this.resizeLayout, this);
+    // Readiness belongs to the playable interface, including when the saved
+    // mode bypasses the first-launch picker. Wait until its first frame renders.
+    if (!this.failed) this.game.events.once('postrender', () => window.CoffeeRecovery?.ready());
     this.events.once('shutdown', () => {
       this.scale.off('resize', this.resizeLayout, this);
       this.game.events.off('language-changed', this.resizeLayout, this);
