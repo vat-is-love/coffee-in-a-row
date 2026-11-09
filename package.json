@@ -1,6 +1,6 @@
 {
   "name": "coffee-match",
-  "version": "0.1.0",
+  "version": "0.1.0-local",
   "description": "Coffee-themed Match-3 game with 10 levels and leaderboard",
   "type": "module",
   "scripts": {

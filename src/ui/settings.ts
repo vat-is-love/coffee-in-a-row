@@ -1,3 +1,5 @@
+import { version as appVersion } from '../../package.json';
+import { isAndroidApp, updateGame } from '../pwa';
 import { t, testVibration, getPreferences, getStartupPreferences, savePreferences, type Language } from './preferences';
 import type { Game } from 'phaser';
 
@@ -60,6 +62,7 @@ export function installSettings(game: Game): void {
   const renderSettings = () => { dialog.innerHTML = `
     <form method="dialog">
       <h1 id="settings-title">${t('Settings')}</h1>
+      <p data-app-version>${t('Version')}: ${appVersion.endsWith('.0-local') ? `${appVersion.slice(0, -8)} (${t('local build')})` : appVersion}</p>
       <label class="preference-option">${t('Language')}
         <select name="language"><option value="en">English</option><option value="ru">Русский</option></select>
       </label>
@@ -67,6 +70,9 @@ export function installSettings(game: Game): void {
       <button type="button" data-test-vibration>${t('Test vibration')}</button>
       <small>${t('Requested does not confirm physical vibration. If silent, check phone vibration and Do Not Disturb settings.')}</small>
       <pre data-vibration-status role="status" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text"></pre>
+      ${isAndroidApp() ? `<button type="button" data-update-game>${t('Update game')}</button>
+      <small>${t('Download the latest version from GitHub Pages. The game will restart; scores and settings are kept.')}</small>
+      <p data-update-status role="status"></p>` : ''}
       <fieldset>
         <legend>${t('Game mode')}</legend>
         <label class="mode-option">
@@ -88,6 +94,25 @@ export function installSettings(game: Game): void {
     dialog.querySelector('[data-vibration-status]')!.textContent = testVibration(
       dialog.querySelector<HTMLInputElement>('input[name="vibration"]')!.checked
     );
+  });
+  let updating = false;
+  dialog.addEventListener('cancel', event => { if (updating) event.preventDefault(); });
+  dialog.addEventListener('click', async event => {
+    if (!(event.target instanceof Element) || !event.target.closest('[data-update-game]') || updating) return;
+    updating = true;
+    const controls = [...dialog.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>('button, input, select')];
+    controls.forEach(control => { control.disabled = true; });
+    const status = dialog.querySelector('[data-update-status]')!;
+    status.textContent = t('Checking and downloading update…');
+    try {
+      const result = await updateGame();
+      status.textContent = t(result === 'current' ? 'The latest version is already installed.' : 'Restarting…');
+    } catch {
+      status.textContent = t('Update failed. Check your connection and try again.');
+    } finally {
+      updating = false;
+      controls.forEach(control => { control.disabled = false; });
+    }
   });
   let suspended: string | null = null;
   const open = () => {

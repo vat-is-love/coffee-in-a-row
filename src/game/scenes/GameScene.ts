@@ -93,7 +93,7 @@ export class GameScene extends Scene {
   }
 
   private drawCoating(): void {
-    this.coating.clear().fillStyle(0xffffff, 0.24);
+    this.coating.clear().fillStyle(0xffffff, 0.10);
     for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
       if (!this.clearedCells.has(`${row},${col}`)) this.coating.fillRect(col * 64 + 1, row * 64 + 1, 62, 62);
     }

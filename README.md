@@ -311,3 +311,25 @@ hidden tabs). Completing a board opens a separate local top ten with score,
 completion time and date. Shorter completion times rank first; ties favor higher scores.
 The current result is highlighted, including below the top ten. Start again
 resets the board, coating and timer while keeping records on the device.
+
+
+### Automatic application version
+
+The repository owns major/minor (`0.1`), stored in `package.json` as
+`0.1.0-local` to satisfy npm's three-component format. Settings display this as
+`0.1 (local build)`. The zero is a placeholder, not a published build number.
+Change the first two numbers deliberately for a new release series and keep the
+package lockfile in sync; ordinary edits do not require a manual version bump.
+
+Before building, Pages CI runs `scripts/set-ci-version.mjs` and replaces the
+placeholder with `GITHUB_RUN_NUMBER`: run 25 publishes `0.1.25`; run 26 publishes
+`0.1.26`. Changing the repository prefix to `0.2.0-local` makes run 27 publish
+`0.2.27`. The workflow counter does not reset when the prefix changes.
+Failed/cancelled runs can leave gaps. Manual dispatch allocates a new number;
+rerunning the same run keeps its number. Preserve the workflow identity to keep
+numbering increasing within a release series.
+
+Generated versions only exist in the disposable CI checkout. CI never commits
+or pushes back, so you can keep editing, committing and pushing without pulling
+bot commits. No personal token or write access to repository contents is needed.
+Android retains its separate native wrapper version.

@@ -50,3 +50,22 @@ test('first launch language and mode are remembered; settings can change the sav
   await page.reload();
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('GameScene'));
 });
+
+test('update control is exclusive to APK and handles a failed check', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Falling pieces/ }).click();
+  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
+  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  await expect(page.locator('[data-update-game]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent + ' CoffeeAPK/1.0.3' });
+    Object.defineProperty(navigator, 'onLine', { value: false });
+  });
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
+  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  await page.getByRole('button', { name: 'Update game', exact: true }).click();
+  await expect(page.locator('[data-update-status]')).toHaveText('Update failed. Check your connection and try again.');
+  await expect(page.getByRole('button', { name: 'Update game', exact: true })).toBeEnabled();
+});

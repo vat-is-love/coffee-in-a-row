@@ -49,6 +49,15 @@ export function vibrate(event: 'match' | 'loss'): void {
   requestVibration(event);
 }
 const russian: Record<string, string> = {
+  'Version': 'Версия',
+  'local build': 'локальная сборка',
+  'Update game': 'Обновить игру',
+  'Download the latest version from GitHub Pages. The game will restart; scores and settings are kept.': 'Загрузить свежую версию с GitHub Pages. Игра перезапустится; рекорды и настройки сохранятся.',
+  'Checking and downloading update…': 'Проверяем и загружаем обновление…',
+  'The latest version is already installed.': 'Уже установлена актуальная версия.',
+  'Restarting…': 'Перезапуск…',
+  'Update failed. Check your connection and try again.': 'Не удалось обновить игру. Проверьте интернет и попробуйте снова.',
+
   "Board cleared · Top 10": "Поле очищено · Топ-10",
   "Time": "Время",
   "Cleared": "Очищено",
