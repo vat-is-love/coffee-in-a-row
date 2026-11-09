@@ -1,7 +1,7 @@
 import { SeededRNG } from './rng';
 import type { Position } from './types';
 
-export const FALLING = { rows: 8, cols: 8, colors: 4, initialRows: 3, turnsPerRow: 8 } as const;
+export const FALLING = { rows: 8, cols: 8, colors: 4, initialRows: 3, turnsPerRow: 10 } as const;
 export type FallingGrid = number[][];
 export interface FallingState {
   grid: FallingGrid;
@@ -13,7 +13,7 @@ export interface FallingState {
 export interface TileMotion { from: Position; to: Position }
 
 export function rowInterval(rowsAdded: number): number {
-  return Math.max(4000, 5000 - Math.floor(rowsAdded / 10) * 250);
+  return Math.max(3500, 5000 - Math.floor(rowsAdded / 10) * 250);
 }
 
 export function turnDuration(rowsAdded: number): number {

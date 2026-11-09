@@ -52,7 +52,7 @@ test('mode selection repeats on reload, settings pause the timer, cancel and swi
   expect(await sceneValue(page, `(window.__GAME__.scene.getScene('GameScene')).state.grid.flat().length`)).toBe(64);
 });
 
-test('group removal locks rapid input for one eighth of the row interval even with reduced motion', async ({ page }) => {
+test('group removal locks rapid input for one tenth of the row interval even with reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await startFalling(page);
   const point = await page.evaluate(() => {
@@ -68,7 +68,7 @@ test('group removal locks rapid input for one eighth of the row interval even wi
   await page.waitForTimeout(150);
   expect(await sceneValue(page, `${falling}.isProcessing`)).toBe(true);
   await page.waitForFunction(() => !(window as any).__GAME__.scene.getScene('FallingScene').isProcessing);
-  expect(Date.now() - started).toBeGreaterThanOrEqual(600);
+  expect(Date.now() - started).toBeGreaterThanOrEqual(480);
   expect(await sceneValue(page, `${falling}.state.score`)).toBe(100);
   expect(await sceneValue(page, `${falling}.state.grid.flat().filter(n=>n>=0).length`)).toBe(6);
 });
@@ -209,10 +209,43 @@ test('buffers only the last tapped tile and follows it as columns move', async (
     }));
   });
   for (const point of points) await page.mouse.click(point.x, point.y);
+  expect(await sceneValue(page, `${falling}.pendingOutline.commandBuffer.length`)).toBeGreaterThan(0);
   await page.waitForFunction(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
     return scene.state.score === 200 && !scene.isProcessing;
   });
   expect(await sceneValue(page, `${falling}.state.grid.flat().filter(n=>n>=0).sort()`)).toEqual([1, 1, 2, 2]);
   expect(await sceneValue(page, `${falling}.pendingTile`)).toBe(null);
+  expect(await sceneValue(page, `${falling}.pendingOutline.commandBuffer.length`)).toBe(0);
+});
+
+
+test('pending outline skips singletons and moves with the last selected group', async ({ page }) => {
+  await startFalling(page);
+  const result = await page.evaluate(() => {
+    const scene = (window as any).__GAME__.scene.getScene('FallingScene');
+    scene.state.grid = Array.from({ length: 8 }, () => Array(8).fill(-1));
+    scene.state.grid[7] = [0, 0, 1, 2, 2, 3, 3, -1];
+    scene.renderBoard();
+    void scene.remove({ row: 7, col: 0 });
+    const tap = (col: number) => {
+      scene.click({
+        x: scene.boardContainer.x + (col * 64 + 32) * scene.boardContainer.scaleX,
+        y: scene.boardContainer.y + 480 * scene.boardContainer.scaleY
+      });
+      return scene.pendingOutline.commandBuffer.length;
+    };
+    const singleton = tap(2);
+    const group = tap(3);
+    const first = scene.pendingTile;
+    const replacement = tap(5);
+    const changed = first !== scene.pendingTile;
+    tap(7);
+    return { singleton, group, replacement, changed, empty: scene.pendingOutline.commandBuffer.length };
+  });
+  expect(result.singleton).toBe(0);
+  expect(result.group).toBeGreaterThan(0);
+  expect(result.replacement).toBeGreaterThan(0);
+  expect(result.changed).toBe(true);
+  expect(result.empty).toBe(0);
 });

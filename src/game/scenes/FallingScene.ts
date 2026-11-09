@@ -23,6 +23,8 @@ export class FallingScene extends Scene {
   private droppingRow = false;
   private dropButton!: GameObjects.Text;
   private isProcessing = false;
+  private pendingOutline!: GameObjects.Graphics;
+  private settlingPreview: { grid: number[][]; board: (TileView | null)[][] } | null = null;
   private pendingTile: TileView | null = null;
   private removingTiles = new Set<TileView>();
   private paused = false;
@@ -42,6 +44,7 @@ export class FallingScene extends Scene {
     this.isProcessing = this.paused = this.gameOver = false;
     this.elapsed = 0;
     this.pendingTile = null;
+    this.settlingPreview = null;
     this.removingTiles.clear();
     this.board = [];
     this.highlights = [];
@@ -57,6 +60,8 @@ export class FallingScene extends Scene {
     this.danger = this.add.graphics();
     this.boardContainer.add([surface, this.danger]);
     this.renderBoard();
+    this.pendingOutline = this.add.graphics();
+    this.boardContainer.add(this.pendingOutline);
     this.layout();
     this.input.on('pointerup', this.click, this);
     this.input.on('pointermove', this.hover, this);
@@ -64,6 +69,7 @@ export class FallingScene extends Scene {
     this.scale.on('resize', this.layout, this);
     this.game.events.on('language-changed', this.layout, this);
     this.events.once('shutdown', () => {
+      this.settlingPreview = null;
       this.pendingTile = null;
       this.removingTiles.clear();
       this.input.off('pointerup', this.click, this);
@@ -75,6 +81,7 @@ export class FallingScene extends Scene {
   }
 
   update(_time: number, delta: number): void {
+    this.drawPendingOutline();
     if (this.paused || this.gameOver || document.hidden) return;
     this.elapsed += delta;
     this.remaining = Math.max(0, this.remaining - delta);
@@ -185,9 +192,31 @@ export class FallingScene extends Scene {
       this.pendingTile = this.board.flat().find(tile => tile && tile.sprite.active
         && !this.removingTiles.has(tile)
         && Math.abs(tile.sprite.x - x) <= 32 && Math.abs(tile.sprite.y - y) <= 32) ?? null;
+      this.drawPendingOutline();
       return;
     }
     void this.remove(pos);
+  }
+
+  private drawPendingOutline(): void {
+    this.pendingOutline.clear();
+    if (!this.pendingTile || this.paused || this.gameOver) return;
+    const board = this.settlingPreview?.board ?? this.board;
+    const grid = this.settlingPreview?.grid ?? this.state.grid;
+    let position: Position | null = null;
+    board.forEach((row, r) => row.forEach((tile, col) => {
+      if (tile === this.pendingTile) position = { row: r, col };
+    }));
+    if (!position) return;
+    const group = findGroup(grid, position);
+    if (group.length < 2) return;
+    this.pendingOutline.lineStyle(2, 0xe4cfad, 0.55);
+    group.forEach(({ row, col }) => {
+      const sprite = board[row][col]?.sprite;
+      if (sprite?.active) this.pendingOutline.strokeRoundedRect(sprite.x - 27, sprite.y - 27, 54, 54, 9);
+    });
+    // Newly dropped tiles may have been added above this overlay.
+    this.boardContainer.bringToTop(this.pendingOutline);
   }
 
   private processPending(): void {
@@ -199,6 +228,7 @@ export class FallingScene extends Scene {
     }
     const tile = this.pendingTile;
     this.pendingTile = null;
+    this.drawPendingOutline();
     if (tile && this.board[tile.row]?.[tile.col] === tile && tile.sprite.active) {
       void this.remove({ row: tile.row, col: tile.col });
     }
@@ -278,6 +308,9 @@ export class FallingScene extends Scene {
     const started = this.time.now;
     this.updateHUD();
     this.removingTiles = new Set(result.removed.map(p => this.board[p.row][p.col]!));
+    const previewBoard = Array.from({ length: 8 }, () => Array<TileView | null>(8).fill(null));
+    result.motions.forEach(({ from, to }) => { previewBoard[to.row][to.col] = this.board[from.row][from.col]; });
+    this.settlingPreview = { grid: result.state.grid, board: previewBoard };
     const removed = [...this.removingTiles].map(tile => tile.sprite);
     const turnMs = turnDuration(this.state.rowsAdded);
     await this.spinAway(removed, turnMs * 0.48);
@@ -291,6 +324,7 @@ export class FallingScene extends Scene {
       this.board[to.row][to.col] = tile;
     });
     this.state = result.state;
+    this.settlingPreview = null;
     // Reduced motion and short falls retain the same gameplay rate limit.
     await this.wait(Math.max(1, turnMs - (this.time.now - started)));
     this.removingTiles.clear();
@@ -309,6 +343,7 @@ export class FallingScene extends Scene {
     if (result.overflow) {
       this.gameOver = true;
       this.pendingTile = null;
+      this.drawPendingOutline();
       vibrate('loss');
       this.isProcessing = false;
       this.droppingRow = false;

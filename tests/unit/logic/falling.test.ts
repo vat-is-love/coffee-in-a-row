@@ -80,7 +80,13 @@ describe('Falling rows', () => {
     expect(overflow.added).toEqual([]);
     expect(rowInterval(0)).toBe(5000);
     expect(rowInterval(10)).toBe(4750);
-    expect(rowInterval(1000)).toBe(4000);
-    for (const rows of [0, 10, 20, 1000]) expect(turnDuration(rows) * 8).toBe(rowInterval(rows));
+    expect(rowInterval(50)).toBe(3750);
+    expect(rowInterval(59)).toBe(3750);
+    expect(rowInterval(60)).toBe(3500);
+    expect(rowInterval(1000)).toBe(3500);
+    expect(turnDuration(0)).toBe(500);
+    expect(turnDuration(40)).toBe(400);
+    expect(turnDuration(60)).toBe(350);
+    for (const rows of [0, 10, 20, 40, 50, 60, 1000]) expect(turnDuration(rows) * 10).toBe(rowInterval(rows));
   });
 });
