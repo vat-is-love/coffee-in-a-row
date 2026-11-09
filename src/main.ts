@@ -1,3 +1,4 @@
+import './pwa';
 /**
  * Coffee Match: Match-3 Demo
  * Main entry point - boots the Phaser game

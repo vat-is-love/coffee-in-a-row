@@ -272,3 +272,28 @@ Open **Settings** in the game HUD to choose **Classic** or **Falling rows**. Swi
 Falling rows starts with the bottom three rows filled and four tile colors. Tap an orthogonally connected group of at least two matching tiles to remove it. Surviving tiles fall down, then nonempty columns gather in the center while retaining their order. Tiles spin around their vertical axis when removed. Each removal takes one eighth of the current row interval (0.625 seconds initially), including with reduced motion enabled; clicks during resolution are ignored.
 
 A full-size preview directly above the board builds the next row from left to right over the countdown, with each tile aligned to its destination column. Rows arrive every five seconds, gradually speeding up by a quarter second every ten rows to a four-second minimum. Removal time scales with the interval to preserve roughly eight moves per row. The **Drop next row** button below the board completes the preview and releases the next row early, restarting the countdown. If a removal is underway, the requested row waits for it to finish. The countdown continues through removal animations; a due row waits for the current move to settle. Pause and settings freeze the timer. A new row that cannot fit ends the game; use Restart to begin again. Larger groups earn more points per tile.
+
+## GitHub Pages и установка на телефон
+
+Workflow `.github/workflows/pages.yml` публикует `dist/` при push в `main` или `master`.
+В GitHub: **Settings → Pages → Build and deployment → Source → GitHub Actions**.
+Исходники и `package-lock.json` должны быть в репозитории; `dist/` и `node_modules/` не коммитятся.
+Относительный `base: './'` поддерживает публикацию в подпапке репозитория.
+
+Манифест находится в `public/manifest.webmanifest`, иконки — в `public/icons/`.
+`npm run build` генерирует `dist/sw.js` со списком файлов и версией кеша по их содержимому.
+После первой успешной загрузки и завершения кеширования игра доступна офлайн.
+Откройте игру онлайн, подождите загрузки, закройте и откройте снова перед проверкой авиарежима.
+После новой публикации откройте игру с интернетом, дайте браузеру скачать обновление,
+закройте все окна/вкладки игры и запустите снова. Во время партии принудительной перезагрузки нет.
+Данные кеша браузер или система могут удалить при очистке/нехватке места.
+
+Android: меню браузера → «Установить приложение» / «Добавить на главный экран».
+iPhone: Safari → «Поделиться» → «На экран Домой».
+На Huawei без Google установка зависит от браузера: попробуйте в Huawei Browser
+добавить страницу в закладки и выбрать главный экран. Ярлык тоже открывает актуальный сайт.
+Если создание ярлыка не работает и телефон поддерживает Android APK, возможна отдельная
+APK-оболочка с Android WebView, открывающая HTTPS-адрес опубликованной игры.
+Она не требует Google Play Services; обновления веб-игры загружаются с сайта,
+а изменения самой оболочки потребуют установки новой APK. Такая оболочка в этот проект не включена.
+Для HarmonyOS NEXT требуется отдельное решение: Android APK там не поддерживаются.
