@@ -15,7 +15,7 @@ test('preferences survive reload, localize text and suppress disabled or hidden 
   let prefs = await import('../../src/ui/preferences');
   prefs.vibrate('match');
   prefs.vibrate('loss');
-  expect(vibrate.mock.calls).toEqual([[12], [[80, 50, 120]]]);
+  expect(vibrate.mock.calls).toEqual([[25], [[80, 50, 120]]]);
   prefs.savePreferences({ language: 'ru', vibration: false });
   vibrate.mockClear();
   prefs.vibrate('match');
@@ -41,4 +41,41 @@ test('unavailable storage and vibration cannot interrupt gameplay', async () => 
   expect(() => prefs.vibrate('match')).not.toThrow();
   expect(() => prefs.savePreferences({ language: 'ru', vibration: false })).not.toThrow();
   expect(prefs.t('Start again')).toBe('Начать заново');
+});
+
+test('native haptics take priority and test reports browser rejection', async () => {
+  vi.stubGlobal('localStorage', { getItem: () => null });
+  vi.stubGlobal('document', { hidden: false, documentElement: { lang: '' } });
+  const browser = vi.fn(() => false);
+  const prompt = vi.fn(() => 'requested');
+  vi.stubGlobal('navigator', { userAgent: 'CoffeeHaptics/1 CoffeeAPK/1.0.4', vibrate: browser });
+  vi.stubGlobal('window', { prompt });
+  const prefs = await import('../../src/ui/preferences');
+  prefs.vibrate('match');
+  expect(prompt).toHaveBeenCalledWith('coffee-haptics', 'match');
+  expect(browser).not.toHaveBeenCalled();
+  expect(prefs.testVibration(true)).toContain('Android: requested');
+  prompt.mockClear();
+  expect(prefs.testVibration(false)).toContain('disabled');
+  expect(prompt).not.toHaveBeenCalled();
+  vi.stubGlobal('navigator', { userAgent: 'browser', vibrate: browser });
+  expect(prefs.testVibration(true)).toContain('Browser: rejected');
+});
+
+
+test('startup distinguishes defaults from saved choices and preserves mode on preference changes', async () => {
+  const values = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value)
+  });
+  vi.stubGlobal('document', { hidden: false, documentElement: { lang: '' } });
+  let prefs = await import('../../src/ui/preferences');
+  expect(prefs.getStartupPreferences()).toEqual({ mode: undefined, languageChosen: false });
+  prefs.savePreferences({ language: 'ru', vibration: true, mode: 'falling' });
+  vi.resetModules();
+  prefs = await import('../../src/ui/preferences');
+  expect(prefs.getStartupPreferences()).toEqual({ mode: 'falling', languageChosen: true });
+  prefs.savePreferences({ language: 'en', vibration: true });
+  expect(JSON.parse(values.get(prefs.PREFERENCES_KEY)!)).toMatchObject({ mode: 'falling', language: 'en' });
 });

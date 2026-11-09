@@ -1,3 +1,4 @@
+import { iconButton } from '../../ui/iconButton';
 import { t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import {
@@ -98,16 +99,14 @@ export class GameScene extends Scene {
     bg.fillRoundedRect(0, 0, width, 96, 14);
     bg.lineStyle(1, 0xe4cfad, 0.35).strokeRoundedRect(0, 0, width, 96, 14);
     const style = { fontFamily: 'Nunito, sans-serif', fontSize: '16px', color: '#f5f0e8' };
-    const title = this.add.text(12, 10, t('FREE PLAY · Settings'), { ...style, color: '#e8a87c', fontStyle: 'bold' })
-      .setInteractive({ useHandCursor: true });
-    title.on('pointerdown', () => window.dispatchEvent(new Event('game-settings')));
-    this.movesText = this.add.text(width - 12, 10, '', style).setOrigin(1, 0);
-    this.scoreText = this.add.text(12, 37, '', style);
-    const pause = this.add.text(width - 12, 37, this.paused ? t('Resume') : t('Pause'), style)
-      .setOrigin(1, 0).setPadding(6).setInteractive({ useHandCursor: true });
-    pause.on('pointerdown', () => this.togglePause());
+    const title = this.add.text(12, 10, t('FREE PLAY'), { ...style, color: '#e8a87c', fontStyle: 'bold' });
+    if (title.width > width - 128) title.setScale((width - 128) / title.width);
+    const settings = iconButton(this, width - 104, 10, 'settings', () => window.dispatchEvent(new Event('game-settings')));
+    this.movesText = this.add.text(12, 52, '', { ...style, fontSize: '12px' });
+    this.scoreText = this.add.text(12, 30, '', style);
+    const pause = iconButton(this, width - 54, 10, this.paused ? 'play' : 'pause', () => this.togglePause());
     this.statusText = this.add.text(12, 72, '', { ...style, fontSize: '12px', color: '#e4cfad' });
-    this.hudContainer.add([bg, title, this.movesText, this.scoreText, pause, this.statusText]);
+    this.hudContainer.add([bg, title, settings, this.movesText, this.scoreText, pause, this.statusText]);
     if (this.state) this.updateHUD();
   }
 

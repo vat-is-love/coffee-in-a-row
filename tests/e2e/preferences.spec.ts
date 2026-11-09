@@ -23,8 +23,7 @@ test('language and vibration apply without resetting the board and persist on re
   await page.getByRole('combobox', { name: 'Язык' }).selectOption('en');
   await page.getByRole('button', { name: 'Отмена', exact: true }).click();
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Выберите режим игры' })).toBeVisible();
-  await page.getByRole('button', { name: /Падающие ряды/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Выберите режим игры' })).not.toBeVisible();
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
   await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
@@ -33,4 +32,21 @@ test('language and vibration apply without resetting the board and persist on re
   });
   await expect(page.getByRole('heading', { name: 'Игра окончена · Топ-10' })).toBeVisible();
   expect(await page.evaluate(() => (window as any).vibrations)).toEqual([]);
+});
+
+test('first launch language and mode are remembered; settings can change the saved mode', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('combobox', { name: 'Language / Язык' }).selectOption('ru');
+  await page.getByRole('button', { name: /Falling pieces/ }).click();
+  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  await page.locator('input[name="mode"][value="classic"]').check();
+  await page.getByRole('button', { name: 'Применить', exact: true }).click();
+  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('GameScene'));
+  await page.reload();
+  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('GameScene'));
 });

@@ -1,33 +1,56 @@
 export type Language = 'en' | 'ru';
+export type Mode = 'classic' | 'falling';
+let mode: Mode | undefined;
+let languageChosen = false;
 export const PREFERENCES_KEY = 'coffee-preferences';
 let language: Language = 'en';
 let vibration = true;
 try {
   const saved = JSON.parse(localStorage.getItem(PREFERENCES_KEY) ?? '{}');
   if (saved && typeof saved === 'object' && !Array.isArray(saved) && (saved.version === undefined || saved.version === 1)) {
-  if (saved?.language === 'ru' || saved?.language === 'en') language = saved.language;
+  if (saved?.language === 'ru' || saved?.language === 'en') { language = saved.language; languageChosen = true; }
+  if (saved?.mode === 'classic' || saved?.mode === 'falling') mode = saved.mode;
   if (typeof saved?.vibration === 'boolean') vibration = saved.vibration;
   }
 } catch { /* Preferences are optional when storage is unavailable. */ }
 export function getPreferences() { return { language, vibration }; }
-export function savePreferences(next: { language: Language; vibration: boolean }): void {
+export function getStartupPreferences() { return { mode, languageChosen }; }
+export function savePreferences(next: { language: Language; vibration: boolean; mode?: Mode }): void {
+  if (next.mode) mode = next.mode;
+  languageChosen = true;
   language = next.language;
   vibration = next.vibration;
   document.documentElement.lang = language;
-  try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ ...next, version: 1 })); } catch { /* Keep in memory. */ }
-  if (!vibration) { try { navigator.vibrate?.(0); } catch { /* Unsupported device. */ } }
+  try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ ...next, mode, version: 1 })); } catch { /* Keep in memory. */ }
+  if (!vibration) requestVibration('cancel');
 }
 document.documentElement.lang = language;
 export function t(english: string): string {
   return language === 'ru' ? (russian[english] ?? english) : english;
 }
-/** Short durations keep match feedback subtle; browsers control actual intensity. */
+type HapticEvent = 'match' | 'loss' | 'test' | 'cancel';
+function requestVibration(event: HapticEvent): string {
+  try {
+    // Only the APK advertises this protocol; ordinary browsers must never show a prompt.
+    if (typeof window !== 'undefined' && /CoffeeHaptics\/1/.test(navigator.userAgent)) {
+      return `Android: ${window.prompt('coffee-haptics', event) ?? 'unavailable'}`;
+    }
+    if (typeof navigator.vibrate !== 'function') return 'Browser: unsupported';
+    const pattern = event === 'cancel' ? 0 : event === 'match' ? 25 : event === 'test' ? [150, 100, 150] : [80, 50, 120];
+    return navigator.vibrate(pattern) ? 'Browser: requested' : 'Browser: rejected';
+  } catch { return 'Vibration: error'; }
+}
+export function testVibration(enabled: boolean): string {
+  const result = !enabled ? 'Vibration: disabled' : document.hidden ? 'Vibration: page hidden' : requestVibration('test');
+  return `${result}\n${navigator.userAgent}\nvisible=${!document.hidden}; secure=${globalThis.isSecureContext}`;
+}
 export function vibrate(event: 'match' | 'loss'): void {
   if (!vibration || document.hidden) return;
-  try { navigator.vibrate?.(event === 'match' ? 12 : [80, 50, 120]); }
-  catch { /* Unsupported or denied vibration must never interrupt gameplay. */ }
+  requestVibration(event);
 }
 const russian: Record<string, string> = {
+  "Continue": "Продолжить",
+  "FREE PLAY": "СВОБОДНАЯ ИГРА",
   "Choose game mode": "Выберите режим игры",
   "Falling pieces": "Падающие ряды",
   "Tap connected groups of 2+ before the next row arrives.": "Убирайте группы от 2 фишек до появления нового ряда.",
@@ -43,6 +66,8 @@ const russian: Record<string, string> = {
   "Apply": "Применить",
   "Language": "Язык",
   "Vibration": "Вибрация",
+  "Test vibration": "Проверить вибрацию",
+  "Requested does not confirm physical vibration. If silent, check phone vibration and Do Not Disturb settings.": "Отправка команды не подтверждает работу мотора. Если отклика нет, проверьте вибрацию и режим «Не беспокоить» на телефоне.",
   "Light feedback for matches, stronger feedback on game over.": "Лёгкий отклик при удалении фишек, более заметный при проигрыше.",
   "Game over · Top 10": "Игра окончена · Топ-10",
   "Best results on this device. Your result is highlighted.": "Лучшие результаты на этом устройстве. Ваш результат выделен.",

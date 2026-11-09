@@ -1,3 +1,4 @@
+import { iconButton } from '../../ui/iconButton';
 import { t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { FALLING, createFalling, clearGroup, findGroup, addFallingRow, rowInterval, turnDuration, type FallingState } from '../logic/falling';
@@ -132,11 +133,10 @@ export class FallingScene extends Scene {
     const bg = this.add.graphics().fillStyle(0x16213e, 0.95).fillRoundedRect(0, 0, width, 104, 14);
     const style = { fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#f5f0e8' };
     const title = this.add.text(12, 10, t('FALLING ROWS'), { ...style, color: '#e8a87c', fontStyle: 'bold' });
-    const settings = this.add.text(width - 12, 8, t('Settings'), style).setOrigin(1, 0).setPadding(4).setInteractive({ useHandCursor: true });
-    settings.on('pointerdown', () => window.dispatchEvent(new Event('game-settings')));
+    if (title.width > width - 128) title.setScale((width - 128) / title.width);
+    const settings = iconButton(this, width - 104, 8, 'settings', () => window.dispatchEvent(new Event('game-settings')));
     this.scoreText = this.add.text(12, 36, '', style);
-    const pause = this.add.text(width - 12, 34, this.gameOver ? t('Restart') : this.paused ? t('Resume') : t('Pause'), style).setOrigin(1, 0).setPadding(4).setInteractive({ useHandCursor: true });
-    pause.on('pointerdown', () => this.gameOver ? this.scene.restart() : this.togglePause());
+    const pause = iconButton(this, width - 54, 8, this.gameOver ? 'restart' : this.paused ? 'play' : 'pause', () => this.gameOver ? this.scene.restart() : this.togglePause());
     this.timerText = this.add.text(12, 62, '', { ...style, fontSize: '12px' });
     this.statusText = this.add.text(12, 84, '', { ...style, fontSize: '11px', color: '#e4cfad' });
     this.hudContainer.add([bg, title, settings, this.scoreText, pause, this.timerText, this.statusText]);

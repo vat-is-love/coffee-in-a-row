@@ -63,11 +63,36 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(Color.rgb(26, 26, 46));
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
-        settings.setUserAgentString(settings.getUserAgentString() + " CoffeeAPK/" + BuildConfig.VERSION_NAME + "." + BuildConfig.VERSION_CODE);
+        settings.setUserAgentString(settings.getUserAgentString() + " CoffeeHaptics/1 CoffeeAPK/" + BuildConfig.VERSION_NAME + "." + BuildConfig.VERSION_CODE);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        web.setWebChromeClient(new android.webkit.WebChromeClient() {
+            @Override public boolean onJsPrompt(WebView view, String url, String message, String value,
+                    android.webkit.JsPromptResult result) {
+                if (!"coffee-haptics".equals(message)) { result.cancel(); return true; }
+                Uri caller = Uri.parse(url);
+                Uri game = Uri.parse(BuildConfig.GAME_URL);
+                if (!"https".equals(caller.getScheme()) || !game.getHost().equals(caller.getHost())
+                        || caller.getPort() != game.getPort() || caller.getPath() == null
+                        || !caller.getPath().startsWith(game.getPath()) || !hasWindowFocus()) {
+                    result.confirm("rejected"); return true;
+                }
+                try {
+                    android.os.Vibrator motor = (android.os.Vibrator)getSystemService(VIBRATOR_SERVICE);
+                    if (motor == null || !motor.hasVibrator()) { result.confirm("no-vibrator"); return true; }
+                    if ("cancel".equals(value)) motor.cancel();
+                    else if ("match".equals(value)) motor.vibrate(android.os.VibrationEffect.createOneShot(25, android.os.VibrationEffect.DEFAULT_AMPLITUDE));
+                    else if ("loss".equals(value) || "test".equals(value)) {
+                        long[] pattern = "test".equals(value) ? new long[]{0, 150, 100, 150} : new long[]{0, 80, 50, 120};
+                        motor.vibrate(android.os.VibrationEffect.createWaveform(pattern, -1));
+                    } else { result.confirm("unknown-event"); return true; }
+                    result.confirm("requested");
+                } catch (RuntimeException exception) { result.confirm("error:" + exception.getClass().getSimpleName()); }
+                return true;
+            }
+        });
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -177,6 +202,8 @@ public class MainActivity extends Activity {
             });
             web.onPause();
         }
+        android.os.Vibrator motor = (android.os.Vibrator)getSystemService(VIBRATOR_SERVICE);
+        if (motor != null) motor.cancel();
         super.onPause();
     }
     @Override

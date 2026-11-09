@@ -1,11 +1,12 @@
-import { t, getPreferences, savePreferences, type Language } from './preferences';
+import { t, testVibration, getPreferences, getStartupPreferences, savePreferences, type Language } from './preferences';
 import type { Game } from 'phaser';
 
 type Mode = 'classic' | 'falling';
 
 /** Native controls keep settings usable with touch, keyboard, and screen readers. */
 export function installSettings(game: Game): void {
-  let mode: Mode = 'classic';
+  const startup = getStartupPreferences();
+  let mode: Mode = startup.mode ?? 'classic';
   game.registry.set('gameMode', mode);
   const modePicker = document.createElement('dialog');
   modePicker.className = 'settings-dialog mode-picker';
@@ -14,6 +15,10 @@ export function installSettings(game: Game): void {
   const renderModePicker = () => { modePicker.innerHTML = `
     <form method="dialog">
       <h1 id="mode-picker-title">${t('Choose game mode')}</h1>
+      ${!startup.languageChosen ? `<label class="preference-option">Language / Язык
+        <select name="startup-language"><option value="en">English</option><option value="ru">Русский</option></select>
+      </label>` : ''}
+      ${startup.mode ? `<button class="mode-option" value="${startup.mode}">${t('Continue')}</button>` : `
       <button class="mode-option" value="falling">
         <strong>${t('Falling pieces')}</strong>
         <small>${t('Tap connected groups of 2+ before the next row arrives.')}</small>
@@ -22,6 +27,7 @@ export function installSettings(game: Game): void {
         <strong>${t('Match three')}</strong>
         <small>${t('Swap tiles to make lines of 3.')}</small>
       </button>
+      `}
       <p id="mode-picker-hint">${t('You can change the mode in settings.')}</p>
     </form>`; };
   renderModePicker();
@@ -31,10 +37,17 @@ export function installSettings(game: Game): void {
   modePicker.addEventListener('close', () => {
     if (modePicker.returnValue !== 'classic' && modePicker.returnValue !== 'falling') return;
     mode = modePicker.returnValue;
+    savePreferences({ ...getPreferences(), mode,
+      language: (modePicker.querySelector<HTMLSelectElement>('[name="startup-language"]')?.value as Language | undefined) ?? getPreferences().language
+    });
     game.registry.set('gameMode', mode);
     game.events.emit('game-mode-selected');
   });
   const chooseMode = () => {
+    if (startup.mode && startup.languageChosen) {
+      game.events.emit('game-mode-selected');
+      return;
+    }
     modePicker.returnValue = '';
     modePicker.showModal();
     requestAnimationFrame(() => window.CoffeeRecovery?.ready());
@@ -51,6 +64,9 @@ export function installSettings(game: Game): void {
         <select name="language"><option value="en">English</option><option value="ru">Русский</option></select>
       </label>
       <label class="mode-option"><input type="checkbox" name="vibration"><span><strong>${t('Vibration')}</strong><small>${t('Light feedback for matches, stronger feedback on game over.')}</small></span></label>
+      <button type="button" data-test-vibration>${t('Test vibration')}</button>
+      <small>${t('Requested does not confirm physical vibration. If silent, check phone vibration and Do Not Disturb settings.')}</small>
+      <pre data-vibration-status role="status" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text"></pre>
       <fieldset>
         <legend>${t('Game mode')}</legend>
         <label class="mode-option">
@@ -67,6 +83,12 @@ export function installSettings(game: Game): void {
     </form>`; };
   renderSettings();
   document.body.append(dialog);
+  dialog.addEventListener('click', event => {
+    if (!(event.target instanceof Element) || !event.target.closest('[data-test-vibration]')) return;
+    dialog.querySelector('[data-vibration-status]')!.textContent = testVibration(
+      dialog.querySelector<HTMLInputElement>('input[name="vibration"]')!.checked
+    );
+  });
   let suspended: string | null = null;
   const open = () => {
     if (dialog.open) return;
@@ -92,7 +114,8 @@ export function installSettings(game: Game): void {
     if (dialog.returnValue === 'apply') {
       savePreferences({
         language: dialog.querySelector<HTMLSelectElement>('select[name="language"]')!.value as Language,
-        vibration: dialog.querySelector<HTMLInputElement>('input[name="vibration"]')!.checked
+        vibration: dialog.querySelector<HTMLInputElement>('input[name="vibration"]')!.checked,
+        mode: selected
       });
       renderModePicker();
       game.events.emit('language-changed');
