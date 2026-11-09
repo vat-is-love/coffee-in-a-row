@@ -4,7 +4,8 @@ import './pwa';
  * Main entry point - boots the Phaser game
  */
 
-import { Game, Types } from 'phaser';
+import { AUTO, CANVAS, Core, Game, Types } from 'phaser';
+import { isAndroidApp } from './pwa';
 import { BootScene } from '@game/scenes/BootScene';
 import { GameScene } from '@game/scenes/GameScene';
 import { FallingScene } from '@game/scenes/FallingScene';
@@ -12,7 +13,13 @@ import { installSettings } from './ui/settings';
 
 // Game configuration
 const config: Types.Core.GameConfig = {
-  type: Phaser.AUTO,
+  // This game uses only 2D drawing. Avoid device-specific WebGL startup
+  // failures in the native WebView; browsers retain automatic selection.
+  type: isAndroidApp() ? CANVAS : AUTO,
+  callbacks: {
+    preBoot: () => window.CoffeeRecovery?.stage('renderer-init'),
+    postBoot: () => window.CoffeeRecovery?.stage('game-loop-start')
+  },
   parent: 'game-container',
   width: 800,
   height: 600,
@@ -42,7 +49,9 @@ const config: Types.Core.GameConfig = {
 // Initialize the game when DOM is ready
 window.CoffeeRecovery?.stage('phaser-init');
 const game = new Game(config);
+window.CoffeeRecovery?.stage('settings-init');
 installSettings(game);
+window.CoffeeRecovery?.stage('textures-loading');
 
 // Mobile orientation events can precede the parent's new layout. Observe the
 // actual container so Phaser always resizes against its final dimensions.
@@ -54,10 +63,10 @@ const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new Resize
     game.scale.setParentSize(width, height);
   }
 });
-game.events.once(Phaser.Core.Events.READY, () => {
+game.events.once(Core.Events.READY, () => {
   if (gameHost) resizeObserver?.observe(gameHost);
 });
-game.events.once(Phaser.Core.Events.DESTROY, () => resizeObserver?.disconnect());
+game.events.once(Core.Events.DESTROY, () => resizeObserver?.disconnect());
 
 
 // Make game globally accessible for debugging (dev only)

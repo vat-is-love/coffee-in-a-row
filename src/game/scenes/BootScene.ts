@@ -16,6 +16,7 @@ export class BootScene extends Scene {
   }
 
   preload(): void {
+    window.CoffeeRecovery?.stage('boot-scene-preload');
     const { width, height } = this.scale;
 
     // Create loading UI
@@ -273,6 +274,7 @@ export class BootScene extends Scene {
 
   private loadingComplete(): void {
     if (this.failed) return;
+    window.CoffeeRecovery?.stage('boot-assets-ready');
     this.loadingText.setText(t('Ready!'));
     this.time.delayedCall(300, () => {
       this.game.events.once('game-mode-selected', () => {

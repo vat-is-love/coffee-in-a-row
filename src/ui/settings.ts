@@ -46,6 +46,7 @@ export function installSettings(game: Game): void {
     game.events.emit('game-mode-selected');
   });
   const chooseMode = () => {
+    window.CoffeeRecovery?.stage('choose-game-mode');
     if (startup.mode && startup.languageChosen) {
       game.events.emit('game-mode-selected');
       return;

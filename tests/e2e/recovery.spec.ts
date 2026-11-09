@@ -49,3 +49,22 @@ test('corrupt preferences fall back without blocking the interface', async ({ pa
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Choose game mode' })).toBeVisible();
 });
+
+test('APK starts with Canvas and remains ready after restoring the selected mode', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent + ' CoffeeAPK/1.0.5' });
+    const getContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type: string, ...args: unknown[]) {
+      if (type.includes('webgl')) throw new Error('WebGL unavailable');
+      return getContext.apply(this, [type, ...args] as Parameters<typeof getContext>);
+    } as typeof getContext;
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Choose game mode' })).toBeVisible();
+  await page.getByRole('button', { name: /Falling pieces/ }).click();
+  await expect.poll(() => page.evaluate(() => window.CoffeeRecovery?.isReady())).toBe(true);
+  await page.reload();
+  await expect(page.locator('#recovery')).toBeHidden();
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.CoffeeRecovery?.isReady())).toBe(true);
+});
