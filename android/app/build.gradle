@@ -1,0 +1,36 @@
+plugins { id 'com.android.application' }
+
+def gameUrl = providers.gradleProperty('gameUrl').getOrElse('https://vat-is-love.github.io/coffee-in-a-row/')
+def uri = new URI(gameUrl)
+if (uri.scheme != 'https' || !uri.host || uri.userInfo || uri.query || uri.fragment || !gameUrl.endsWith('/')) {
+    throw new GradleException('gameUrl must be an HTTPS URL ending in /, without credentials, query or fragment')
+}
+def signingPath = System.getenv('ANDROID_KEYSTORE_PATH')
+android {
+    namespace 'com.coffeematch.game'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.coffeematch.game'
+        minSdk 23
+        targetSdk 35
+        versionCode Integer.parseInt(providers.gradleProperty('versionCode').getOrElse('1'))
+        versionName '1.0'
+        buildConfigField 'String', 'GAME_URL', groovy.json.JsonOutput.toJson(gameUrl)
+    }
+    buildFeatures { buildConfig true }
+    if (signingPath) {
+        signingConfigs {
+            release {
+                storeFile file(signingPath)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (signingPath) signingConfig signingConfigs.release
+        }
+    }
+}

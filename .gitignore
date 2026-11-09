@@ -37,3 +37,9 @@ yarn-error.log*
 # Misc
 *.tgz
 .cache/
+# Android local state and private signing material
+.gradle/
+local.properties
+*.jks
+*.keystore
+*.jks.base64
