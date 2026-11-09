@@ -1,3 +1,4 @@
+import { t, getPreferences, savePreferences, type Language } from './preferences';
 import type { Game } from 'phaser';
 
 type Mode = 'classic' | 'falling';
@@ -10,19 +11,20 @@ export function installSettings(game: Game): void {
   modePicker.className = 'settings-dialog mode-picker';
   modePicker.setAttribute('aria-labelledby', 'mode-picker-title');
   modePicker.setAttribute('aria-describedby', 'mode-picker-hint');
-  modePicker.innerHTML = `
+  const renderModePicker = () => { modePicker.innerHTML = `
     <form method="dialog">
-      <h1 id="mode-picker-title">Choose game mode</h1>
+      <h1 id="mode-picker-title">${t('Choose game mode')}</h1>
       <button class="mode-option" value="falling">
-        <strong>Falling pieces</strong>
-        <small>Tap connected groups of 2+ before the next row arrives.</small>
+        <strong>${t('Falling pieces')}</strong>
+        <small>${t('Tap connected groups of 2+ before the next row arrives.')}</small>
       </button>
       <button class="mode-option" value="classic">
-        <strong>Match three</strong>
-        <small>Swap tiles to make lines of 3.</small>
+        <strong>${t('Match three')}</strong>
+        <small>${t('Swap tiles to make lines of 3.')}</small>
       </button>
-      <p id="mode-picker-hint">You can change the mode in settings.</p>
-    </form>`;
+      <p id="mode-picker-hint">${t('You can change the mode in settings.')}</p>
+    </form>`; };
+  renderModePicker();
   document.body.append(modePicker);
   // A mode must be chosen before gameplay starts, including with Escape.
   modePicker.addEventListener('cancel', event => event.preventDefault());
@@ -41,29 +43,38 @@ export function installSettings(game: Game): void {
   const dialog = document.createElement('dialog');
   dialog.className = 'settings-dialog';
   dialog.setAttribute('aria-labelledby', 'settings-title');
-  dialog.innerHTML = `
+  const renderSettings = () => { dialog.innerHTML = `
     <form method="dialog">
-      <h1 id="settings-title">Settings</h1>
+      <h1 id="settings-title">${t('Settings')}</h1>
+      <label class="preference-option">${t('Language')}
+        <select name="language"><option value="en">English</option><option value="ru">Русский</option></select>
+      </label>
+      <label class="mode-option"><input type="checkbox" name="vibration"><span><strong>${t('Vibration')}</strong><small>${t('Light feedback for matches, stronger feedback on game over.')}</small></span></label>
       <fieldset>
-        <legend>Game mode</legend>
+        <legend>${t('Game mode')}</legend>
         <label class="mode-option">
           <input type="radio" name="mode" value="classic">
-          <span><strong>Match three</strong><small>Swap tiles to make lines of 3. New tiles refill the board.</small></span>
+          <span><strong>${t('Match three')}</strong><small>${t('Swap tiles to make lines of 3. New tiles refill the board.')}</small></span>
         </label>
         <label class="mode-option">
           <input type="radio" name="mode" value="falling">
-          <span><strong>Falling pieces</strong><small>Tap connected groups of 2+. Columns gather in the center. Clear space before the next row arrives.</small></span>
+          <span><strong>${t('Falling pieces')}</strong><small>${t('Tap connected groups of 2+. Columns gather in the center. Clear space before the next row arrives.')}</small></span>
         </label>
       </fieldset>
-      <p>Changing mode starts a new game.</p>
-      <div class="settings-actions"><button value="cancel">Cancel</button><button value="apply" class="primary">Apply</button></div>
-    </form>`;
+      <p>${t('Changing mode starts a new game.')}</p>
+      <div class="settings-actions"><button value="cancel">${t('Cancel')}</button><button value="apply" class="primary">${t('Apply')}</button></div>
+    </form>`; };
+  renderSettings();
   document.body.append(dialog);
   let suspended: string | null = null;
   const open = () => {
     if (dialog.open) return;
     suspended = game.scene.isActive('FallingScene') ? 'FallingScene' : game.scene.isActive('GameScene') ? 'GameScene' : null;
     if (!suspended) return;
+    renderSettings();
+    const preferences = getPreferences();
+    dialog.querySelector<HTMLSelectElement>('select[name="language"]')!.value = preferences.language;
+    dialog.querySelector<HTMLInputElement>('input[name="vibration"]')!.checked = preferences.vibration;
     (dialog.querySelector(`input[value="${mode}"]`) as HTMLInputElement).checked = true;
     game.scene.pause(suspended);
     dialog.returnValue = '';
@@ -76,7 +87,15 @@ export function installSettings(game: Game): void {
   dialog.addEventListener('keydown', stopKey);
   dialog.addEventListener('keyup', stopKey);
   dialog.addEventListener('close', () => {
-    const selected = (dialog.querySelector('input:checked') as HTMLInputElement).value as Mode;
+    const selected = (dialog.querySelector('input[name="mode"]:checked') as HTMLInputElement).value as Mode;
+    if (dialog.returnValue === 'apply') {
+      savePreferences({
+        language: dialog.querySelector<HTMLSelectElement>('select[name="language"]')!.value as Language,
+        vibration: dialog.querySelector<HTMLInputElement>('input[name="vibration"]')!.checked
+      });
+      renderModePicker();
+      game.events.emit('language-changed');
+    }
     if (dialog.returnValue === 'apply' && selected !== mode && suspended) {
       mode = selected;
       game.registry.set('gameMode', mode);

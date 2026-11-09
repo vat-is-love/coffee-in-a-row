@@ -242,3 +242,6 @@ canvas {
   .falling-leaderboard table { font-size: 12px; }
   .falling-leaderboard th, .falling-leaderboard td { padding: 7px 4px; }
 }
+
+.preference-option { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.preference-option select { font: inherit; padding: 8px; color: #f5f0e8; background: #16213e; border: 1px solid #e4cfad66; border-radius: 8px; }

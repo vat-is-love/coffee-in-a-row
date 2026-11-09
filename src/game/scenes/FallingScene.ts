@@ -1,3 +1,4 @@
+import { t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { FALLING, createFalling, clearGroup, findGroup, addFallingRow, rowInterval, turnDuration, type FallingState } from '../logic/falling';
 import type { Position } from '../logic/types';
@@ -57,11 +58,13 @@ export class FallingScene extends Scene {
     this.input.on('pointermove', this.hover, this);
     this.input.keyboard?.on('keydown', this.keyDown, this);
     this.scale.on('resize', this.layout, this);
+    this.game.events.on('language-changed', this.layout, this);
     this.events.once('shutdown', () => {
       this.input.off('pointerup', this.click, this);
       this.input.off('pointermove', this.hover, this);
       this.input.keyboard?.off('keydown', this.keyDown, this);
       this.scale.off('resize', this.layout, this);
+      this.game.events.off('language-changed', this.layout, this);
     });
   }
 
@@ -94,7 +97,7 @@ export class FallingScene extends Scene {
     );
     this.dropButton?.destroy();
     this.dropButton = this.add.text(width / 2, this.boardContainer.y + 524 * scale + 12,
-      'Drop next row ↓', {
+      t('Drop next row ↓'), {
         fontFamily: 'Nunito, sans-serif', fontSize: '15px', color: '#1a1a2e', backgroundColor: '#e8a87c'
       }).setOrigin(0.5, 0).setPadding(18, 10).setDepth(20).setInteractive({ useHandCursor: true });
     this.dropButton.on('pointerup', () => this.requestDrop());
@@ -115,11 +118,11 @@ export class FallingScene extends Scene {
     this.hudContainer = this.add.container((this.scale.width - width) / 2, 10).setDepth(20);
     const bg = this.add.graphics().fillStyle(0x16213e, 0.95).fillRoundedRect(0, 0, width, 104, 14);
     const style = { fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#f5f0e8' };
-    const title = this.add.text(12, 10, 'FALLING ROWS', { ...style, color: '#e8a87c', fontStyle: 'bold' });
-    const settings = this.add.text(width - 12, 8, 'Settings', style).setOrigin(1, 0).setPadding(4).setInteractive({ useHandCursor: true });
+    const title = this.add.text(12, 10, t('FALLING ROWS'), { ...style, color: '#e8a87c', fontStyle: 'bold' });
+    const settings = this.add.text(width - 12, 8, t('Settings'), style).setOrigin(1, 0).setPadding(4).setInteractive({ useHandCursor: true });
     settings.on('pointerdown', () => window.dispatchEvent(new Event('game-settings')));
     this.scoreText = this.add.text(12, 36, '', style);
-    const pause = this.add.text(width - 12, 34, this.gameOver ? 'Restart' : this.paused ? 'Resume' : 'Pause', style).setOrigin(1, 0).setPadding(4).setInteractive({ useHandCursor: true });
+    const pause = this.add.text(width - 12, 34, this.gameOver ? t('Restart') : this.paused ? t('Resume') : t('Pause'), style).setOrigin(1, 0).setPadding(4).setInteractive({ useHandCursor: true });
     pause.on('pointerdown', () => this.gameOver ? this.scene.restart() : this.togglePause());
     this.timerText = this.add.text(12, 62, '', { ...style, fontSize: '12px' });
     this.statusText = this.add.text(12, 84, '', { ...style, fontSize: '11px', color: '#e4cfad' });
@@ -150,14 +153,14 @@ export class FallingScene extends Scene {
     // Each tile materializes during its own eighth of the countdown, left to right.
     this.preview.forEach((sprite, col) => sprite.setAlpha(Math.max(0, Math.min(1, progress * FALLING.cols - col))));
     this.dropButton?.setAlpha(this.paused || this.gameOver || this.droppingRow || this.remaining <= 0 ? 0.45 : 1);
-    this.scoreText.setText(`Score: ${this.state.score} · Rows: ${this.state.rowsAdded}`);
-    this.timerText.setText(`Next row: ${(this.remaining / 1000).toFixed(1)}s`);
+    this.scoreText.setText(`${t('Score')}: ${this.state.score} · ${t('Rows')}: ${this.state.rowsAdded}`);
+    this.timerText.setText(`${t('Next row')}: ${(this.remaining / 1000).toFixed(1)}s`);
     const highest = this.state.grid.findIndex(row => row.some(color => color >= 0));
     const danger = highest >= 0 && highest <= 1;
     this.danger.clear();
     if (danger) this.danger.fillStyle(0xe74c3c, 0.12 + Math.sin(this.elapsed / 300) * 0.04).fillRect(0, 0, 512, 128);
     this.timerText.setColor(danger || this.remaining < 2000 ? '#ffb49f' : '#f5f0e8');
-    this.statusText.setText(this.gameOver ? 'Board full · Restart to try again' : this.paused ? 'Paused · Resume or press Escape' : this.isProcessing ? 'Settling…' : danger ? 'Nearly full! Clear space for the next row' : 'Tap groups of 2+ · Empty columns move to center');
+    this.statusText.setText(this.gameOver ? t('Board full · Restart to try again') : this.paused ? t('Paused · Resume or press Escape') : this.isProcessing ? t('Settling…') : danger ? t('Nearly full! Clear space for the next row') : t('Tap groups of 2+ · Empty columns move to center'));
   }
 
   private position(pointer: Input.Pointer): Position | null {
@@ -239,6 +242,7 @@ export class FallingScene extends Scene {
     if (this.isProcessing || this.paused || this.gameOver || this.remaining <= 0) return;
     const result = clearGroup(this.state, pos);
     if (!result.removed.length) return;
+    vibrate('match');
     this.isProcessing = true;
     this.showGroup(null);
     const started = this.time.now;
@@ -271,6 +275,7 @@ export class FallingScene extends Scene {
     const result = addFallingRow(this.state);
     if (result.overflow) {
       this.gameOver = true;
+      vibrate('loss');
       this.isProcessing = false;
       this.droppingRow = false;
       this.createHUD();

@@ -1,3 +1,4 @@
+import { t } from '../../ui/preferences';
 /**
  * BootScene - Loading screen with asset loading
  */
@@ -48,7 +49,7 @@ export class BootScene extends Scene {
       strokeThickness: 4
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, height / 2 - 20, 'Match-3 Demo', {
+    this.add.text(width / 2, height / 2 - 20, t('Match-3 Demo'), {
       fontFamily: 'Nunito, sans-serif',
       fontSize: '24px',
       color: '#f5f0e8'
@@ -63,7 +64,7 @@ export class BootScene extends Scene {
     this.progressBar = this.add.graphics();
 
     // Loading text
-    this.loadingText = this.add.text(width / 2, height / 2 + 100, 'Loading...', {
+    this.loadingText = this.add.text(width / 2, height / 2 + 100, t('Loading...'), {
       fontFamily: 'Nunito, sans-serif',
       fontSize: '18px',
       color: '#b8a99a'
@@ -259,20 +260,20 @@ export class BootScene extends Scene {
       6
     );
 
-    this.loadingText.setText(`Loading... ${Math.round(value * 100)}%`);
+    this.loadingText.setText(`${t('Loading...')} ${Math.round(value * 100)}%`);
   }
 
   private showLoadError(error: unknown): void {
     console.error('Unable to load game', error);
     this.failed = true;
-    this.loadingText.setText('Loading failed. Tap to reload.')
+    this.loadingText.setText(t('Loading failed. Tap to reload.'))
       .setInteractive({ useHandCursor: true })
       .once('pointerdown', () => window.location.reload());
   }
 
   private loadingComplete(): void {
     if (this.failed) return;
-    this.loadingText.setText('Ready!');
+    this.loadingText.setText(t('Ready!'));
     this.time.delayedCall(300, () => {
       this.game.events.once('game-mode-selected', () => {
         this.scene.start(this.registry.get('gameMode') === 'falling' ? 'FallingScene' : 'GameScene');

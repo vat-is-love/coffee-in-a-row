@@ -1,3 +1,4 @@
+import { t, getPreferences } from './preferences';
 export const FALLING_RECORDS_KEY = 'coffee-falling-records';
 
 interface FallingRecord {
@@ -32,13 +33,13 @@ export function showFallingLeaderboard(score: number, rows: number, restart: () 
   dialog.className = 'settings-dialog falling-leaderboard';
   dialog.setAttribute('aria-labelledby', 'falling-results-title');
   dialog.innerHTML = `
-    <h1 id="falling-results-title">Game over · Top 10</h1>
-    <p>Best results on this device. Your result is highlighted.</p>
+    <h1 id="falling-results-title">${t('Game over · Top 10')}</h1>
+    <p>${t('Best results on this device. Your result is highlighted.')}</p>
     <div class="leaderboard-scroll">
-      <table><thead><tr><th scope="col">#</th><th scope="col">Rows</th><th scope="col">Score</th><th scope="col">Date / time</th></tr></thead><tbody></tbody></table>
+      <table><thead><tr><th scope="col">#</th><th scope="col">${t('Rows')}</th><th scope="col">${t('Score')}</th><th scope="col">${t('Date / time')}</th></tr></thead><tbody></tbody></table>
     </div>
     <p class="leaderboard-save-status"></p>
-    <div class="settings-actions"><button class="primary" type="button">Start again</button></div>`;
+    <div class="settings-actions"><button class="primary" type="button">${t('Start again')}</button></div>`;
   const body = dialog.querySelector('tbody')!;
   const appendRecord = (record: FallingRecord, index: number) => {
     const row = document.createElement('tr');
@@ -46,7 +47,7 @@ export function showFallingLeaderboard(score: number, rows: number, restart: () 
       row.className = 'current-result';
       row.setAttribute('aria-current', 'true');
     }
-    for (const value of [index + 1, record.rows, record.score, new Date(record.playedAt).toLocaleString(undefined, {
+    for (const value of [index + 1, record.rows, record.score, new Date(record.playedAt).toLocaleString(getPreferences().language, {
       year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
     })]) {
       const cell = document.createElement('td');
@@ -68,7 +69,7 @@ export function showFallingLeaderboard(score: number, rows: number, restart: () 
   }
   const status = dialog.querySelector<HTMLElement>('.leaderboard-save-status')!;
   status.hidden = saved;
-  status.textContent = 'This result could not be saved on this device.';
+  status.textContent = t('This result could not be saved on this device.');
   dialog.addEventListener('cancel', event => event.preventDefault());
   dialog.addEventListener('keydown', event => event.stopPropagation());
   dialog.addEventListener('keyup', event => event.stopPropagation());

@@ -1,3 +1,4 @@
+import { t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import {
   initializeGame, simulateMove, areAdjacent, cloneBoardState,
@@ -60,8 +61,10 @@ export class GameScene extends Scene {
     this.input.on('gameout', this.cancelGesture, this);
     this.input.keyboard?.on('keydown', this.keyDown, this);
     this.scale.on('resize', this.resizeLayout, this);
+    this.game.events.on('language-changed', this.resizeLayout, this);
     this.events.once('shutdown', () => {
       this.scale.off('resize', this.resizeLayout, this);
+      this.game.events.off('language-changed', this.resizeLayout, this);
       this.input.off('pointerdown', this.pointerDown, this);
       this.input.off('pointerup', this.pointerUp, this);
       this.input.off('pointerupoutside', this.cancelGesture, this);
@@ -95,12 +98,12 @@ export class GameScene extends Scene {
     bg.fillRoundedRect(0, 0, width, 96, 14);
     bg.lineStyle(1, 0xe4cfad, 0.35).strokeRoundedRect(0, 0, width, 96, 14);
     const style = { fontFamily: 'Nunito, sans-serif', fontSize: '16px', color: '#f5f0e8' };
-    const title = this.add.text(12, 10, 'FREE PLAY · Settings', { ...style, color: '#e8a87c', fontStyle: 'bold' })
+    const title = this.add.text(12, 10, t('FREE PLAY · Settings'), { ...style, color: '#e8a87c', fontStyle: 'bold' })
       .setInteractive({ useHandCursor: true });
     title.on('pointerdown', () => window.dispatchEvent(new Event('game-settings')));
     this.movesText = this.add.text(width - 12, 10, '', style).setOrigin(1, 0);
     this.scoreText = this.add.text(12, 37, '', style);
-    const pause = this.add.text(width - 12, 37, this.paused ? 'Resume' : 'Pause', style)
+    const pause = this.add.text(width - 12, 37, this.paused ? t('Resume') : t('Pause'), style)
       .setOrigin(1, 0).setPadding(6).setInteractive({ useHandCursor: true });
     pause.on('pointerdown', () => this.togglePause());
     this.statusText = this.add.text(12, 72, '', { ...style, fontSize: '12px', color: '#e4cfad' });
@@ -125,10 +128,10 @@ export class GameScene extends Scene {
     );
   }
 
-  private updateHUD(message = 'Swipe or tap two tiles · Arrows + Space'): void {
-    this.movesText.setText(`Swaps: ${this.movesPlayed}`);
-    this.scoreText.setText(`Score: ${this.state.score}`);
-    this.statusText.setText(this.failed ? 'Board error. Reload to try again.' : this.paused ? 'Paused · Tap Resume or press Escape' : message);
+  private updateHUD(message = t('Swipe or tap two tiles · Arrows + Space')): void {
+    this.movesText.setText(`${t('Moves')}: ${this.movesPlayed}`);
+    this.scoreText.setText(`${t('Score')}: ${this.state.score}`);
+    this.statusText.setText(this.failed ? t('Board error. Reload to try again.') : this.paused ? t('Paused · Resume or press Escape') : message);
   }
 
   private createTile(row: number, col: number, type: number, y = row * 64 + 32): TileView {
@@ -246,7 +249,7 @@ export class GameScene extends Scene {
           this.animate(a.sprite, { x: a.col * 64 + 32, y: a.row * 64 + 32 }, 150),
           this.animate(b.sprite, { x: b.col * 64 + 32, y: b.row * 64 + 32 }, 150)
         ]);
-        this.updateHUD('Try a swap that makes a line of 3');
+        this.updateHUD(t('Try a swap that makes a line of 3'));
         return;
       }
       const ar = a.row, ac = a.col, br = b.row, bc = b.col;
@@ -254,22 +257,23 @@ export class GameScene extends Scene {
       a.row = br; a.col = bc; b.row = ar; b.col = ac;
       this.movesPlayed++;
       for (let i = 0; i < result.frames.length; i++) {
-        this.updateHUD(i === 0 ? 'Match!' : `Cascade ×${i + 1}`);
+        this.updateHUD(i === 0 ? t('Match!') : `${t('Cascade')} ×${i + 1}`);
         await this.playFrame(result.frames[i]);
       }
       if (result.gameOver === 'reshuffle' || result.cascades >= 100) {
-        this.updateHUD('No moves · Shuffling…');
+        this.updateHUD(t('No moves · Shuffling…'));
         const sprites = this.board.flat().map(tile => tile.sprite);
         await this.animate(sprites, { alpha: 0.2 }, 250);
       }
       this.state = result.boardState;
       this.renderBoard();
-      this.updateHUD(result.gameOver === 'reshuffle' ? 'Board shuffled · Keep playing' : 'Swipe or tap two tiles · Shift + Arrow swaps');
+      this.updateHUD(result.gameOver === 'reshuffle' ? t('Board shuffled · Keep playing') : t('Swipe or tap two tiles · Shift + Arrow swaps'));
     } catch (error) { this.showError(error); }
     finally { this.isProcessing = false; }
   }
 
   private async playFrame(frame: ResolutionFrame): Promise<void> {
+    vibrate('match');
     const cleared = new Set(frame.matches.flatMap(match => match.tiles.map(pos => `${pos.row},${pos.col}`)));
     const removed = this.board.flat().filter(tile => cleared.has(`${tile.row},${tile.col}`));
     await this.animate(removed.map(tile => tile.sprite), { scaleX: 0, scaleY: 0, alpha: 0 }, 170);
@@ -293,13 +297,13 @@ export class GameScene extends Scene {
     const score = this.state.score + frame.scoreDelta;
     this.state = cloneBoardState(frame.boardState);
     this.state.score = score;
-    this.updateHUD('Resolving…');
+    this.updateHUD(t('Resolving…'));
   }
 
   private showError(error: unknown): void {
     console.error('Unable to render board', error);
     this.failed = true;
     this.clearSelection();
-    this.statusText.setText('Board error. Reload to try again.');
+    this.statusText.setText(t('Board error. Reload to try again.'));
   }
 }
