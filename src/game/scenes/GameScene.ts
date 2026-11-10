@@ -25,6 +25,7 @@ export class GameScene extends Scene {
   private coating!: GameObjects.Graphics;
   private completed = false;
   private elapsed = 0;
+  private timerStarted = false;
   private state!: BoardState;
   private board: TileView[][] = [];
   private selectedTile: TileView | null = null;
@@ -47,6 +48,7 @@ export class GameScene extends Scene {
   create(): void {
     this.completed = false;
     this.elapsed = 0;
+    this.timerStarted = false;
     this.clearedCells = new Set();
     this.board = [];
     this.isProcessing = false;
@@ -103,7 +105,7 @@ export class GameScene extends Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (this.paused || this.failed || this.completed || document.hidden) return;
+    if (!this.timerStarted || this.paused || this.failed || this.completed || document.hidden) return;
     this.elapsed += delta;
     this.updateProgress();
   }
@@ -253,6 +255,7 @@ export class GameScene extends Scene {
 
   private async attemptSwap(a: TileView, b: TileView): Promise<void> {
     if (this.isProcessing || this.paused || this.failed || this.completed) return;
+    this.timerStarted = true;
     this.isProcessing = true;
     this.clearSelection();
     this.cancelGesture();
