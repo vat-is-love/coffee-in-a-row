@@ -1,4 +1,4 @@
-import { SeededRNG } from './rng';
+import { SeededRNG, createRandomSeed } from './rng';
 import type { Position } from './types';
 
 export const FALLING = { rows: 8, cols: 8, colors: 4, initialRows: 3, turnsPerRow: 10 } as const;
@@ -20,7 +20,7 @@ export function turnDuration(rowsAdded: number): number {
   return rowInterval(rowsAdded) / FALLING.turnsPerRow;
 }
 
-export function createFalling(seed: number): FallingState {
+export function createFalling(seed: number = createRandomSeed()): FallingState {
   const rng = new SeededRNG(seed);
   const grid = Array.from({ length: FALLING.rows }, (_, row) =>
     Array.from({ length: FALLING.cols }, () => row < FALLING.rows - FALLING.initialRows ? -1 : rng.nextInt(FALLING.colors)));

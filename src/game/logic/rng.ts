@@ -75,3 +75,11 @@ export function createRNG(seed: number): SeededRNG {
  * Default seed for reproducible tests
  */
 export const DEFAULT_SEED = 12345;
+
+/** Fresh entropy for each new game; explicit seeds remain available for replay/tests. */
+export function createRandomSeed(): number {
+  if (globalThis.crypto?.getRandomValues) {
+    return globalThis.crypto.getRandomValues(new Uint32Array(1))[0];
+  }
+  return Math.floor(Math.random() * MODULUS);
+}

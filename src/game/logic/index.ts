@@ -18,7 +18,7 @@ import {
   cloneBoardState,
   areAdjacent
 } from './types';
-import { SeededRNG } from './rng';
+import { SeededRNG, createRandomSeed } from './rng';
 import { findMatches, wouldCreateMatch } from './matches';
 import { resolveAllMatches, isSnowCleared } from './resolve';
 import { generateInitialBoard } from './generate';
@@ -130,7 +130,7 @@ function createInvalidMoveResult(state: BoardState, _reason: string): MoveResult
  * Initialize a new game/level.
  */
 export function initializeGame(config: GameConfig, seed?: number): BoardState {
-  const initialSeed = seed ?? 12345;
+  const initialSeed = seed ?? createRandomSeed();
   const rng = new SeededRNG(initialSeed);
   const state = generateInitialBoard(config, rng);
   return state;

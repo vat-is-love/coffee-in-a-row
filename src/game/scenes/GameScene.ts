@@ -64,7 +64,7 @@ export class GameScene extends Scene {
     this.createHUD();
     this.resizeLayout();
     try {
-      this.state = initializeGame(this.config, 12345);
+      this.state = initializeGame(this.config);
       this.renderBoard();
       this.updateHUD();
     } catch (error) { this.showError(error); }

@@ -38,7 +38,7 @@ export class FallingScene extends Scene {
   constructor() { super({ key: 'FallingScene' }); }
 
   create(): void {
-    this.state = createFalling(Date.now());
+    this.state = createFalling();
     this.remaining = rowInterval(0);
     this.previewRow = [...this.state.nextRow];
     this.droppingRow = false;
