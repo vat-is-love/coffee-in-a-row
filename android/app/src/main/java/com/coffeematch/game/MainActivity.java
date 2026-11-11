@@ -18,6 +18,8 @@ import android.widget.TextView;
 
 public class MainActivity extends Activity {
     private WebView web;
+    private LocalBackup backup;
+    private final java.util.ArrayList<Runnable> pendingBackupReplies = new java.util.ArrayList<>();
     private LinearLayout root;
     private LinearLayout error;
     private boolean failed;
@@ -49,6 +51,7 @@ public class MainActivity extends Activity {
     public void onCreate(Bundle state) {
         super.onCreate(state);
         ru = getPreferences(0).getBoolean("ru", java.util.Locale.getDefault().getLanguage().equals("ru"));
+        backup = new LocalBackup(this);
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -63,7 +66,7 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(Color.rgb(26, 26, 46));
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
-        settings.setUserAgentString(settings.getUserAgentString() + " CoffeeHaptics/1 CoffeeAPK/" + BuildConfig.VERSION_NAME + "." + BuildConfig.VERSION_CODE);
+        settings.setUserAgentString(settings.getUserAgentString() + " CoffeeBackup/2 CoffeeHaptics/1 CoffeeAPK/" + BuildConfig.VERSION_NAME + "." + BuildConfig.VERSION_CODE);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
@@ -71,13 +74,18 @@ public class MainActivity extends Activity {
         web.setWebChromeClient(new android.webkit.WebChromeClient() {
             @Override public boolean onJsPrompt(WebView view, String url, String message, String value,
                     android.webkit.JsPromptResult result) {
-                if (!"coffee-haptics".equals(message)) { result.cancel(); return true; }
+                if (!"coffee-haptics".equals(message) && !"coffee-backup".equals(message)) { result.cancel(); return true; }
                 Uri caller = Uri.parse(url);
                 Uri game = Uri.parse(BuildConfig.GAME_URL);
                 if (!"https".equals(caller.getScheme()) || !game.getHost().equals(caller.getHost())
                         || caller.getPort() != game.getPort() || caller.getPath() == null
                         || !caller.getPath().startsWith(game.getPath()) || !hasWindowFocus()) {
                     result.confirm("rejected"); return true;
+                }
+                if ("coffee-backup".equals(message)) {
+                    result.confirm("accepted");
+                    backup.handle(value);
+                    return true;
                 }
                 try {
                     android.os.Vibrator motor = (android.os.Vibrator)getSystemService(VIBRATOR_SERVICE);
@@ -175,6 +183,42 @@ public class MainActivity extends Activity {
         web.loadUrl(BuildConfig.GAME_URL);
     }
 
+    void backupReply(String id, org.json.JSONObject reply) {
+        if (web == null || isFinishing() || isDestroyed()) return;
+        // Permission settings return before the activity necessarily regains focus.
+        // Wait before delivering data that can trigger the next trusted JS prompt.
+        if (!hasWindowFocus()) { pendingBackupReplies.add(() -> backupReply(id, reply)); return; }
+        Uri current = Uri.parse(web.getUrl() == null ? "" : web.getUrl());
+        Uri game = Uri.parse(BuildConfig.GAME_URL);
+        if (!"https".equals(current.getScheme()) || !game.getHost().equals(current.getHost())
+                || current.getPort() != game.getPort() || current.getPath() == null
+                || !current.getPath().startsWith(game.getPath())) return;
+        web.evaluateJavascript("window.dispatchEvent(new CustomEvent('coffee-backup-result',{detail:{id:"
+                + org.json.JSONObject.quote(id) + ",reply:" + reply.toString() + "}}))", null);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused);
+        if (focused && !pendingBackupReplies.isEmpty()) {
+            java.util.ArrayList<Runnable> ready = new java.util.ArrayList<>(pendingBackupReplies);
+            pendingBackupReplies.clear();
+            for (Runnable reply : ready) reply.run();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == LocalBackup.REQUEST_ACCESS) backup.onAccessResult();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == LocalBackup.REQUEST_ACCESS) backup.onAccessResult();
+    }
+
     private void showError(String code) {
         watchdog.removeCallbacks(checkReady);
         watchdog.removeCallbacks(timeout);
@@ -212,6 +256,8 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         watchdog.removeCallbacks(timeout);
         watchdog.removeCallbacks(checkReady);
+        if (backup != null) backup.close();
+        pendingBackupReplies.clear();
         if (web != null) { root.removeView(web); web.destroy(); }
         super.onDestroy();
     }

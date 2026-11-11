@@ -2,8 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <application android:label="Coffee Match" android:icon="@drawable/coffee_icon"
-        android:enableOnBackInvokedCallback="false" android:allowBackup="false" android:usesCleartextTraffic="false"
+        android:requestLegacyExternalStorage="true" android:enableOnBackInvokedCallback="false" android:allowBackup="false" android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.NoActionBar">
         <activity android:name=".MainActivity" android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden">

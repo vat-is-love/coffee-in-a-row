@@ -19,3 +19,7 @@ export function readRecords<T>(key: string, valid: (value: unknown) => value is 
     } catch { return { records: [], writable: false }; }
   }
 }
+
+export function notifyDataChanged(): void {
+  globalThis.window?.dispatchEvent?.(new Event('coffee-data-changed'));
+}

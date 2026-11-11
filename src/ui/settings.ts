@@ -1,6 +1,7 @@
+import { backupControls, installBackupControls, refreshBackupStatus } from './backup';
 import { version as appVersion } from '../../package.json';
 import { isAndroidApp, updateGame } from '../pwa';
-import { t, testVibration, getPreferences, getStartupPreferences, savePreferences, type Language } from './preferences';
+import { t, getPreferences, getStartupPreferences, savePreferences, type Language } from './preferences';
 import type { Game } from 'phaser';
 
 type Mode = 'classic' | 'falling';
@@ -30,10 +31,12 @@ export function installSettings(game: Game): void {
         <small>${t("Match lines of 3 to clear every cell's pale background.")}</small>
       </button>
       `}
+      ${backupControls()}
       <p id="mode-picker-hint">${t('You can change the mode in settings.')}</p>
     </form>`; };
   renderModePicker();
   document.body.append(modePicker);
+  installBackupControls(modePicker);
   // A mode must be chosen before gameplay starts, including with Escape.
   modePicker.addEventListener('cancel', event => event.preventDefault());
   modePicker.addEventListener('close', () => {
@@ -53,6 +56,7 @@ export function installSettings(game: Game): void {
     }
     modePicker.returnValue = '';
     modePicker.showModal();
+    void refreshBackupStatus();
     requestAnimationFrame(() => window.CoffeeRecovery?.ready());
   };
   game.events.once('choose-game-mode', chooseMode);
@@ -68,12 +72,10 @@ export function installSettings(game: Game): void {
         <select name="language"><option value="en">English</option><option value="ru">Русский</option></select>
       </label>
       <label class="mode-option"><input type="checkbox" name="vibration"><span><strong>${t('Vibration')}</strong><small>${t('Light feedback for matches, stronger feedback on game over.')}</small></span></label>
-      <button type="button" data-test-vibration>${t('Test vibration')}</button>
-      <small>${t('Requested does not confirm physical vibration. If silent, check phone vibration and Do Not Disturb settings.')}</small>
-      <pre data-vibration-status role="status" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text"></pre>
       ${isAndroidApp() ? `<button type="button" data-update-game>${t('Update game')}</button>
       <small>${t('Download the latest version from GitHub Pages. The game will restart; scores and settings are kept.')}</small>
       <p data-update-status role="status"></p>` : ''}
+      ${backupControls()}
       <fieldset>
         <legend>${t('Game mode')}</legend>
         <label class="mode-option">
@@ -90,12 +92,7 @@ export function installSettings(game: Game): void {
     </form>`; };
   renderSettings();
   document.body.append(dialog);
-  dialog.addEventListener('click', event => {
-    if (!(event.target instanceof Element) || !event.target.closest('[data-test-vibration]')) return;
-    dialog.querySelector('[data-vibration-status]')!.textContent = testVibration(
-      dialog.querySelector<HTMLInputElement>('input[name="vibration"]')!.checked
-    );
-  });
+  installBackupControls(dialog);
   let updating = false;
   dialog.addEventListener('cancel', event => { if (updating) event.preventDefault(); });
   dialog.addEventListener('click', async event => {
@@ -128,6 +125,7 @@ export function installSettings(game: Game): void {
     game.scene.pause(suspended);
     dialog.returnValue = '';
     dialog.showModal();
+    void refreshBackupStatus();
   };
   // Keep dialog keyboard events out of Phaser's global keyboard handler.
   const stopKey = (event: KeyboardEvent) => event.stopPropagation();

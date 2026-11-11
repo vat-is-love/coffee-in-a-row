@@ -1,4 +1,4 @@
-import { readRecords } from './storage';
+import { readRecords, notifyDataChanged } from './storage';
 import { t, getPreferences } from './preferences';
 export const FALLING_RECORDS_KEY = 'coffee-falling-records';
 
@@ -47,6 +47,7 @@ function showLeaderboard(score: number, rows: number, restart: () => void, durat
   let saved = true;
   try { if (!stored.writable) throw new Error('Original preserved'); localStorage.setItem(key, JSON.stringify(records)); }
   catch { saved = false; }
+  if (saved) notifyDataChanged();
   const rank = records.indexOf(current);
   const dialog = document.createElement('dialog');
   dialog.className = 'settings-dialog falling-leaderboard';

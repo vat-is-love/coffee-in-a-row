@@ -43,7 +43,7 @@ test('unavailable storage and vibration cannot interrupt gameplay', async () => 
   expect(prefs.t('Start again')).toBe('Начать заново');
 });
 
-test('native haptics take priority and test reports browser rejection', async () => {
+test('native haptics take priority and browser rejection cannot interrupt gameplay', async () => {
   vi.stubGlobal('localStorage', { getItem: () => null });
   vi.stubGlobal('document', { hidden: false, documentElement: { lang: '' } });
   const browser = vi.fn(() => false);
@@ -54,12 +54,11 @@ test('native haptics take priority and test reports browser rejection', async ()
   prefs.vibrate('match');
   expect(prompt).toHaveBeenCalledWith('coffee-haptics', 'match');
   expect(browser).not.toHaveBeenCalled();
-  expect(prefs.testVibration(true)).toContain('Android: requested');
-  prompt.mockClear();
-  expect(prefs.testVibration(false)).toContain('disabled');
-  expect(prompt).not.toHaveBeenCalled();
+  prefs.vibrate('loss');
+  expect(prompt).toHaveBeenCalledWith('coffee-haptics', 'loss');
   vi.stubGlobal('navigator', { userAgent: 'browser', vibrate: browser });
-  expect(prefs.testVibration(true)).toContain('Browser: rejected');
+  expect(() => prefs.vibrate('match')).not.toThrow();
+  expect(browser).toHaveBeenCalledWith(25);
 });
 
 
