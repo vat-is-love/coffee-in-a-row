@@ -1,6 +1,6 @@
 import { backupControls, installBackupControls, refreshBackupStatus } from './backup';
 import { version as appVersion } from '../../package.json';
-import { isAndroidApp, updateGame } from '../pwa';
+import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
 import { t, getPreferences, getStartupPreferences, savePreferences, type Language } from './preferences';
 import type { Game } from 'phaser';
 
@@ -72,8 +72,8 @@ export function installSettings(game: Game): void {
         <select name="language"><option value="en">English</option><option value="ru">Русский</option></select>
       </label>
       <label class="mode-option"><input type="checkbox" name="vibration"><span><strong>${t('Vibration')}</strong><small>${t('Light feedback for matches, stronger feedback on game over.')}</small></span></label>
-      ${isAndroidApp() ? `<button type="button" data-update-game>${t('Update game')}</button>
-      <small>${t('Download the latest version from GitHub Pages. The game will restart; scores and settings are kept.')}</small>
+      ${isAndroidApp() ? `<button type="button" data-update-game>${t(supportsApkUpdates() ? 'Check for updates' : 'Update game')}</button>
+      <small>${t(supportsApkUpdates() ? 'Check for game and Android app updates. A game update restarts the current round.' : 'Download the latest version from GitHub Pages. The game will restart; scores and settings are kept.')}</small>
       <p data-update-status role="status"></p>` : ''}
       ${backupControls()}
       <fieldset>
@@ -102,15 +102,22 @@ export function installSettings(game: Game): void {
     controls.forEach(control => { control.disabled = true; });
     const status = dialog.querySelector('[data-update-status]')!;
     status.textContent = t('Checking and downloading update…');
+    const apkUpdates = supportsApkUpdates();
+    const apkStatus = apkUpdates && !checkApkUpdate(getPreferences().language)
+      ? t('Could not check for an Android app update.') : '';
+    let webStatus: string;
     try {
       const result = await updateGame();
-      status.textContent = t(result === 'current' ? 'The latest version is already installed.' : 'Restarting…');
+      const currentMessage = apkUpdates ? 'The game is up to date.' : 'The latest version is already installed.';
+      webStatus = t(result === 'current' ? currentMessage : 'Restarting…');
     } catch {
-      status.textContent = t('Update failed. Check your connection and try again.');
+      webStatus = t(apkUpdates ? 'Could not update the game. Check your connection and try again.'
+        : 'Update failed. Check your connection and try again.');
     } finally {
       updating = false;
       controls.forEach(control => { control.disabled = false; });
     }
+    status.textContent = [webStatus, apkStatus].filter(Boolean).join(' ');
   });
   let suspended: string | null = null;
   const open = () => {

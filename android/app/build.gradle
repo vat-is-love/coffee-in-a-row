@@ -6,6 +6,10 @@ if (uri.scheme != 'https' || !uri.host || uri.userInfo || uri.query || uri.fragm
     throw new GradleException('gameUrl must be an HTTPS URL ending in /, without credentials, query or fragment')
 }
 def signingPath = System.getenv('ANDROID_KEYSTORE_PATH')
+def releaseRepository = providers.gradleProperty('releaseRepository').getOrElse('vat-is-love/coffee-in-a-row')
+if (!(releaseRepository ==~ /[A-Za-z0-9-]+\/[A-Za-z0-9_.-]+/)) {
+    throw new GradleException('releaseRepository must be a GitHub owner/repository')
+}
 android {
     namespace 'com.coffeematch.game'
     compileSdk 35
@@ -16,6 +20,7 @@ android {
         versionCode Integer.parseInt(providers.gradleProperty('versionCode').getOrElse('1'))
         versionName '1.0'
         buildConfigField 'String', 'GAME_URL', groovy.json.JsonOutput.toJson(gameUrl)
+        buildConfigField 'String', 'RELEASE_REPOSITORY', groovy.json.JsonOutput.toJson(releaseRepository)
     }
     buildFeatures { buildConfig true }
     if (signingPath) {

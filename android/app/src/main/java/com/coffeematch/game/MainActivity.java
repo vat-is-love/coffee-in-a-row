@@ -19,6 +19,7 @@ import android.widget.TextView;
 public class MainActivity extends Activity {
     private WebView web;
     private LocalBackup backup;
+    private ApkUpdater updater;
     private final java.util.ArrayList<Runnable> pendingBackupReplies = new java.util.ArrayList<>();
     private LinearLayout root;
     private LinearLayout error;
@@ -30,13 +31,18 @@ public class MainActivity extends Activity {
     private final Runnable checkReady = new Runnable() {
         @Override public void run() {
             if (web == null || failed) return;
-            web.evaluateJavascript("JSON.stringify({documentState:document.readyState,recovery:window.CoffeeRecovery ? (window.CoffeeRecovery.diagnostics ? window.CoffeeRecovery.diagnostics() : {ready:window.CoffeeRecovery.isReady()}) : null})", value -> {
+            web.evaluateJavascript("JSON.stringify({documentState:document.readyState,version:document.documentElement.dataset.coffeeBuild,lang:document.documentElement.lang,recovery:window.CoffeeRecovery ? (window.CoffeeRecovery.diagnostics ? window.CoffeeRecovery.diagnostics() : {ready:window.CoffeeRecovery.isReady()}) : null})", value -> {
                 if (failed || web == null) return;
                 try {
                     webDiagnostic = new org.json.JSONTokener(value).nextValue().toString();
-                    org.json.JSONObject recovery = new org.json.JSONObject(webDiagnostic).optJSONObject("recovery");
+                    org.json.JSONObject page = new org.json.JSONObject(webDiagnostic);
+                    org.json.JSONObject recovery = page.optJSONObject("recovery");
                     if (recovery != null && recovery.optBoolean("ready")) {
                         watchdog.removeCallbacks(timeout);
+                        if (isGameUrl(web.getUrl())) {
+                            setLanguage(page.optString("lang"));
+                            updater.gameReady(page.optString("version"));
+                        }
                         return;
                     }
                 } catch (org.json.JSONException ignored) { }
@@ -45,13 +51,29 @@ public class MainActivity extends Activity {
         }
     };
     private boolean ru;
-    private String label(String en, String russian) { return ru ? russian : en; }
+    String label(String en, String russian) { return ru ? russian : en; }
+
+    private void setLanguage(String language) {
+        if (!"en".equals(language) && !"ru".equals(language)) return;
+        ru = "ru".equals(language);
+        getPreferences(0).edit().putBoolean("ru", ru).apply();
+    }
+
+    private static boolean isGameUrl(String url) {
+        if (url == null) return false;
+        Uri caller = Uri.parse(url);
+        Uri game = Uri.parse(BuildConfig.GAME_URL);
+        return "https".equals(caller.getScheme()) && game.getHost().equals(caller.getHost())
+                && caller.getPort() == game.getPort() && caller.getPath() != null
+                && caller.getPath().startsWith(game.getPath());
+    }
 
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
         ru = getPreferences(0).getBoolean("ru", java.util.Locale.getDefault().getLanguage().equals("ru"));
         backup = new LocalBackup(this);
+        updater = new ApkUpdater(this);
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -66,7 +88,7 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(Color.rgb(26, 26, 46));
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
-        settings.setUserAgentString(settings.getUserAgentString() + " CoffeeBackup/2 CoffeeHaptics/1 CoffeeAPK/" + BuildConfig.VERSION_NAME + "." + BuildConfig.VERSION_CODE);
+        settings.setUserAgentString(settings.getUserAgentString() + " CoffeeBackup/2 CoffeeHaptics/1 CoffeeUpdater/1 CoffeeAPK/" + BuildConfig.VERSION_NAME + "." + BuildConfig.VERSION_CODE);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
@@ -74,13 +96,17 @@ public class MainActivity extends Activity {
         web.setWebChromeClient(new android.webkit.WebChromeClient() {
             @Override public boolean onJsPrompt(WebView view, String url, String message, String value,
                     android.webkit.JsPromptResult result) {
-                if (!"coffee-haptics".equals(message) && !"coffee-backup".equals(message)) { result.cancel(); return true; }
-                Uri caller = Uri.parse(url);
-                Uri game = Uri.parse(BuildConfig.GAME_URL);
-                if (!"https".equals(caller.getScheme()) || !game.getHost().equals(caller.getHost())
-                        || caller.getPort() != game.getPort() || caller.getPath() == null
-                        || !caller.getPath().startsWith(game.getPath()) || !hasWindowFocus()) {
+                if (!"coffee-haptics".equals(message) && !"coffee-backup".equals(message)
+                        && !"coffee-apk-update".equals(message)) { result.cancel(); return true; }
+                if (!isGameUrl(url) || !hasWindowFocus()) {
                     result.confirm("rejected"); return true;
+                }
+                if ("coffee-apk-update".equals(message)) {
+                    if (!isGameUrl(view.getUrl())) { result.confirm("rejected"); return true; }
+                    result.confirm("accepted");
+                    setLanguage(value);
+                    updater.check(true);
+                    return true;
                 }
                 if ("coffee-backup".equals(message)) {
                     result.confirm("accepted");
@@ -205,12 +231,14 @@ public class MainActivity extends Activity {
             pendingBackupReplies.clear();
             for (Runnable reply : ready) reply.run();
         }
+        if (focused && updater != null) updater.onWindowFocused();
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == LocalBackup.REQUEST_ACCESS) backup.onAccessResult();
+        if (requestCode == ApkUpdater.REQUEST_INSTALL_ACCESS) updater.onInstallAccessResult();
     }
 
     @Override
@@ -257,6 +285,7 @@ public class MainActivity extends Activity {
         watchdog.removeCallbacks(timeout);
         watchdog.removeCallbacks(checkReady);
         if (backup != null) backup.close();
+        if (updater != null) updater.close();
         pendingBackupReplies.clear();
         if (web != null) { root.removeView(web); web.destroy(); }
         super.onDestroy();

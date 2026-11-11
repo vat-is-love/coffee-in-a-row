@@ -11,6 +11,18 @@ export function isAndroidApp(): boolean {
   return /CoffeeAPK\//.test(navigator.userAgent);
 }
 
+export function supportsApkUpdates(): boolean {
+  return isAndroidApp() && /\bCoffeeUpdater\/1\b/.test(navigator.userAgent);
+}
+
+export function checkApkUpdate(language: string): boolean {
+  try {
+    return window.prompt('coffee-apk-update', language) === 'accepted';
+  } catch {
+    return false;
+  }
+}
+
 /** Activate only a completely installed, integrity-checked build. Keep the old cache on failure. */
 export async function updateGame(): Promise<'current' | 'reloading'> {
   if (!navigator.onLine || !('serviceWorker' in navigator)) throw new Error('Update unavailable');

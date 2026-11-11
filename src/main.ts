@@ -10,6 +10,9 @@ import { BootScene } from '@game/scenes/BootScene';
 import { GameScene } from '@game/scenes/GameScene';
 import { FallingScene } from '@game/scenes/FallingScene';
 import { installSettings } from './ui/settings';
+import { version as appVersion } from '../package.json';
+
+document.documentElement.dataset.coffeeBuild = appVersion;
 
 // Game configuration
 const config: Types.Core.GameConfig = {

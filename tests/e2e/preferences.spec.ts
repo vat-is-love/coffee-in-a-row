@@ -69,3 +69,25 @@ test('update control is exclusive to APK and handles a failed check', async ({ p
   await expect(page.locator('[data-update-status]')).toHaveText('Update failed. Check your connection and try again.');
   await expect(page.getByRole('button', { name: 'Update game', exact: true })).toBeEnabled();
 });
+
+test('the Android update button starts both checks even if the web check fails', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', {
+      value: navigator.userAgent + ' CoffeeUpdater/1 CoffeeAPK/1.0.10'
+    });
+    Object.defineProperty(navigator, 'onLine', { value: false });
+    window.prompt = (message, value) => {
+      document.documentElement.dataset.updateRequest = `${message}:${value}`;
+      return 'accepted';
+    };
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: /Falling pieces/ }).click();
+  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
+  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  const button = page.getByRole('button', { name: 'Check for updates', exact: true });
+  await button.click();
+  await expect(page.locator('html')).toHaveAttribute('data-update-request', 'coffee-apk-update:en');
+  await expect(page.locator('[data-update-status]')).toHaveText('Could not update the game. Check your connection and try again.');
+  await expect(button).toBeEnabled();
+});
