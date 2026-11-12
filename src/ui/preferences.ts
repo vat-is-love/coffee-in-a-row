@@ -24,7 +24,7 @@ try {
   if (typeof saved.vibration === 'boolean') vibration = saved.vibration;
 } catch { /* Preferences are optional when storage is unavailable. */ }
 export function getPreferences() { return { language, vibration }; }
-export function getStartupPreferences() { return { mode, languageChosen }; }
+export function getStartupPreferences() { return { mode: mode === 'story' ? 'falling' : mode, languageChosen }; }
 export function getStoryCheckpoint(): number {
   if (pendingStoryCheckpoint !== undefined) return pendingStoryCheckpoint;
   try {

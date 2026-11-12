@@ -1,8 +1,15 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const STORY_ITEM = 6;
 const ROW_CLEAR_ITEM = 7;
 const scene = "(window.__GAME__?.scene.getScene('FallingScene'))";
+
+async function selectStory(page: Page) {
+  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  await expect(page.getByRole('radio', { name: /Falling pieces/ })).toBeChecked();
+  await page.getByRole('radio', { name: /Story mode/ }).check();
+  await page.getByRole('button', { name: 'Apply' }).click();
+}
 
 test('Story offers a retry after defeat, advances after each level and offers replay or another mode after victory', async ({ page }) => {
   test.setTimeout(60_000);
@@ -70,6 +77,9 @@ test('Story offers a retry after defeat, advances after each level and offers re
   await removePair(98);
   await expect(completed).toBeVisible();
   await page.reload();
+  await expect.poll(() => page.evaluate(`${scene}?.scoreText?.text`)).toContain('Score:');
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  await selectStory(page);
   const storyPicker = page.getByRole('dialog', { name: 'Story mode' });
   await storyPicker.getByRole('button', { name: 'Continue Level 4' }).click();
   for (const [index, colors] of [[3, 3], [4, 4], [5, 5]]) {
@@ -129,13 +139,10 @@ test('Story offers a retry after defeat, advances after each level and offers re
   await expect.poll(() => page.evaluate(`${scene}.scoreText.text`)).toContain('Score:');
   await page.reload();
   await expect.poll(() => page.evaluate(`${scene}?.scoreText?.text`)).toContain('Score:');
-  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
-  await expect(page.getByRole('radio', { name: /Falling pieces/ })).toBeChecked();
-  await page.getByRole('radio', { name: /Story mode/ }).check();
-  await page.getByRole('button', { name: 'Apply' }).click();
+  await selectStory(page);
   await expectLevel(0, 3);
   await page.reload();
-  await expectLevel(0, 3);
+  await expect.poll(() => page.evaluate(`${scene}?.scoreText?.text`)).toContain('Score:');
 });
 
 test('switching modes keeps the Story checkpoint until the player starts a new game', async ({ page }) => {
@@ -147,6 +154,9 @@ test('switching modes keeps the Story checkpoint until the player starts a new g
     }
   });
   await page.goto('/');
+  await expect.poll(() => page.evaluate(`${scene}?.scoreText?.text`)).toContain('Score:');
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  await selectStory(page);
   const storyPicker = page.getByRole('dialog', { name: 'Story mode' });
   await storyPicker.getByRole('button', { name: 'Continue Level 2' }).click();
   await expect.poll(() => page.evaluate(`${scene}?.levelIndex`)).toBe(1);
@@ -154,15 +164,15 @@ test('switching modes keeps the Story checkpoint until the player starts a new g
   await page.getByRole('radio', { name: /Falling pieces/ }).check();
   await page.getByRole('button', { name: 'Apply' }).click();
   await expect.poll(() => page.evaluate(`${scene}.scoreText.text`)).toContain('Score:');
-  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
-  await page.getByRole('radio', { name: /Story mode/ }).check();
-  await page.getByRole('button', { name: 'Apply' }).click();
+  await selectStory(page);
   await expect(storyPicker.getByRole('button', { name: 'Continue Level 2' })).toBeVisible();
   await storyPicker.getByRole('button', { name: 'New game' }).click();
   const firstLevel = () => expect.poll(() => page.evaluate(`[${scene}?.levelIndex, ${scene}?.scoreText?.text]`))
     .toEqual([0, 'Tiles cleared: 0 / 100']);
   await firstLevel();
   await page.reload();
+  await expect.poll(() => page.evaluate(`${scene}?.scoreText?.text`)).toContain('Score:');
+  await selectStory(page);
   await firstLevel();
 });
 
@@ -200,6 +210,7 @@ test('a settled tile flips into lightning during a drop and clears its whole row
     scene.state.grid.forEach(row => row.fill(-1));
     scene.state.grid[7] = [0, 1, 2, ${ROW_CLEAR_ITEM}, 0, 1, ${ROW_CLEAR_ITEM}, ${STORY_ITEM}];
     scene.state.grid[6][0] = 2;
+    scene.state.grid[6][7] = 2;
     scene.renderBoard();
     const [left, , , center, , , , right] = scene.board[7].map(tile => tile.sprite);
     const above = scene.board[6][0].sprite;
@@ -219,6 +230,7 @@ test('a settled tile flips into lightning during a drop and clears its whole row
   await page.mouse.click(point.x, point.y);
   await page.waitForFunction(`${scene}.rowClearUsed && !${scene}.isProcessing`);
   expect(await page.evaluate('window.lightningChecks')).toEqual({ wave: true, fell: true, fellTooSoon: false });
-  expect(await page.evaluate(`${scene}.state.grid[7]`)).toEqual([2, -1, -1, -1, -1, -1, -1, -1]);
+  expect(await page.evaluate(`${scene}.state.grid[7]`)).toEqual([-1, -1, -1, 2, 2, -1, -1, -1]);
+  expect(await page.evaluate(`${scene}.board[7].filter(Boolean).map(tile => tile.sprite.x)`)).toEqual([3 * 64 + 32, 4 * 64 + 32]);
   expect(await page.evaluate(`${scene}.state.delivered`)).toBe(0);
 });

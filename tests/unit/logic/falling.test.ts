@@ -64,7 +64,7 @@ describe('Falling rows', () => {
     expect(result.state.score).toBeGreaterThan(4 * 100);
   });
 
-  it('activates a row clearer by itself and drops survivors straight down across gaps', () => {
+  it('activates a row clearer by itself and joins groups across gaps after clearing the bottom row', () => {
     const state = empty();
     state.grid[7][3] = ROW_CLEAR_ITEM;
     expect(findGroup(state.grid, { row: 7, col: 3 })).toEqual([]);
@@ -73,12 +73,12 @@ describe('Falling rows', () => {
     state.grid[7][0] = 0;
     state.grid[7][7] = 1;
     state.grid[6][0] = 2;
-    state.grid[6][7] = 3;
+    state.grid[6][7] = 2;
     const result = clearAt(state, { row: 7, col: 3 });
     expect(result.removed).toEqual([0, 3, 7].map(col => ({ row: 7, col })));
-    expect(result.motions).toEqual([0, 7].map(col => ({ from: { row: 6, col }, to: { row: 7, col } })));
-    expect(result.state.grid[7]).toEqual([2, -1, -1, -1, -1, -1, -1, 3]);
-    expect(count(result.state)).toBe(2);
+    expect(result.motions).toEqual([0, 7].map((col, index) => ({ from: { row: 6, col }, to: { row: 7, col: 3 + index } })));
+    expect(result.state.grid[7]).toEqual([-1, -1, -1, 2, 2, -1, -1, -1]);
+    expect(clearAt(result.state, { row: 7, col: 3 }).removed).toHaveLength(2);
   });
 
   it('does not substitute an incoming tile when no normal tile was already on the board', () => {

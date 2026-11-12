@@ -277,7 +277,7 @@ M0 принят по результатам локальных проверок.
 
 ### Falling rows mode
 
-Open **Settings** in the game HUD to choose **Match three**, **Falling pieces**, or **Story mode**. Switching modes starts a fresh game; the selection is remembered on this device. Opening settings freezes the current game, and Cancel resumes it.
+Open **Settings** in the game HUD to choose **Match three**, **Falling pieces**, or **Story mode**. Opening settings freezes the current game, and Cancel resumes it. On the next launch, the game starts in the saved arcade mode. If you last played Story, it opens Falling pieces.
 
 Falling rows starts with the bottom three rows filled and four tile colors. Tap an orthogonally connected group of at least two matching tiles to remove it. Surviving tiles fall down, then nonempty columns gather in the center while retaining their order. Tiles spin around their vertical axis when removed. Rows arrive every 5 seconds initially; the interval decreases by 250 ms every 10 rows, stopping at 3.5 seconds after 60 rows. Each removal takes one tenth of the current row interval (500 ms initially, decreasing to 350 ms after 60 rows), including with reduced motion enabled. During resolution, the last tapped tile is buffered and its group is removed once the board settles; an expired row timer takes priority. A subtle, steady coffee-colored outline marks the pending group and follows its tiles as they move. Singletons receive no pending outline.
 
@@ -286,10 +286,10 @@ A full-size preview directly above the board builds the next row from left to ri
 **Story mode** drops a row every four seconds on all nine levels. **Drop next row** releases a row early. Each set uses three, four, then five colors:
 
 - Levels 1–3: clear 100 tiles per level.
-- Levels 4–6: clear 100 tiles per level and use the lightning tile at least once. While rows 7, 15, 23, and so on are falling, a regular tile already on the board flips into lightning. Tap it to clear every tile in its row, then the remaining tiles fall straight down.
+- Levels 4–6: clear 100 tiles per level and use the lightning tile at least once. While rows 7, 15, 23, and so on are falling, a regular tile already on the board flips into lightning. Tap it to clear every tile in its row, then the remaining tiles fall straight down. After clearing the bottom row, the remaining columns slide together toward the center.
 - Levels 7–9: get five cups to the bottom by clearing the tiles below them. Cups arrive in rows 5, 15, 25, and so on. Lightning appears on the same schedule as on levels 4–6. A cup in the cleared row is destroyed. A cup above it counts toward the goal if it falls to the bottom.
 
-Press **Continue** after each level, or **Retry level** if the board fills up. After the final level, you can replay the story or choose another mode. Reloading starts the story from level one.
+Press **Continue** after each level, or **Retry level** if the board fills up. After the final level, you can replay the story or choose another mode. To resume a saved story after reopening the game, choose **Story mode** in **Settings**, then **Continue**.
 
 The placeholder art is in `src/game/render/row-clear-item.svg` and `src/game/render/story-item.svg`.
 

@@ -355,6 +355,7 @@ export class FallingScene extends Scene {
     const deliveries = result.deliveries.map(({ from, to }) => ({ tile: this.board[from.row][from.col]!, to }));
     this.removingTiles = new Set([...removed, ...deliveries.map(({ tile }) => tile)]);
     const survivors = result.motions.map(({ from, to }) => ({ tile: this.board[from.row][from.col]!, to }));
+    const slide = !rowClear || survivors.some(({ tile, to }) => tile.col !== to.col);
     const { rows, cols } = this.level.board;
     const previewBoard = Array.from({ length: rows }, () => Array<TileView | null>(cols).fill(null));
     for (const { tile, to } of survivors) previewBoard[to.row][to.col] = tile;
@@ -369,10 +370,10 @@ export class FallingScene extends Scene {
       await this.spinAway(removed.map(tile => tile.sprite), turnMs * 0.48);
     }
     removed.forEach(tile => tile.sprite.destroy());
-    await Promise.all([...survivors, ...deliveries].map(({ tile, to }) => this.animate([tile.sprite], { y: to.row * 64 + 32 }, turnMs * (rowClear ? 0.48 : 0.28))));
+    await Promise.all([...survivors, ...deliveries].map(({ tile, to }) => this.animate([tile.sprite], { y: to.row * 64 + 32 }, turnMs * (slide ? 0.28 : 0.48))));
     const deliveredSprites = deliveries.map(({ tile }) => tile.sprite);
     await Promise.all([
-      ...(rowClear ? [] : survivors.map(({ tile, to }) => this.animate([tile.sprite], { x: to.col * 64 + 32 }, turnMs * 0.20))),
+      ...(slide ? survivors.map(({ tile, to }) => this.animate([tile.sprite], { x: to.col * 64 + 32 }, turnMs * 0.20)) : []),
       this.animate(deliveredSprites, { alpha: 0 }, turnMs * 0.20)
     ]);
     deliveredSprites.forEach(sprite => sprite.destroy());

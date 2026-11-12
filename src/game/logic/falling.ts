@@ -141,10 +141,10 @@ export function clearAt(state: FallingState, start: Position): {
 } {
   const removed = findRemoval(state.grid, start);
   if (!removed.length) return { state, removed: [], motions: [], deliveries: [] };
-  const rowClear = state.grid[start.row][start.col] === ROW_CLEAR_ITEM;
   const keys = new Set(removed.map(p => `${p.row},${p.col}`));
   const rows = state.grid.length;
   const cols = state.grid[0].length;
+  const keepColumns = state.grid[start.row][start.col] === ROW_CLEAR_ITEM && start.row !== rows - 1;
   const columns: Position[][] = [];
   const deliveries: TileMotion[] = [];
   for (let col = 0; col < cols; col++) {
@@ -162,7 +162,7 @@ export function clearAt(state: FallingState, start: Position): {
   const offset = Math.floor((cols - columns.length) / 2);
   const motions: TileMotion[] = [];
   columns.forEach((column, index) => column.forEach((from, i) => {
-    const to = { row: rows - column.length + i, col: rowClear ? from.col : offset + index };
+    const to = { row: rows - column.length + i, col: keepColumns ? from.col : offset + index };
     grid[to.row][to.col] = state.grid[from.row][from.col];
     motions.push({ from, to });
   }));

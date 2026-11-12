@@ -1,262 +1,262 @@
-# Coffee Match: Match-3 Demo — Project Specification & Roadmap
+# Coffee Match — демоверсия игры «три в ряд», спецификация проекта и дорожная карта
 
-> **Status:** Draft v1.0 · **Purpose:** single source of truth for implementation with Codex  
-> **Last updated:** 2026-11-06
-> **Product:** browser-based, mobile-friendly, coffee-themed Match-3 MVP with 10 levels and a public leaderboard.
+> **Статус** — черновик v1.0. **Назначение** — единый источник требований для реализации проекта с Codex.\
+> **Последнее обновление спецификации** — 2026-11-06
+> **Продукт** — минимальная версия браузерной игры «три в ряд» на кофейную тему с поддержкой мобильных устройств, десятью уровнями и публичной таблицей лидеров.
 
-## 0. Instructions for Codex (read this first)
+## 0. Инструкции для Codex (прочитать в первую очередь)
 
-This file is the authoritative specification and execution roadmap. Before making substantial changes:
+Этот файл содержит обязательные требования и порядок реализации. Перед существенными изменениями выполните следующие шаги.
 
-1. Read this file and inspect the existing repository. Do not assume the repository is empty.
-2. Select the **first unchecked milestone** whose dependencies are satisfied. Work on that milestone unless the developer explicitly specifies another.
-3. Briefly summarize the intended files/changes and any ambiguity. Prefer the simplest solution that meets the acceptance criteria.
-4. Implement in small, reviewable increments. Do not skip tests, error handling, or responsive behavior.
-5. Run relevant checks, fix failures, and report commands/results. Do not claim a test passed unless it ran.
-6. Update milestone checkboxes **only after** acceptance criteria are met, then add a short entry to the progress log (§17).
-7. If a requirement is unclear, record an assumption under §16 and flag it. Do not silently expand scope.
-8. Never implement secrets, the admin credential, leaderboard writes, or score verification as client-trusted operations.
-9. Keep game logic independent from rendering so it can be unit-tested without a browser.
-10. Make the repository runnable locally with documented commands throughout development.
+1. Прочитайте этот файл и изучите существующий репозиторий. Исходите из того, что часть работы уже могла быть выполнена.
+2. Выберите **первый незавершённый этап**, для которого выполнены все зависимости. Работайте над ним, если разработчик явно не указал другой этап.
+3. Кратко опишите, какие файлы собираетесь изменить и где есть неоднозначность. Выбирайте самое простое решение, которое удовлетворяет критериям приёмки.
+4. Вносите небольшие изменения, которые удобно проверять. Учитывайте тесты, обработку ошибок и адаптивность интерфейса.
+5. Запустите подходящие проверки, исправьте выявленные ошибки и укажите команды и результаты. Сообщайте об успешном прохождении только для запущенных тестов.
+6. Отмечайте задачи этапа выполненными **только после выполнения критериев приёмки**, затем добавляйте короткую запись в журнал (§17).
+7. Если требование неоднозначно, укажите принятое допущение в §16 и обратите на него внимание. Согласовывайте расширение объёма работ.
+8. Секреты, учётные данные администратора, запись в таблицу лидеров и проверка результатов должны оставаться под контролем сервера.
+9. Отделяйте игровую логику от отрисовки, чтобы её можно было проверять модульными тестами без браузера.
+10. На протяжении всей разработки поддерживайте возможность запустить проект локально по документированным командам.
 
-**Instruction priority:** explicit developer request > this specification > code conventions already in the repository. If they conflict, describe the conflict and propose a resolution before rewriting large portions of code.
+**Порядок приоритета инструкций** — явный запрос разработчика, затем эта спецификация, затем сложившиеся в репозитории соглашения. При конфликте опишите его и предложите решение до масштабных изменений.
 
-## 1. Product goals
+## 1. Цели продукта
 
-### 1.1 Overview
+### 1.1 Обзор
 
-Coffee Match is an independent coffee-themed puzzle demo. The planned snowstorm mode features a fictional traveler trapped in a Canadian snowstorm. Players complete tile-matching puzzles to clear snow and help the traveler survive. The game is an engagement widget for an existing website, **not** a full-scale commercial mobile game.
+Coffee Match — самостоятельная демоверсия головоломки на кофейную тему. В запланированном режиме со снежной бурей вымышленный путешественник попадает в метель в Канаде. Игрок решает головоломки с фишками, расчищает снег и помогает путешественнику выжить. Игра рассчитана на встраивание в существующий сайт для вовлечения посетителей. Полноценная коммерческая мобильная игра выходит за рамки проекта.
 
-### 1.2 MVP success criteria
+### 1.2 Критерии успеха MVP
 
-- A player can open the game on modern desktop or mobile browsers and finish all **10 playable levels**.
-- Every level has a defined, understandable win/lose condition and increasing *overall* difficulty.
-- Gameplay is based on exchanging adjacent tiles to create horizontal/vertical matches of three or more; snow is an explicit obstacle/objective.
-- The game includes a level map, victory/defeat screens, local progression persistence, scoring, and a public Top-100 leaderboard.
-- A player can submit a nickname, optionally an email address, and a valid score; the backend stores only the player's best qualifying score per leaderboard period.
-- The leaderboard supports weekly resets and authorized manual administrative resets.
-- The build can be embedded in an existing website and deployed as a static frontend plus managed backend.
-- The developer can reproduce build, tests, and deployment steps from documentation.
+- Игрок может открыть игру в современном настольном или мобильном браузере и пройти все **10 игровых уровней**.
+- У каждого уровня понятные условия победы и поражения. Сложность в целом растёт от уровня к уровню.
+- Игрок меняет соседние фишки местами, чтобы составить горизонтальные и вертикальные ряды из трёх и более одинаковых фишек. Снег служит препятствием и целью уровня.
+- В игре есть карта уровней, экраны победы и поражения, локальное сохранение прогресса, подсчёт очков и публичная таблица ста лучших результатов.
+- Игрок может отправить псевдоним, действительный результат и, по желанию, адрес электронной почты. Сервер хранит только лучший результат игрока, допущенный к рейтингу за соответствующий период.
+- Таблица лидеров поддерживает еженедельный сброс и ручной сброс уполномоченным администратором.
+- Сборку можно встроить в существующий сайт и развернуть в виде статического клиентского приложения и управляемого серверного сервиса.
+- Разработчик может воспроизвести сборку, тестирование и развёртывание по документации.
 
-### 1.3 Non-goals (not part of MVP)
+### 1.3 Что не входит в MVP
 
-No in-app purchases, ads, accounts/passwords, social login, matchmaking, online multiplayer, chat, push notifications, energy/lives economy, app-store releases, sophisticated 3D effects, paid analytics, or a feature-for-feature Royal Match clone. Do not use Royal Match assets, branding, or proprietary level designs.
+За рамками проекта остаются покупки в приложении, реклама, учётные записи и пароли, вход через соцсети, подбор игроков, сетевой многопользовательский режим, чат, push-уведомления, системы энергии и жизней, публикация в магазинах приложений, сложные трёхмерные эффекты, платная аналитика и полное копирование возможностей Royal Match. Используйте собственные или лицензированные материалы, брендинг и схемы уровней без заимствования из Royal Match.
 
-## 2. Scope and decisions
+## 2. Объём работ и принятые решения
 
-| Item | MVP decision |
+| Параметр | Решение для MVP |
 |---|---|
-| Gameplay engine | **Phaser 3**, **TypeScript**, **Vite** |
-| Backend | **Supabase** (PostgreSQL, Edge Functions or equivalent secure server endpoints) |
-| Hosting | Static assets on a CDN/website; backend independently hosted |
-| Display | Responsive portrait-first game; desktop centered with adaptive canvas |
-| Controls | Pointer/touch swipe **and** tap-first/tap-second swapping; keyboard accessible for core actions where practical |
-| Levels | Exactly 10, data-driven configurations |
-| Board | Default 8×8; may vary per level via config |
-| Board rules | Orthogonal adjacency and matches; no diagonal matching |
-| Leaderboard | Global Top 100 **within current week**; score = **total points earned during a successful 10-level run** |
-| Play sessions | One run spans levels 1–10; scores accrue across levels; run completes after level 10 |
-| Score submission | Only a completed run qualifies; best score per nickname identity per week; backend validates run evidence |
-| Weekly reset | Monday 00:00 **UTC**; new period displayed, historical scores retained or archived |
-| Email | Optional, not public, never shown in leaderboard |
-| Admin | Secure manual reset/current period management via authenticated server-side action |
-| Languages | English UI for MVP; centralize strings for later localization |
-| Character art | Client-supplied if available; placeholders until approved assets arrive |
+| Игровой движок | **Phaser 3**, **TypeScript**, **Vite** |
+| Серверная часть | **Supabase** (PostgreSQL, Edge Functions или аналогичные защищённые серверные точки доступа) |
+| Хостинг | Статические файлы на CDN или сайте, серверная часть размещается отдельно |
+| Отображение | Адаптивная вёрстка с приоритетом портретной ориентации. На компьютере игровая область центрируется, размер холста подстраивается |
+| Управление | Обмен фишек жестом мыши или пальца **и** последовательным выбором двух фишек. Основные действия доступны с клавиатуры, где это практически осуществимо |
+| Уровни | Ровно 10, задаются файлами конфигурации |
+| Поле | По умолчанию 8×8. Размер можно задать отдельно для каждого уровня |
+| Правила поля | Соседство и совпадения по горизонтали и вертикали, без диагоналей |
+| Таблица лидеров | Общий список ста лучших за **текущую неделю**. Результат — **сумма очков за успешное прохождение всех десяти уровней** |
+| Прохождения | Одно прохождение охватывает уровни с 1-го по 10-й. Очки суммируются, прохождение завершается после десятого уровня |
+| Отправка результата | Допускаются завершённые прохождения. Сервер проверяет данные прохождения и сохраняет лучший результат за неделю для каждого идентификатора игрока |
+| Еженедельный сброс | В понедельник в 00:00 **UTC**. Отображается новый период, прежние результаты сохраняются или архивируются |
+| Электронная почта | Необязательна, хранится конфиденциально и не отображается в таблице лидеров |
+| Администрирование | Защищённый ручной сброс и управление текущим периодом через серверное действие с проверкой полномочий |
+| Языки | Англоязычный интерфейс для MVP. Строки собраны в одном месте для последующей локализации |
+| Изображения персонажа | Предоставляет заказчик при наличии. До получения утверждённых материалов используются временные изображения |
 
-**Decisions requiring client confirmation before production launch** are in §15. Until confirmed, implement the defaults above and avoid tightly coupling their behavior to rendering.
+**Решения, которые заказчик должен подтвердить до запуска**, перечислены в §15. До подтверждения используйте указанные выше значения и не связывайте эти правила жёстко с отрисовкой.
 
-## 3. Player experience / screens
+## 3. Пользовательские сценарии и экраны
 
-1. **Loading:** show progress/error state while assets load; usable fallback when audio unavailable.
-2. **Start screen:** game title, Play, How to Play, Leaderboard, sound toggle.
-3. **Level map:** 10 clearly labeled nodes; completed/current/locked states; play current level, replay completed levels for practice **without altering the active ranked run**.
-4. **Gameplay HUD:** current level, score, remaining moves, snow remaining, audio toggle, pause/restart with confirmation where necessary.
-5. **Board:** coffee cup/bean themed tile variants, snow overlay/blocker representation, visual indication of selected tile, clear action feedback.
-6. **Victory:** objective met, points gained, Continue button; after level 10 show run-completed screen and score submission option.
-7. **Defeat:** moves exhausted with objective incomplete; Retry. A failed level can be retried within the current run, but leaderboard scoring must discourage unlimited farming (see §5.5).
-8. **Leaderboard:** current UTC week, Top 100 scores and nicknames, loading/empty/error states; form for run-qualified submission.
-9. **Instructions:** explain swapping, matching, snow clearing, moves, combo cascades, and score.
+1. **Загрузка.** Пока загружаются ресурсы, показывать ход загрузки или сообщение об ошибке. При недоступности звука предусмотреть рабочий вариант без него.
+2. **Стартовый экран.** Название игры, кнопки «Играть», «Как играть», «Таблица лидеров» и переключатель звука.
+3. **Карта уровней.** Десять подписанных уровней с состояниями «пройден», «текущий» и «заблокирован». Можно играть в текущий уровень и повторять пройденные для тренировки **без изменения текущего рейтингового прохождения**.
+4. **Игровая панель.** Текущий уровень, очки, оставшиеся ходы и снег, переключатель звука, пауза и перезапуск с подтверждением там, где оно необходимо.
+5. **Поле.** Фишки в виде кофейных чашек и зёрен, визуальное обозначение снега и препятствий, подсветка выбранной фишки и понятный отклик на действия.
+6. **Победа.** Показать выполнение цели, заработанные очки и кнопку «Продолжить». После десятого уровня показать экран завершения прохождения с возможностью отправить результат.
+7. **Поражение.** Если ходы закончились до выполнения цели, предложить повторить уровень. Повтор возможен в рамках текущего прохождения. Правила рейтинга должны исключать бесконечное накопление очков на повторных попытках (см. §5.5).
+8. **Таблица лидеров.** Сто лучших результатов и псевдонимов за текущую неделю по UTC, состояния загрузки, пустого списка и ошибки, форма отправки результата завершённого прохождения.
+9. **Инструкции.** Объяснить обмен фишек, совпадения, очистку снега, ходы, каскады и подсчёт очков.
 
-All screens must work with mouse and touch; do not rely on hover-only interactions. The core game should remain operable at 320 CSS px width without page-level horizontal scrolling.
+Все экраны должны поддерживать мышь и сенсорный ввод. Взаимодействия должны быть доступны и без наведения указателя. На ширине 320 CSS-пикселей основные игровые действия должны работать без горизонтальной прокрутки страницы.
 
-## 4. Match-3 game rules (normative)
+## 4. Обязательные правила игры «три в ряд»
 
-### 4.1 Board model
+### 4.1 Модель поля
 
-- Rectangular grid; each cell has coordinates `(row, col)`, a tile type (or empty), and optional snow layers (0–2).
-- At least five visually distinguishable coffee-themed tile types in the initial configuration; per-level configuration may increase the number.
-- Tiles may swap with orthogonally adjacent tiles only.
-- A move **succeeds** only when the swap creates at least one 3+ line involving a swapped tile; otherwise swap back with animation and **do not** consume a move.
-- Locked states prevent overlapping swaps during resolution/animations.
-- Initial board must have **no accidental matches** and at least one legal move. Generate deterministically from a provided RNG seed for repeatable tests.
-- After each fully resolved move, if the board has no legal moves, reshuffle while preserving snow and guaranteeing a playable, match-free board; show reshuffle feedback.
+- Прямоугольная сетка. У каждой ячейки есть координаты `(row, col)`, тип фишки или признак пустой ячейки и от нуля до двух слоёв снега.
+- В начальной конфигурации предусмотрено минимум пять визуально различимых типов фишек на кофейную тему. Настройки уровня могут увеличивать их число.
+- Обменивать можно только фишки, соседние по горизонтали или вертикали.
+- Ход **засчитывается**, если обмен создаёт хотя бы один ряд из трёх или более одинаковых фишек с участием одной из обменянных фишек. Иначе фишки с анимацией возвращаются на прежние места, ход не расходуется.
+- На время обработки и анимаций поле блокируется, чтобы обмены не накладывались друг на друга.
+- На начальном поле **нет готовых совпадений** и есть хотя бы один допустимый ход. Генерация должна быть детерминированной по заданному начальному значению генератора случайных чисел (ГСЧ), чтобы тесты можно было воспроизводить.
+- Если после полной обработки хода допустимых ходов нет, перемешайте фишки. Сохраните снег, обеспечьте хотя бы один допустимый ход и отсутствие готовых совпадений. Покажите перемешивание игроку.
 
-### 4.2 Match resolution
+### 4.2 Обработка совпадений
 
-1. Player selects/swaps adjacent tiles.
-2. Validate resulting line(s) of 3+ identical tile types. Invalid swap is reverted.
-3. Consume one move for a valid swap.
-4. Clear all matched tiles simultaneously. Count overlapping horizontal/vertical matches only once per tile.
-5. Decrement snow layers by one on cleared matched cells (if present).
-6. Apply gravity by column, generate replacement tiles, animate movement.
-7. Resolve cascades repeatedly until stable, granting score and snow damage for each cascade.
-8. Check level objective, then remaining moves, then possible moves. If objective is met on the final move, **victory takes precedence**.
-9. Unlock the board only when resolution and final animations finish.
+1. Игрок выбирает соседние фишки и меняет их местами.
+2. Проверьте, образовался ли ряд из трёх или более фишек одного типа. Недопустимый обмен отменяется.
+3. Спишите один ход за допустимый обмен.
+4. Одновременно удалите все совпавшие фишки. В пересечениях горизонтальных и вертикальных рядов учитывайте каждую фишку один раз.
+5. Уменьшите на один число слоёв снега в каждой ячейке, где удалена совпавшая фишка и был снег.
+6. Примените гравитацию по столбцам, сгенерируйте новые фишки и анимируйте движение.
+7. Обрабатывайте каскады, пока поле не стабилизируется. За каждый каскад начисляйте очки и снимайте соответствующие слои снега.
+8. Проверьте цель уровня, затем остаток ходов, затем наличие допустимых ходов. Если цель достигнута последним ходом, **победа имеет приоритет**.
+9. Разблокируйте поле только после завершения обработки и последних анимаций.
 
-### 4.3 Snow mechanics
+### 4.3 Механика снега
 
-- Snow is a **cell overlay** with 1–2 layers; tiles can occupy snowy cells.
-- Clearing a tile in a snowy cell removes **one layer** from that cell. Snow does not fall with the tile.
-- Completing a snow-clearing level requires all configured snow layers to be removed before valid moves are exhausted.
-- Snow changes appearance to make remaining layers obvious. All snow removal events must be testable from the pure board model.
+- Снег — **покрытие ячейки** в один или два слоя. Фишка может находиться в заснеженной ячейке.
+- Удаление фишки в заснеженной ячейке снимает с неё **один слой**. Снег остаётся привязанным к ячейке при падении фишек.
+- Для прохождения уровня с очисткой снега нужно снять все заданные слои до исчерпания ходов.
+- Внешний вид снега должен ясно показывать, сколько слоёв осталось. Все случаи удаления снега должны проверяться на модели поля без отрисовки.
 
-### 4.4 Scoring
+### 4.4 Подсчёт очков
 
-Provisional formula (centralized constants, tweakable):
+Предварительная формула использует централизованные настраиваемые константы.
 
-- Each tile cleared: **100 points**.
-- Matching 4+ in one line: **+50 points** per tile beyond 3 for that line (avoid double-counting intersections).
-- Snow layer removed: **+150 points**.
-- Cascades: multiply tile-clear points by cascade depth, capped at ×3.
-- Level completion: **+100 points per remaining move**.
-- UI score must match model score; no hidden random points.
+- За каждую удалённую фишку — **100 очков**.
+- За ряд из четырёх и более одинаковых фишек — **ещё 50 очков** за каждую фишку сверх трёх. В пересечениях рядов избегайте двойного начисления.
+- За снятый слой снега — **ещё 150 очков**.
+- Очки за удаление фишек в каскаде умножаются на глубину каскада, максимум на 3.
+- За прохождение уровня — **ещё 100 очков за каждый оставшийся ход**.
+- Счёт в интерфейсе должен совпадать со счётом модели. Все начисления определяются формулой.
 
-Score balancing is subject to playtesting. Ensure consistency between local display and backend validation.
+Баланс очков уточняется по результатам игровых тестов. Локальное отображение результата и серверная проверка должны использовать согласованные правила.
 
-### 4.5 Moves, retries, and rankings
+### 4.5 Ходы, повторные попытки и рейтинг
 
-- Each level sets its own move cap and snow pattern.
-- A failed attempt may be retried; **points from a failed attempt are discarded**. The last successful completion of each level is applied only once to the active run's score.
-- Replaying previously completed levels is **practice mode** and must not alter the run score.
-- The ranked run is complete after successful completion of level 10. Submitted score is the sum of each level's successful result, once.
-- A user may start a new run to improve their score; the backend keeps their top validated score within a week.
-- Local progression is for convenience, **not proof** of a valid leaderboard score.
+- Для каждого уровня задаются собственные лимит ходов и схема снега.
+- После поражения уровень можно повторить. **Очки за неудачную попытку сбрасываются.** Результат последнего успешного прохождения каждого уровня учитывается в текущем прохождении один раз.
+- Повтор уже пройденных уровней считается **тренировкой** и не меняет результат прохождения.
+- Рейтинговое прохождение завершается после успешного прохождения десятого уровня. В отправляемый результат входит по одному успешному результату за каждый уровень.
+- Игрок может начать новое прохождение для улучшения результата. Сервер хранит его лучший проверенный результат за неделю.
+- Локальный прогресс сохраняется для удобства игрока. Результат для таблицы лидеров требует отдельного подтверждения.
 
-### 4.6 Deterministic resolution
+### 4.6 Детерминированная обработка ходов
 
-The logic layer must provide predictable state transitions with an injected RNG seed/source. Define a compact input/event representation that permits server-side verification of runs (level, seed, attempted moves, results). Do not accept the client's final numeric score without independent validation. If server replay of all moves is impractical within MVP resources, implement a server-issued run token and server-side move verification; never pretend that client-only checks prevent cheating.
+Игровая логика должна предсказуемо менять состояние при заданном начальном значении или источнике случайных чисел. Определите компактный формат входных данных и событий для серверной проверки прохождения. Включите уровень, начальное значение ГСЧ, попытки ходов и их результаты. Итоговый счёт от клиента требует независимой проверки. Если воспроизведение всех ходов на сервере не укладывается в ресурсы MVP, используйте выдаваемый сервером токен прохождения и проверяйте ходы на сервере. Проверка только на клиенте не обеспечивает защиту от подделки результатов.
 
-## 5. Level design
+## 5. Проектирование уровней
 
-### 5.1 Configuration schema
+### 5.1 Схема конфигурации
 
-Each level file contains, at minimum:
+В каждом файле уровня должны быть как минимум следующие поля.
 
 ```ts
 interface LevelConfig {
   id: number;                    // 1..10
   rows: number;
   cols: number;
-  tileTypes: number;             // count of available tile types
+  tileTypes: number;             // количество доступных типов фишек
   maxMoves: number;
   snow: Array<{row: number; col: number; layers: 1 | 2}>;
   goal: {type: 'clear_all_snow'};
-  seed?: number;                 // optional for development fixtures
+  seed?: number;                 // необязательно, для тестовых данных при разработке
 }
 ```
 
-Validate all level files during build/test: unique IDs, sequential 1..10, coordinates in bounds, no duplicate snow cells, positive move limits, sensible tileTypes, feasible snow coverage.
+Проверяйте конфигурации всех уровней при сборке или тестировании. Идентификаторы должны быть уникальными и идти от 1 до 10 без пропусков. Проверяйте границы координат, отсутствие повторяющихся заснеженных ячеек, положительные лимиты ходов, разумное значение `tileTypes` и возможность убрать заданное покрытие снегом.
 
-### 5.2 Initial tuning blueprint (NOT final balancing)
+### 5.2 Предварительные параметры сложности
 
-| Level | Tile types | Max moves | Suggested snow layers / pattern | Teaching objective |
+| Уровень | Типы фишек | Лимит ходов | Предлагаемая схема снега | Чему учит уровень |
 |---:|---:|---:|---|---|
-| 1 | 5 | 28 | 6 single-layer, central | Learn matching |
-| 2 | 5 | 27 | 10 single-layer, edges | Reach targets |
-| 3 | 5 | 25 | 14 single-layer, corners | Plan swaps |
-| 4 | 5 | 25 | 12 single + 3 double | Introduce double snow |
-| 5 | 6 | 25 | 16 single + 3 double | More tile variety |
-| 6 | 6 | 24 | 18 single + 4 double | Cascades |
-| 7 | 6 | 23 | 20 single + 5 double | Efficiency |
-| 8 | 6 | 22 | 20 single + 7 double | Difficult patterns |
-| 9 | 6 | 21 | 22 single + 8 double | Tight move economy |
-| 10 | 6 | 20 | 24 single + 10 double | Final challenge |
+| 1 | 5 | 28 | 6 ячеек с одним слоем в центре | Составлять ряды |
+| 2 | 5 | 27 | 10 ячеек с одним слоем по краям | Добраться до целевых ячеек |
+| 3 | 5 | 25 | 14 ячеек с одним слоем по углам | Планировать обмены |
+| 4 | 5 | 25 | 12 ячеек с одним слоем и 3 с двумя | Убирать снег в два слоя |
+| 5 | 6 | 25 | 16 ячеек с одним слоем и 3 с двумя | Играть с большим числом типов фишек |
+| 6 | 6 | 24 | 18 ячеек с одним слоем и 4 с двумя | Создавать каскады |
+| 7 | 6 | 23 | 20 ячеек с одним слоем и 5 с двумя | Использовать ходы эффективнее |
+| 8 | 6 | 22 | 20 ячеек с одним слоем и 7 с двумя | Разбирать сложные схемы снега |
+| 9 | 6 | 21 | 22 ячейки с одним слоем и 8 с двумя | Укладываться в строгий лимит ходов |
+| 10 | 6 | 20 | 24 ячейки с одним слоем и 10 с двумя | Пройти заключительное испытание |
 
-These are **starting values only**. Implement the exact snow coordinates in JSON; verify the generated games are winnable with a reasonable success rate using automated simulations and hands-on playtesting. Difficulty should generally grow, not necessarily monotonically in every numeric parameter. Avoid levels that are routinely impossible because of RNG.
+Это **исходные значения для настройки**. Задайте точные координаты снега в JSON. Проверьте автоматическими симуляциями и ручными игровыми тестами, что уровни можно пройти с разумной долей успешных попыток. Сложность должна расти в целом. Отдельные числовые параметры могут меняться в любом направлении. Избегайте уровней, которые регулярно становятся непроходимыми из-за генерации случайных чисел.
 
-## 6. Visuals, animation, and sound
+## 6. Графика, анимация и звук
 
-- Brand tone: friendly cartoon, coffee and winter; visually distinct from Royal Match branding.
-- Character: **a fictional traveler**, original or appropriately licensed art preferred; temporary placeholder must be easily replaceable.
-- Tile assets: at least 5–6 clear coffee-themed symbols with shapes distinguishable without relying only on color.
-- Feedback: select highlight, swap, invalid-swap bounce, match pop, tile fall, snow crack/break, combo, win/lose.
-- Animation targets: responsive rather than elaborate; do not block the board unnecessarily.
-- Sound: tile swap, match, snow removal, win, lose; mute toggle; do not autoplay audible sound before user gesture.
-- Respect `prefers-reduced-motion` where feasible (shortened/minimal effects).
-- Asset catalog documents filenames, dimensions, licensing/ownership, and replacement instructions.
-- The app must remain playable with simple placeholder graphics throughout development.
+- Доброжелательная мультяшная стилистика на тему кофе и зимы, визуально отличимая от Royal Match.
+- Персонаж — **вымышленный путешественник**. Предпочтительны оригинальные или надлежащим образом лицензированные изображения. Временное изображение должно легко заменяться.
+- Не менее пяти-шести чётких кофейных символов для фишек. Их формы должны различаться без опоры только на цвет.
+- Визуальный отклик на выбор и обмен фишек, отмену обмена, удаление совпадений, падение фишек, растрескивание и разрушение снега, комбинации, победу и поражение.
+- Короткие анимации с быстрым откликом. Поле блокируется только на необходимое время.
+- Звуки обмена, совпадения, очистки снега, победы и поражения. Предусмотрите отключение звука и начинайте воспроизведение только после действия пользователя.
+- По возможности учитывайте `prefers-reduced-motion`, сокращая или упрощая эффекты.
+- В каталоге ресурсов укажите имена файлов, размеры, лицензии или правообладателей и инструкции по замене.
+- На всех этапах разработки игра должна работать с простой временной графикой.
 
-## 7. Leaderboard, backend, privacy, security
+## 7. Таблица лидеров, серверная часть, приватность и безопасность
 
-### 7.1 User stories
+### 7.1 Пользовательские сценарии
 
-- Player sees the top 100 eligible completed-run scores for the **current UTC week**.
-- Player enters a nickname, optionally an email, and submits their completed run.
-- A repeated qualifying submission from the same player identity updates their entry **only if the score is higher**.
-- An authorized administrator can manually start a new leaderboard period / reset the active ranking.
-- Weekly rollover automatically switches periods without deleting historical records.
+- Игрок видит сто лучших результатов завершённых прохождений, допущенных к рейтингу за **текущую неделю по UTC**.
+- Игрок вводит псевдоним, при желании указывает электронную почту и отправляет результат завершённого прохождения.
+- Повторная отправка результата, допущенного к рейтингу, с тем же идентификатором игрока обновляет запись **только при улучшении результата**.
+- Уполномоченный администратор может вручную начать новый период и сбросить текущий рейтинг.
+- При еженедельной смене периода таблица автоматически переключается на новый период и сохраняет исторические записи.
 
-### 7.2 Suggested server entities
+### 7.2 Предлагаемые серверные сущности
 
-- `leaderboard_periods`: `id`, `starts_at`, `ends_at`, `status` (active/closed), `created_at`.
-- `run_sessions`: `id`, opaque server-issued run token hash, creation/expiry, game version, verification state, replay data or validated events, `completed_at`.
-- `leaderboard_entries`: `id`, `period_id`, stable anonymous `player_id`, `nickname`, nullable `email`, `score`, `run_session_id`, `created_at`, `updated_at`.
-- Optional `admin_audit_log`: timestamp, actor, action, period ID.
+- `leaderboard_periods` — `id`, `starts_at`, `ends_at`, `status` (активный или закрытый), `created_at`.
+- `run_sessions` — `id`, хеш непрозрачного токена прохождения, выданного сервером, время создания и истечения срока, версия игры, статус проверки, данные для воспроизведения или проверенные события, `completed_at`.
+- `leaderboard_entries` — `id`, `period_id`, стабильный анонимный идентификатор `player_id`, `nickname`, необязательный `email`, `score`, `run_session_id`, `created_at`, `updated_at`.
+- Необязательный `admin_audit_log` — время, исполнитель, действие и идентификатор периода.
 
-Use an index and uniqueness constraint on `(period_id, player_id)`; order results by score descending, then earliest qualification time as tie-breaker. An email, when present, is not a public ID. Generate a stable pseudonymous player ID; clarify client expectations around repeat submissions across devices.
+Создайте индекс и ограничение уникальности для `(period_id, player_id)`. Сортируйте результаты по убыванию очков. При равных очках выше ставьте результат, который раньше прошёл проверку для рейтинга. Электронная почта, если она указана, остаётся закрытой. Сгенерируйте стабильный псевдонимный идентификатор игрока и уточните у заказчика ожидаемое поведение при повторных отправках с разных устройств.
 
-### 7.3 Mandatory security behaviors
+### 7.3 Обязательные требования безопасности
 
-- **Never trust numeric score from browser as authoritative.** Issue server-controlled seeds/run session identifiers and verify full run transcript, or server-authorize each move and compute the score. Client-provided nickname/email is untrusted input.
-- Protect submission endpoints with input validation, request/body-size limits, per-IP or per-session rate limits, and session expiry.
-- Nickname: 2–24 visible characters, normalize/trim, escape output; prohibit empty/control characters. Display as plain text, never HTML.
-- Email: optional; validate format and reasonable length. Store privately, never return to public leaderboard payloads or logs; collect consent/notice where applicable.
-- Public API returns only nickname, score, rank, and time/period as needed.
-- Disable anonymous writes to leaderboard tables. All writes go through verified server logic (RLS + server functions / trusted API).
-- Admin actions require authenticated authorization on server and auditable events. No hardcoded/admin password in the frontend.
-- Use environment variables for secrets; provide `.env.example` with dummy values; `.env` and credentials must be Git-ignored.
-- Use sensible CORS/origin controls, TLS in production, and secure headers at the hosting layer.
-- Preserve history instead of destructive weekly deletes unless client explicitly requests physical deletion.
+- **Проверяйте итоговый счёт на сервере независимо от данных браузера.** Выдавайте начальные значения ГСЧ и идентификаторы прохождений на сервере и проверяйте полную запись прохождения. Другой допустимый вариант — подтверждать каждый ход и рассчитывать счёт на сервере. Псевдоним и адрес электронной почты от клиента считайте недоверенными данными.
+- Для точек доступа отправки результатов проверяйте входные данные, ограничивайте размеры запросов и их тел, задавайте лимиты частоты по IP-адресу или сеансу и срок действия сеанса.
+- В псевдониме допускаются от 2 до 24 видимых символов. Нормализуйте строку, обрезайте пробелы по краям, исключайте пустые значения и управляющие символы. Экранируйте вывод и отображайте псевдоним обычным текстом.
+- Электронная почта необязательна. Проверяйте формат и разумное ограничение длины. Храните её конфиденциально, исключите из публичных ответов таблицы лидеров и журналов. При необходимости предоставляйте уведомление и запрашивайте согласие.
+- Публичный API возвращает только псевдоним, очки, место и, по необходимости, время или период.
+- Запретите анонимную запись в таблицы рейтинга. Все записи проходят через серверную проверку с контролем доступа на уровне строк (RLS) и серверными функциями либо доверенным API.
+- Для административных действий проверяйте личность и полномочия на сервере, регистрируйте события для аудита. Учётные данные администратора храните вне клиентского кода.
+- Храните секреты в переменных окружения. Добавьте `.env.example` с фиктивными значениями, исключите `.env` и учётные данные из Git.
+- Настройте CORS и ограничения источников запросов, TLS в рабочей среде и защитные заголовки на уровне хостинга.
+- При еженедельном сбросе сохраняйте историю. Физическое удаление записей допускается только по явному запросу заказчика.
 
-### 7.4 Rollover behavior
+### 7.4 Смена периода
 
-- Periods begin Monday 00:00:00 UTC and end the following Monday 00:00:00 UTC (end exclusive).
-- The API calculates the active period on the server; client clocks do not decide eligibility.
-- Automatic weekly reset means showing a new period, not requiring a manually scheduled destructive DELETE.
-- Admin reset creates/closes periods in an auditable, race-safe manner.
-- Specify behavior for runs crossing the week boundary: **submission is assigned to period active at completed-run server verification**; expired runs cannot be submitted to a new period.
+- Период начинается в понедельник в 00:00:00 UTC и длится до следующего понедельника, 00:00:00 UTC. Момент окончания в период не входит.
+- Активный период и допуск результата определяются по времени сервера.
+- Еженедельный автоматический сброс переключает отображение на новый период и обходится без запланированного вручную удаления записей через `DELETE`.
+- Ручной сброс создаёт или закрывает периоды с записью в журнал аудита и защитой от конфликтов при одновременных запросах.
+- Для прохождения, которое началось в одну неделю и завершилось в другую, результат относится **к периоду, активному в момент серверной проверки завершённого прохождения**. Прохождение с истёкшим сроком действия нельзя отправить в новый период.
 
-### 7.5 Privacy
+### 7.5 Приватность
 
-- Clearly label email as optional; no email is needed to play.
-- Do not publish emails or collect unnecessary personal information.
-- Add concise privacy notice explaining data use and retention before email submission.
-- Confirm any jurisdiction-specific consent/retention requirements with client before launch.
+- Явно отметьте, что электронная почта необязательна. Играть можно без неё.
+- Сохраняйте электронные адреса в тайне и собирайте только необходимые персональные данные.
+- Перед отправкой адреса покажите короткое уведомление о том, как данные используются и сколько хранятся.
+- До запуска уточните у заказчика требования конкретной юрисдикции к согласию и срокам хранения.
 
-## 8. Technical architecture and code layout
+## 8. Техническая архитектура и структура кода
 
-Suggested (adapt if repository already has conventions):
+Рекомендуемая структура с учётом уже принятых в репозитории соглашений.
 
 ```text
 /
-├── PROJECT_SPEC.md                # THIS FILE
-├── README.md                      # quickstart, commands, deploy, embedding
+├── PROJECT_SPEC.md                # этот файл
+├── README.md                      # быстрый старт, команды, развёртывание и встраивание
 ├── .env.example
 ├── package.json
 ├── src/
 │   ├── main.ts
 │   ├── game/
-│   │   ├── logic/                  # pure board algorithms, RNG, scoring
-│   │   ├── levels/                 # 10 data-driven configs + validator
-│   │   ├── scenes/                 # Phaser scenes
-│   │   ├── components/             # game UI/HUD helpers
+│   │   ├── logic/                  # алгоритмы поля без отрисовки, ГСЧ и подсчёт очков
+│   │   ├── levels/                 # конфигурации десяти уровней и их проверка
+│   │   ├── scenes/                 # сцены Phaser
+│   │   ├── components/             # вспомогательные компоненты игрового интерфейса и панели
 │   │   └── assets/
-│   ├── services/                   # leaderboard API and storage adapters
-│   ├── ui/                         # menus/forms/leaderboard
+│   ├── services/                   # API таблицы лидеров и адаптеры хранилища
+│   ├── ui/                         # меню, формы и таблица лидеров
 │   └── styles/
 ├── supabase/
 │   ├── migrations/
-│   └── functions/                  # verification, submit, admin control
+│   └── functions/                  # проверка, отправка результатов и администрирование
 ├── tests/
 │   ├── unit/
 │   ├── integration/
@@ -267,51 +267,51 @@ Suggested (adapt if repository already has conventions):
     └── ASSET_LICENSES.md
 ```
 
-Game **logic** knows nothing about Phaser, DOM, fetch, or storage. UI subscribes to state/events; scenes handle rendering and animation; services handle I/O. Prefer straightforward code to unnecessary abstraction.
+Игровая **логика** не зависит от Phaser, DOM, `fetch` и хранилища. Интерфейс подписывается на изменения состояния и события. Сцены отвечают за отрисовку и анимацию, сервисы — за ввод и вывод. Предпочитайте прямолинейный код с необходимым минимумом абстракций.
 
-## 9. Website integration and runtime
+## 9. Встраивание в сайт и работа приложения
 
-- Build outputs static HTML/JS/CSS/assets with Vite; document `base` path configuration for subdirectory hosting.
-- Support embedding via iframe as the first-class safe default; document sizing, responsive aspect ratio, allowed origins, and optional parent messaging contract.
-- Avoid global CSS leaking into host page; do not assume the hosting site's fonts or DOM structure.
-- Loading failures and API downtime should not prevent local gameplay; leaderboard failure must have visible retry/error handling and must **not** invent scores or claim successful submission.
-- Use asset compression/caching, lazy-load noncritical artwork, and avoid giant image/audio packages. Define a measurable load-size budget after receiving real assets.
-- Test on Chrome, Firefox, Safari/iOS Safari, and Android Chrome (latest stable at release).
+- Сборка Vite выдаёт статические HTML, JS, CSS и файлы ресурсов. Опишите настройку пути `base` для размещения в подпапке сайта.
+- Основной безопасный способ встраивания — через `iframe`. Документируйте размеры, адаптивное соотношение сторон, разрешённые источники и необязательный протокол обмена сообщениями с родительской страницей.
+- Глобальные стили игры должны оставаться в пределах игры. Встраивание должно работать независимо от шрифтов и структуры DOM сайта.
+- Ошибки загрузки и недоступность API не должны мешать локальной игре. При сбое таблицы лидеров покажите ошибку и возможность повторить запрос. Отображайте только реальные результаты, а успешную отправку подтверждайте после ответа сервера.
+- Сжимайте и кешируйте ресурсы, откладывайте загрузку некритичных изображений, избегайте крупных пакетов графики и звука. После получения финальных материалов задайте измеримый предел объёма загрузки.
+- Проверяйте Chrome, Firefox, Safari, Safari на iOS и Chrome на Android в актуальных стабильных версиях на момент выпуска.
 
-## 10. Quality requirements & test strategy
+## 10. Требования к качеству и стратегия тестирования
 
-### 10.1 Automated tests (minimum)
+### 10.1 Минимальный набор автоматизированных тестов
 
-- Match detection: horizontal, vertical, 3/4/5, T/L intersections, overlapping matches.
-- Swaps: valid, invalid, nonadjacent, edge/corner, animation lock, moves not consumed on invalid swap.
-- Board initialization: no initial matches, at least one legal swap, reproducible seeded tests.
-- Resolution: gravity, refill, cascading chain, termination, no-move reshuffle.
-- Snow: 0/1/2 layers, cell-fixed overlay, adjacent unrelated matches not removing snow.
-- Scoring: exact formula for single match, cascades, snow bonuses, remaining-move bonus, retry handling.
-- Win/lose priority on final move, no negative moves.
-- Level config validation across all 10 levels.
-- Ranked run: failed retries don't inflate score; practice runs excluded.
-- Backend: verified-run accept, tampered score reject, replay/seed mismatch reject, duplicate submit, period rollovers, malformed payload, rate limits, unauthorized admin.
-- Privacy: public API does not expose email or sensitive run tokens.
+- Поиск совпадений по горизонтали и вертикали, ряды из трёх, четырёх и пяти фишек, Т- и Г-образные пересечения, перекрывающиеся совпадения.
+- Допустимые и недопустимые обмены, попытка обменять несоседние фишки, обмены на краях и в углах, блокировка на время анимации, сохранение числа ходов при недопустимом обмене.
+- Инициализация поля без готовых совпадений и хотя бы с одним допустимым обменом, воспроизводимость при заданных начальных значениях ГСЧ.
+- Обработка поля, включая гравитацию, заполнение, цепочки каскадов, их завершение и перемешивание при отсутствии ходов.
+- Ноль, один и два слоя снега, привязка покрытия к ячейке, сохранение снега при совпадениях в соседних ячейках, которые его не затрагивают.
+- Точная формула начисления очков за отдельное совпадение, каскады, снег и оставшиеся ходы, обработка повторных попыток.
+- Приоритет победы и поражения на последнем ходу, отсутствие отрицательного числа ходов.
+- Проверка конфигураций всех десяти уровней.
+- Рейтинговое прохождение без начисления очков за неудачные попытки и тренировки.
+- Серверная проверка действительных прохождений, отклонение подделанного результата и расхождения записи прохождения с начальным значением ГСЧ, повторные отправки, смена периодов, ошибочные данные, ограничения частоты запросов и действия администратора без полномочий.
+- Отсутствие электронных адресов и конфиденциальных токенов прохождения в публичном API.
 
-### 10.2 Browser tests
+### 10.2 Браузерные тесты
 
-Use Playwright for critical flows: start → level 1 → valid move → victory → next; lost level → retry; complete run → submit → leaderboard; mobile viewport and basic keyboard/tap navigation; backend unavailable recovery. E2E tests may use deterministic game fixtures and isolated backend test environment.
+Используйте Playwright для критичных сценариев. Проверьте запуск, первый уровень, допустимый ход, победу и переход на следующий уровень, повтор после поражения, завершение прохождения, отправку результата и его отображение в таблице лидеров. Проверьте мобильный размер области просмотра, основные действия с клавиатуры и касаниями, восстановление после недоступности серверной части. Сквозные тесты могут использовать детерминированные игровые данные и изолированную тестовую серверную среду.
 
-### 10.3 Practical acceptance
+### 10.3 Практические критерии приёмки
 
-- No uncaught browser errors in normal flows.
-- No frozen board or infinite cascade in randomized test runs.
-- Touch gestures do not cause unintended page scroll while interacting with the board.
-- Game remains readable/playable at widths 320, 375, 768 and 1280 CSS px.
-- Responsive game reaches playable state on a typical midrange mobile device without excessive load times.
-- All 10 levels can be finished; game never locks due to impossible state.
-- Restarting browser preserves local progress; server does not consider local progress a verified score.
-- `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, and agreed e2e command succeed.
+- В обычных сценариях в браузере нет необработанных ошибок.
+- При прогонах со случайными данными поле не зависает и каскады завершаются.
+- Сенсорные жесты на поле не вызывают случайную прокрутку страницы.
+- На ширине 320, 375, 768 и 1280 CSS-пикселей интерфейс читаем, в игру можно играть.
+- На типичном мобильном устройстве среднего класса игра доходит до готового к игре состояния за разумное время.
+- Все десять уровней можно пройти. Неразрешимое состояние не приводит к блокировке игры.
+- После перезапуска браузера локальный прогресс сохраняется. Для подтверждения результата сервер использует собственную проверку.
+- Команды `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` и согласованная команда сквозных тестов завершаются успешно.
 
-## 11. Developer scripts and operational docs
+## 11. Команды разработчика и эксплуатационная документация
 
-Provide npm scripts (or equivalent):
+Добавьте следующие команды npm или их аналоги.
 
 ```text
 npm run dev
@@ -323,171 +323,172 @@ npm test
 npm run test:e2e
 ```
 
-README must document Node version, installation, env vars, local backend setup, test commands, production build, deployment, embedding, admin reset procedure, data migration/rollback, and asset substitution. A fresh developer should be able to run the game with placeholder assets and a local/test backend.
+В README укажите версию Node, порядок установки, переменные окружения, настройку локального сервера, команды тестирования, рабочую сборку, развёртывание, встраивание, процедуру административного сброса, миграцию и откат данных и замену ресурсов. Новый разработчик должен суметь запустить игру с временными ресурсами и локальной или тестовой серверной частью.
 
-## 12. Roadmap — execute in order
+## 12. Дорожная карта в порядке выполнения
 
-Mark a task `[x]` **only when acceptance criteria are actually met**. Never change checkboxes to claim work that was not done.
+Отмечайте задачу `[x]` **только после выполнения критериев приёмки**. Отметка означает, что работа действительно сделана.
 
-### M0 — Repository foundation
+### M0 — Подготовка репозитория
 
-- [x] Initialize/inspect TypeScript + Vite + Phaser project; select Node version and package manager.
-- [x] Add formatting, linting, type checking, unit testing, Playwright scaffolding.
-- [x] Add `.env.example`, `.gitignore`, base README, empty game shell, placeholder assets.
-- [x] Confirm dev/build/test commands work.
+- [x] Инициализировать или изучить проект на TypeScript, Vite и Phaser, выбрать версию Node и менеджер пакетов.
+- [x] Настроить форматирование, линтинг, проверку типов, модульные тесты и основу для тестов Playwright.
+- [x] Добавить `.env.example`, `.gitignore`, начальный README, каркас игры и временные ресурсы.
+- [x] Убедиться, что команды разработки, сборки и тестирования работают.
 
-**Done when:** clean install and local scripts run, page loads in desktop/mobile viewport.
+**Критерий завершения.** Чистая установка и локальные команды работают, страница загружается при настольном и мобильном размерах области просмотра.
 
-**Accepted:** M0 is complete based on local verification. By user decision on 2026-11-06, CI setup and the initial remote CI run are deferred and are not required to close M0. Revisit CI when remote repository/server workflows are needed.
+**Принято.** Этап M0 завершён по результатам локальных проверок. По решению пользователя от 2026-11-06 настройка CI и первый удалённый запуск отложены и не требуются для закрытия M0. Вернуться к CI следует, когда появится необходимость в работе с удалённым репозиторием или сервером.
 
-### M1 — Pure Match-3 engine (vertical slice)
+### M1 — Движок «три в ряд» без отрисовки
 
-- [x] Implement typed grid, tile data model, seeded RNG.
-- [x] Generate stable match-free boards with at least one legal move.
-- [x] Validate swaps and find all horizontal/vertical matches.
-- [x] Resolve clear → gravity → refill → cascades deterministically.
-- [x] Add legal-move detection and safe reshuffle.
-- [x] Add comprehensive unit/property tests for these mechanics.
+- [x] Реализовать типизированную сетку, модель фишек и ГСЧ с заданным начальным значением.
+- [x] Генерировать стабильные поля без готовых совпадений и хотя бы с одним допустимым ходом.
+- [x] Проверять обмены и находить все горизонтальные и вертикальные совпадения.
+- [x] Детерминированно обрабатывать удаление, падение, заполнение поля и каскады.
+- [x] Добавить поиск допустимых ходов и безопасное перемешивание.
+- [x] Покрыть эти механики модульными тестами и проверками свойств.
 
-**Done when:** logic is fully testable without Phaser and test seeds cannot freeze or enter an endless cascade.
+**Критерий завершения.** Вся логика проверяется без Phaser. На тестовых начальных значениях поле не зависает и каскады завершаются.
 
-**Verified (2026-11-06):** M1 engine corrections pass 101 real unit tests, including seeded invariants and an adversarial constant RNG. Typecheck, lint and build pass. This acceptance covers the pure engine; the browser scene still uses legacy logic and requires M2 integration.
+**Проверено 2026-11-06.** После исправлений движка прошёл 101 модульный тест, включая проверки инвариантов при заданных начальных значениях и проверку с ГСЧ, который всегда возвращает одно значение. Проверка типов, линтинг и сборка прошли. Приёмка касалась движка без отрисовки. На момент проверки браузерная сцена ещё использовала старую логику, интеграция относилась к этапу M2.
 
-### M2 — Playable scene and controls
+### M2 — Игровая сцена и управление
 
-- [x] Render game board with placeholders using Phaser.
-- [x] Implement touch swipe and two-tap swap, mouse input, selection feedback.
-- [x] Animate swap/revert, removal, falling/refill; lock inputs during processing.
-- [x] Render HUD and clear loading/error states; responsive layout.
+- [x] Отрисовать игровое поле в Phaser с временными ресурсами.
+- [x] Реализовать сенсорный жест, обмен двумя касаниями, ввод мышью и подсветку выбора.
+- [x] Анимировать обмен, отмену, удаление, падение и заполнение. Блокировать ввод во время обработки.
+- [x] Отрисовать игровую панель, предусмотреть понятные состояния загрузки и ошибки и адаптивную вёрстку.
 
-**Done when:** a user can reliably play an endless temporary board on desktop and mobile.
+**Критерий завершения.** На компьютере и мобильном устройстве можно стабильно играть на временном бесконечном поле.
 
-**Verified (2026-11-06):** integrated pure-engine playback on the endless board; 102 unit tests and 20 desktop/mobile Chromium browser tests pass, including 40 consecutive moves per browser profile. Lint, typecheck and production build pass. Manual desktop smoke: a two-tap match resolves, tiles refill, score updates and input remains available.
+**Проверено 2026-11-06.** Подключено воспроизведение результатов движка на бесконечном поле. Прошли 102 модульных и 20 браузерных тестов в настольном и мобильном профилях Chromium, в том числе по 40 последовательных ходов в каждом профиле. Линтинг, проверка типов и рабочая сборка прошли. При ручной проверке на компьютере совпадение после выбора двух фишек обработалось, поле заполнилось, счёт обновился и ввод остался доступным.
 
-### M3 — Snow, goals, scoring, 10 levels
+### M3 — Снег, цели, подсчёт очков и десять уровней
 
-- [ ] Implement cell-bound snow overlays (1–2 layers), remove on matching tile clears.
-- [ ] Implement move limits, score formula, victory/defeat precedence, retry.
-- [ ] Create and validate 10 level JSON/TS configurations.
-- [ ] Implement progression and practice-vs-ranked logic; local persistence.
-- [ ] Add automated simulations and manual balancing pass; record results.
+- [ ] Реализовать привязанные к ячейкам покрытия из одного или двух слоёв снега. Снимать снег при удалении совпавших фишек.
+- [ ] Реализовать лимит ходов, формулу очков, приоритет победы и поражения и повторные попытки.
+- [ ] Создать и проверить конфигурации десяти уровней в JSON или TypeScript.
+- [ ] Реализовать продвижение по уровням, правила тренировки и рейтингового прохождения и локальное сохранение.
+- [ ] Добавить автоматические симуляции, провести ручную настройку баланса и записать результаты.
 
-**Done when:** all 10 levels are playable, goals and retries are correct, progression persists, no obvious impossible levels.
+**Критерий завершения.** Все десять уровней можно пройти, цели и повторные попытки работают корректно, прогресс сохраняется, явно непроходимых уровней нет.
 
-### M4 — Menus, map, art, sounds, polish
+### M4 — Меню, карта, графика, звук и доработка интерфейса
 
-- [ ] Add start, instructions, map, pause, victory/defeat, final completion screens.
-- [ ] Integrate coffee tiles, snow, traveler art or replaceable placeholders.
-- [ ] Add essential animations, sound effects and mute/reduced-motion handling.
-- [ ] Improve layout and interaction feedback on mobile.
+- [ ] Добавить стартовый экран, инструкции, карту, паузу, экраны победы и поражения и экран завершения прохождения.
+- [ ] Когда появится главное меню, сделать его экраном по умолчанию при запуске. При выборе «Режим истории» дать возможность продолжить с сохранённого уровня.
+- [ ] Добавить изображения кофейных фишек, снега и путешественника или временные изображения, которые легко заменить.
+- [ ] Добавить основные анимации, звуковые эффекты, отключение звука и поддержку уменьшенного движения.
+- [ ] Улучшить вёрстку и отклик на действия на мобильных устройствах.
 
-**Done when:** all user-facing single-player flows are understandable and visually coherent.
+**Критерий завершения.** Все сценарии одиночной игры понятны пользователю и оформлены согласованно.
 
-### M5 — Secure leaderboard backend
+### M5 — Защищённая серверная часть таблицы лидеров
 
-- [ ] Implement database migrations, indexes, RLS, period model.
-- [ ] Implement server-issued runs and actual score/move verification.
-- [ ] Implement `GET /leaderboard` and verified submission endpoint (or equivalent function URLs).
-- [ ] Implement nickname/optional email flow, privacy notice, personal-best upsert.
-- [ ] Implement Monday UTC rollover and authenticated admin reset with audit record.
-- [ ] Add rate limiting, security tests and failure-state UI.
+- [ ] Реализовать миграции базы данных, индексы, контроль доступа на уровне строк (RLS) и модель периодов.
+- [ ] Реализовать выдачу прохождений сервером и проверку очков и ходов.
+- [ ] Реализовать `GET /leaderboard` и точку доступа для отправки проверяемых результатов либо равнозначные URL функций.
+- [ ] Реализовать ввод псевдонима и необязательной электронной почты, уведомление о приватности, добавление и обновление личного рекорда.
+- [ ] Реализовать смену периода в понедельник по UTC и ручной сброс с проверкой полномочий администратора и записью в журнал аудита.
+- [ ] Добавить ограничение частоты запросов, тесты безопасности и состояния ошибки в интерфейсе.
 
-**Done when:** Top 100 displays real verified runs; fake client scores and unauthorized resets are rejected; email is private.
+**Критерий завершения.** Таблица ста лучших показывает реальные проверенные результаты. Сервер отклоняет поддельные очки и сбросы без полномочий. Электронная почта остаётся конфиденциальной.
 
-### M6 — Embed, QA, deployment, handoff
+### M6 — Встраивание, проверка качества, развёртывание и передача проекта
 
-- [ ] Add iframe integration example and deployment guide.
-- [ ] Validate on major desktop/mobile browsers and narrow screens.
-- [ ] Run test suite, audit performance/accessibility/security, fix critical issues.
-- [ ] Complete README, operational/admin docs, asset licenses, known limitations.
-- [ ] Build production bundle and document release checklist.
+- [ ] Добавить пример встраивания через `iframe` и руководство по развёртыванию.
+- [ ] Проверить игру в основных настольных и мобильных браузерах и на узких экранах.
+- [ ] Запустить тесты, проверить производительность, доступность и безопасность, исправить критичные проблемы.
+- [ ] Дополнить README, эксплуатационную и административную документацию, сведения о лицензиях ресурсов и известных ограничениях.
+- [ ] Подготовить рабочую сборку и задокументировать порядок выпуска.
 
-**Done when:** deployment is reproducible, all MVP acceptance criteria pass, and a reviewer can integrate the game.
+**Критерий завершения.** Развёртывание воспроизводится по документации, все критерии приёмки MVP выполнены, проверяющий может встроить игру.
 
-## 13. Definition of done (every milestone)
+## 13. Общие критерии завершения этапа
 
-A milestone is complete only if: (a) code is committed or otherwise reviewable; (b) relevant automated tests are added/passing; (c) manual smoke test is documented when UI is changed; (d) lint/types/build pass; (e) no known blocker prevents normal use; (f) documentation and this roadmap are updated; and (g) remaining problems are listed honestly.
+Этап считается завершённым, если выполнены все условия. Код зафиксирован коммитом или иначе доступен для проверки. Соответствующие автоматизированные тесты добавлены и проходят. При изменении интерфейса задокументирована базовая ручная проверка. Линтинг, проверка типов и сборка проходят. Нет известных препятствий для обычного использования. Документация и дорожная карта обновлены. Оставшиеся проблемы перечислены.
 
-## 14. Out-of-scope change control
+## 14. Согласование изменений за рамками проекта
 
-Any requested change not already specified must be noted in a **Change Request** with: description, rationale, affected components, estimated effort, risks, and whether it replaces an existing requirement. Get developer approval before implementing a materially scope-expanding feature. Especially avoid spontaneously adding power-ups, accounts, ads, purchase flows, or advanced analytics.
+Изменения, которых нет в спецификации, оформляйте как **запрос на изменение**. Укажите описание, обоснование, затронутые компоненты, оценку трудозатрат, риски и заменяет ли запрос существующее требование. Существенное расширение объёма работ согласуйте с разработчиком перед реализацией. Это особенно важно для усилителей, учётных записей, рекламы, сценариев покупки и продвинутой аналитики.
 
-## 15. Questions to confirm with the client
+## 15. Вопросы для согласования с заказчиком
 
-Keep the MVP defaults above unless explicitly changed. Confirm before production handoff:
+Используйте указанные выше значения для MVP до явного согласования изменений. Перед передачей рабочей версии уточните следующие вопросы.
 
-- [ ] Are the 10 levels and visuals intended as simple branded MVP, or close to premium Royal Match polish?
-- [ ] Does the client provide finalized traveler images, coffee tile icons, music/SFX, logo, and rights to use them?
-- [ ] Is completion of all 10 levels required for leaderboard eligibility? **Default: yes.**
-- [ ] Is leaderboard rank based on cumulative run score, or per-level scores / fastest completion? **Default: cumulative run score.**
-- [ ] Should weekly ranking reset exactly Monday at 00:00 UTC? **Default: yes.**
-- [ ] What is the intended admin identity/provider and who will own credentials?
-- [ ] Does the client want email capture and what are the privacy/retention terms? **Default: optional.**
-- [ ] Is the hosting website's iframe integration acceptable, and are there specific CMS, analytics, or CSP constraints?
-- [ ] Which browsers/devices must be supported, and are accessibility requirements contractual?
-- [ ] Does the client require protection against automated score farming beyond replay verification and rate limiting?
-- [ ] How is a player identified across browsers/devices if no account is required? **Default: per-device pseudonymous ID.**
-- [ ] Does a manual reset mean creating a fresh active period immediately or clearing only current scores? **Default: new period, retained history.**
+- [ ] Достаточно ли для десяти уровней и графики простого брендированного MVP или ожидается уровень отделки Royal Match?
+- [ ] Предоставит ли заказчик финальные изображения путешественника и кофейных фишек, музыку, звуковые эффекты, логотип и права на использование?
+- [ ] Нужно ли пройти все десять уровней, чтобы попасть в таблицу лидеров? **По умолчанию — да.**
+- [ ] Место в рейтинге определяется общим счётом за прохождение, счётом по отдельным уровням или временем прохождения? **По умолчанию — общим счётом за прохождение.**
+- [ ] Должен ли недельный рейтинг сбрасываться ровно в понедельник в 00:00 UTC? **По умолчанию — да.**
+- [ ] Какой способ или поставщик аутентификации предусмотрен для администратора и кто будет владеть учётными данными?
+- [ ] Нужен ли сбор электронной почты и каковы условия конфиденциальности и хранения? **По умолчанию — необязательно.**
+- [ ] Подходит ли встраивание через `iframe` для принимающего сайта? Есть ли ограничения со стороны CMS, аналитики или CSP?
+- [ ] Какие браузеры и устройства нужно поддерживать? Закреплены ли требования доступности договором?
+- [ ] Нужна ли защита от автоматического набора очков в дополнение к проверке записей прохождения и ограничению частоты запросов?
+- [ ] Как узнавать игрока в разных браузерах и на разных устройствах, если учётная запись не требуется? **По умолчанию — псевдонимный идентификатор для каждого устройства.**
+- [ ] При ручном сбросе нужно сразу открыть новый период или очистить текущие результаты? **По умолчанию — открыть новый период и сохранить историю.**
 
-## 16. Assumptions and known tradeoffs
+## 16. Допущения и известные компромиссы
 
-1. **Backend complexity:** secure score verification is substantially harder than just accepting a POSTed score. Prioritize integrity; if cost/time forces a tradeoff, explicitly label any weaker anti-cheat design and secure client approval. Never claim a client-trusted scheme is cheat-proof.
-2. **Randomness:** deterministic seeded generation/replay is needed for reproducible tests and score verification, but may require shared rules compiled for both client/server or server-side validation in a suitable runtime. Choose and document a concrete approach at M5.
-3. **Gameplay balance:** snow coordinates and move caps are provisional. Real balancing requires playtesting and simulation.
-4. **No universal unique nickname:** player identity is per browser/device by default; nickname collisions are allowed, and duplicate devices may appear independently. Consider verified accounts only if requested.
-5. **Loss of local storage:** game can still start; local progress may be lost; do not misrepresent it as a server-backed account.
-6. **Offline:** gameplay may continue after initial load while leaderboard requires connectivity; offline service worker is not required.
-7. **Accessibility:** keyboard interactions and clear text labels should be supported where reasonably practical; do not advertise full WCAG compliance without auditing it.
-8. **Deployment:** actual domain, environment IDs, credentials and artwork are unknown; never invent them.
-9. **CI deferred (2026-11-06):** the user does not currently need remote execution. Local checks are sufficient for M0 acceptance; CI setup and a successful remote run remain deferred.
+1. **Сложность серверной части.** Защищённая проверка результата требует существенно больше работы, чем приём готового счёта через `POST`. Приоритет — достоверность результатов. Если сроки или стоимость вынуждают ослабить защиту от подделки, явно опишите ограничения и получите согласие заказчика. Проверка, которая доверяет клиенту, уязвима для подделки результатов.
+2. **Случайность.** Детерминированная генерация и воспроизведение по начальному значению ГСЧ нужны для повторяемых тестов и проверки результатов. Для этого могут потребоваться общие правила, компилируемые для клиента и сервера, или проверка в подходящей серверной среде. Выберите и задокументируйте конкретный подход на этапе M5.
+3. **Игровой баланс.** Координаты снега и лимиты ходов предварительные. Для настройки баланса нужны игровые тесты и симуляции.
+4. **Псевдонимы могут совпадать.** По умолчанию идентификатор привязан к браузеру или устройству. Одинаковые псевдонимы допустимы, и разные устройства одного игрока могут отображаться отдельно. Рассматривайте проверяемые учётные записи только по запросу.
+5. **Потеря локального хранилища.** Игра всё равно запускается, но локальный прогресс может исчезнуть. В интерфейсе описывайте его как локальное сохранение.
+6. **Работа без сети.** После начальной загрузки игра может продолжать работать без сети. Таблице лидеров требуется подключение. Сервис-воркер для автономной работы не обязателен.
+7. **Доступность.** Где это практически осуществимо, поддерживайте управление с клавиатуры и понятные текстовые подписи. Заявляйте о полном соответствии WCAG только после аудита.
+8. **Развёртывание.** Фактический домен, идентификаторы окружений, учётные данные и графические материалы неизвестны. Используйте только подтверждённые значения и материалы.
+9. **Отсрочка CI (2026-11-06).** Пользователю на этот момент не требовался удалённый запуск. Для приёмки M0 достаточно локальных проверок. Настройка CI и успешный удалённый прогон отложены.
 
-10. **M1 bounded generation (2026-11-06):** the pure generator supports integer boards of at least 2×3 or 3×2 with 3–6 colors (production levels use 8×8 and 5–6). Unsupported configurations and invalid attempt limits throw `RangeError`. After bounded shuffle attempts, tile colors may be regenerated; the original color multiset is not guaranteed, but cell snow and move/score counters are preserved. After 100 cascade steps, a deterministic safety reshuffle stabilizes the board without awarding points for the reshuffle itself. `BoardState.rngSeed` is the current RNG state, not the original run seed. M2 must integrate this engine; the existing browser scene still has a known post-move input lock.
+10. **Ограничения генерации на M1 (2026-11-06).** Генератор без отрисовки поддерживает поля с целочисленными размерами не менее 2×3 или 3×2 и от трёх до шести цветов. Рабочие уровни используют поле 8×8 и пять или шесть цветов. Неподдерживаемая конфигурация или недопустимый лимит попыток вызывают `RangeError`. По достижении лимита попыток перемешивания цвета фишек могут быть сгенерированы заново. Исходное количество фишек каждого цвета может измениться, а снег и счётчики ходов и очков сохраняются. После 100 шагов каскада защитное детерминированное перемешивание стабилизирует поле без начисления очков за само перемешивание. `BoardState.rngSeed` хранит только текущее состояние ГСЧ. Подключение движка запланировано на M2. У браузерной сцены на момент записи известна блокировка ввода после хода.
 
-11. **M2 temporary free play (2026-11-06):** the browser uses an 8×8, five-color, snow-free endless board with seed 12345. `simulateMove(..., { endless: true })` skips move consumption and victory/defeat/remaining-move bonuses while retaining cascades, score and automatic reshuffle. Default level behavior is unchanged. Independent cascade frames drive rendering. Snow levels, run progression and persistence remain M3; basic pause and reduced-motion support are included for scene usability. Browser checks use desktop/mobile Chromium emulation; real-device and cross-browser QA remain M6.
+11. **Временная свободная игра на M2 (2026-11-06).** В браузере используется бесконечное поле 8×8 с пятью цветами без снега и начальным значением ГСЧ 12345. Вызов `simulateMove(..., { endless: true })` пропускает расход ходов, проверку победы и поражения и начисление бонуса за оставшиеся ходы. Каскады, подсчёт очков и автоматическое перемешивание работают. Обычные правила уровней сохраняются. Отрисовка использует независимые снимки поля для шагов каскада. Уровни со снегом, продвижение и сохранение относятся к M3. Для удобства игры в сцене уже есть пауза и поддержка уменьшенного движения. Браузерные тесты используют настольный и эмулированный мобильный профили Chromium. Проверка на реальных устройствах и в других браузерах относится к M6.
 
-## 17. Progress log
+## 17. Журнал работ
 
-Codex should append brief factual updates in this format after completing meaningful increments:
+После завершения значимых изменений Codex добавляет короткую фактическую запись по этому шаблону.
 
 ```text
-YYYY-MM-DD — Mx / task: summary
-Files: ...
-Checks: command → result
-Known issues / next step: ...
+ГГГГ-ММ-ДД — Mx / задача — краткое описание
+Файлы — …
+Проверки — команда → результат
+Известные проблемы и следующий шаг — …
 ```
 
-2026-11-05 — M0 / repository foundation: Scaffolded Phaser 3 + TypeScript + Vite project with full tooling
-Files: package.json, tsconfig.json, vite.config.ts, eslint.config.js, .prettierrc, vitest.config.ts, playwright.config.ts, .gitignore, .env.example, index.html, src/main.ts, src/styles/main.css, src/game/scenes/BootScene.ts, src/game/scenes/GameScene.ts, README.md, tests/unit/board.test.ts, tests/e2e/game.spec.ts
-Checks: npm install → ok; npm run typecheck → ok; npm run lint → ok; npm run test → 13 passed; npm run build → ok; npm run test:e2e → 10 passed (Chromium + Mobile Chrome)
-Known issues / next step: Firefox/WebKit require system deps (npx playwright install-deps). Ready for M1 — Pure Match-3 engine.
+2026-11-05 — M0 / подготовка репозитория — создан каркас проекта на Phaser 3, TypeScript и Vite со всеми инструментами разработки.
+Файлы — `package.json`, `tsconfig.json`, `vite.config.ts`, `eslint.config.js`, `.prettierrc`, `vitest.config.ts`, `playwright.config.ts`, `.gitignore`, `.env.example`, `index.html`, `src/main.ts`, `src/styles/main.css`, `src/game/scenes/BootScene.ts`, `src/game/scenes/GameScene.ts`, `README.md`, `tests/unit/board.test.ts`, `tests/e2e/game.spec.ts`.
+Проверки — `npm install`, `npm run typecheck`, `npm run lint` и `npm run build` прошли. `npm run test` — 13 тестов, `npm run test:e2e` — 10 тестов (Chromium и Mobile Chrome).
+Известные проблемы и следующий шаг — для Firefox и WebKit требуются системные зависимости (`npx playwright install-deps`). Можно начинать M1 — движок «три в ряд» без отрисовки.
 
-2026-11-06 — M0 / acceptance: Accepted repository foundation based on local verification; user deferred CI as unnecessary for the current local workflow.
-Files: PROJECT_SPEC.md, README.md
-Checks: prior local audit on 2026-11-05 → clean install, lint, typecheck, build, 13 placeholder unit tests and 10 Playwright tests passed; GameScene loaded at widths 320/375/768/1280 without JavaScript errors or horizontal overflow. Documentation-only update; checks not rerun.
-Known issues / next step: CI is deferred, not implemented or verified. Unit tests are scaffolding only; mobile HUD overlap and limited browser assertions remain for later scene/testing work. M1 has not started.
+2026-11-06 — M0 / приёмка — подготовка репозитория принята по итогам локальной проверки. Пользователь отложил CI, поскольку для текущей локальной работы он не нужен.
+Файлы — `PROJECT_SPEC.md`, `README.md`.
+Проверки — локальная проверка от 2026-11-05 подтвердила чистую установку, линтинг, проверку типов, сборку, прохождение 13 временных модульных тестов и 10 тестов Playwright. Сцена `GameScene` загрузилась на ширинах 320, 375, 768 и 1280 пикселей без ошибок JavaScript и горизонтальной прокрутки. В этой записи обновлена только документация, проверки повторно не запускались.
+Известные проблемы и следующий шаг — настройка и проверка CI отложены. Модульные тесты пока проверяют только каркас. Наложение игровой панели на мобильных устройствах и ограниченное браузерное покрытие оставлены для дальнейшей работы над сценой и тестами. Этап M1 ещё не начат.
 
-2026-11-06 — Scene layout / user-requested visual revision: Reserved a separate HUD area, fit the board to the remaining viewport, and relayout on resize/orientation changes. Replaced individual tile backgrounds with one translucent board surface and thin light-beige dashed cell dividers. Corrected scaled pointer mapping and duplicate selection handling.
-Files: src/main.ts, src/game/scenes/BootScene.ts, src/game/scenes/GameScene.ts, tests/e2e/game.spec.ts
-Checks: npm run lint → passed; npm run typecheck → passed; npm test → 13 placeholder tests passed; npm run build → passed (existing Phaser chunk-size warning); npm run test:e2e -- --reporter=line → 12 passed. New browser checks cover board/HUD separation, viewport containment, and cell selection after resizing at 320/375/768/1280 px and 667×375 landscape. Screenshot smoke review at 836×648 and 375×667 → board fully visible, HUD unobstructed; no JavaScript errors at these sizes or 667×375.
-Known issues / next step: Existing gameplay logic and placeholder unit coverage remain provisional; this visual revision does not complete M1–M4. CI remains deferred.
+2026-11-06 — вёрстка сцены / визуальные изменения по запросу пользователя — для игровой панели выделена отдельная область, поле вписывается в оставшееся место и перестраивается при изменении размера или ориентации. Отдельные фоны фишек заменены единой полупрозрачной поверхностью поля с тонкими светло-бежевыми пунктирными линиями между ячейками. Исправлены расчёт координат указателя с учётом масштаба и обработка повторного выбора.
+Файлы — `src/main.ts`, `src/game/scenes/BootScene.ts`, `src/game/scenes/GameScene.ts`, `tests/e2e/game.spec.ts`.
+Проверки — `npm run lint` и `npm run typecheck` прошли. `npm test` — 13 временных тестов. `npm run build` прошла с прежним предупреждением о размере файла Phaser. `npm run test:e2e -- --reporter=line` — 12 тестов. Новые браузерные проверки охватывают разделение поля и панели, размещение в области просмотра и выбор ячеек после изменения размера до 320, 375, 768 и 1280 пикселей по ширине и до 667×375 в альбомной ориентации. На снимках 836×648 и 375×667 поле полностью видно, игровая панель открыта целиком. На этих размерах и при 667×375 ошибок JavaScript не было.
+Известные проблемы и следующий шаг — игровая логика и временное модульное покрытие остаются предварительными. Этапы M1–M4 остаются в плане. CI отложен.
 
-2026-11-06 — M1 / Pure Match-3 engine: Implemented pure TypeScript game logic module (src/game/logic/) with seeded RNG, match detection, board generation, resolution with cascades, reshuffle, and scoring. All 84 unit tests pass.
-Files: src/game/logic/types.ts, rng.ts, matches.ts, resolve.ts, generate.ts, reshuffle.ts, index.ts; tests/unit/logic/*.test.ts (7 test files)
-Checks: npm run typecheck → passed; npm run lint → passed; npm run test → 84 tests passed; npm run build → passed; npm run test:e2e → 12 tests passed
-Known issues / next step: Logic module ready for integration into GameScene for M2. Level configurations 2-10 need final snow coordinates.
+2026-11-06 — M1 / движок «три в ряд» — реализован модуль игровой логики на TypeScript (`src/game/logic/`). Он включает ГСЧ с начальным значением, поиск совпадений, генерацию поля, обработку каскадов, перемешивание и подсчёт очков. Прошли все 84 модульных теста.
+Файлы — `src/game/logic/types.ts`, `rng.ts`, `matches.ts`, `resolve.ts`, `generate.ts`, `reshuffle.ts`, `index.ts` и семь файлов `tests/unit/logic/*.test.ts`.
+Проверки — `npm run typecheck`, `npm run lint` и `npm run build` прошли. `npm run test` — 84 теста, `npm run test:e2e` — 12 тестов.
+Известные проблемы и следующий шаг — модуль готов к подключению в `GameScene` на этапе M2. Для уровней 2–10 нужны окончательные координаты снега.
 
-2026-11-06 — M1 / Review corrections: Replaced rejection-only generation with match-free construction and a guaranteed legal-swap fallback, including tile colors under snow. Safe reshuffle now regenerates colors after bounded attempts instead of returning an invalid board, preserving cell snow and counters. Added integer bounds checks, swapped-tile match validation, exhausted-move rejection, current RNG-state persistence, and a 100-step cascade safety reshuffle. Corrected existing pure-model snow handling (cell-bound, one layer per clear) and limited cascade multipliers to tile points. No browser scene changes were made in this increment.
-Files: src/game/logic/{generate,reshuffle,matches,resolve,index,types}.ts; tests/unit/board.test.ts; tests/unit/logic/{generate,integration,resolve}.test.ts; README.md; PROJECT_SPEC.md
-Checks: npm test → 101 passed across 7 files (all 13 placeholder tests replaced). Seeded invariants cover 1000 seeds each for 5/6-color generation, 1000 each for normal/forced-fallback reshuffle, 100 seeds each for four fallback board shapes, and replay simulations up to 25 moves for each of 100 seeds. Constant-RNG cascade termination, impossible multisets, incomplete boards, snow preservation and malformed swaps are covered. npm run typecheck → passed; npm run lint → passed; npm run build → passed (existing Phaser chunk-size warning); npm run test:e2e -- --reporter=line → 12 passed.
-Known issues / next step: M1 is verified as a pure engine. M2 must integrate it and replace legacy scene logic, including the confirmed post-move input lock. Browser tests currently cover loading/layout/selection, not completed gameplay. M3 still owns complete level configurations, progression and balancing. CI remains deferred. Earlier M1 acceptance results above are superseded by this correction entry.
+2026-11-06 — M1 / исправления по итогам проверки — генерация строит поле без готовых совпадений и предусматривает запасной вариант, гарантирующий допустимый обмен. Это правило распространяется на цвета фишек под снегом. При исчерпании попыток безопасного перемешивания цвета генерируются заново с сохранением снега и счётчиков. Добавлены проверки целочисленных границ, участия обменянной фишки в совпадении и наличия ходов. Сохраняется текущее состояние ГСЧ. После 100 шагов каскада применяется защитное перемешивание. Исправлена обработка снега в модели. Он привязан к ячейке, за удаление снимается один слой, а множитель каскада применяется к очкам за фишки. Изменения касались игровой логики без браузерной сцены.
+Файлы — `src/game/logic/{generate,reshuffle,matches,resolve,index,types}.ts`, `tests/unit/board.test.ts`, `tests/unit/logic/{generate,integration,resolve}.test.ts`, `README.md`, `PROJECT_SPEC.md`.
+Проверки — `npm test` — 101 тест в семи файлах, все 13 временных тестов заменены. Проверки инвариантов используют по 1000 начальных значений ГСЧ для генерации с пятью и шестью цветами, по 1000 для обычного перемешивания и принудительного запасного варианта, по 100 для каждой из четырёх форм поля в запасном варианте и до 25 ходов для каждого из 100 начальных значений в симуляциях воспроизведения. Также проверены завершение каскадов при постоянном значении ГСЧ, наборы фишек без допустимой раскладки, неполные поля, сохранение снега и некорректные обмены. `npm run typecheck` и `npm run lint` прошли. `npm run build` прошла с прежним предупреждением о размере файла Phaser. `npm run test:e2e -- --reporter=line` — 12 тестов.
+Известные проблемы и следующий шаг — движок без отрисовки проверен. На M2 предстоит подключить его и заменить старую логику сцены, включая подтверждённую блокировку ввода после хода. Браузерные тесты пока проверяют загрузку, вёрстку и выбор фишек. Полные конфигурации уровней, продвижение и баланс относятся к M3. CI отложен. Эта запись заменяет более ранние результаты приёмки M1.
 
-2026-11-06 — M2 / Playable scene and controls: Replaced legacy scene logic with M1 simulation and independent cascade frames. Added endless Free Play, mouse/touch swipes, two-tap swaps, selection, keyboard swaps, sequential swap/revert/clear/fall/refill animations, processing lock, pause, reduced motion and visible loading/board errors. Retained the continuous board surface and dashed dividers. Removed duplicate canvas centering and observed container size to correct stale Phaser dimensions after mobile orientation changes.
-Files: src/game/scenes/{GameScene,BootScene}.ts; src/game/logic/{types,resolve,index}.ts; src/main.ts; tests/unit/logic/playback.test.ts; tests/e2e/game.spec.ts; README.md; PROJECT_SPEC.md
-Checks: npm run lint → passed; npm run typecheck → passed; npm test → 102 passed across 8 files, including 200 endless-model moves and independent cascade playback; npm run build → passed (existing Phaser chunk-size warning); npm run test:e2e -- --reporter=line --workers=1 → 20 passed (2.3m). Browser coverage includes invalid revert, input lock, engine/display parity, native touch swipe at 320px, 40 consecutive moves in each profile, pause, keyboard swap, resize during animation, canvas containment and no horizontal overflow at 320/375/768/1280 and landscape 667×375. Manual desktop browser smoke at 1280×720: two taps cleared matches, refilled the board, updated score and returned to playable state; HUD and board remained distinct.
-Known issues / next step: M2 accepted. Temporary endless mode has no snow, move limit or win/lose screen. M3 owns ten complete level configurations, goals, progression, persistence and balancing. Mobile Chrome is emulated Chromium; real-device/Safari/Firefox QA remains M6. CI remains deferred.
+2026-11-06 — M2 / игровая сцена и управление — старая логика сцены заменена симуляцией M1 с независимыми снимками поля для шагов каскада. Добавлены бесконечная свободная игра, жесты мышью и пальцем, обмен двумя касаниями, выбор фишек, обмен с клавиатуры, последовательные анимации обмена, отмены, удаления, падения и заполнения, блокировка ввода во время обработки, пауза, поддержка уменьшенного движения и видимые ошибки загрузки и поля. Единая поверхность поля и пунктирные разделители сохранены. Удалено повторное центрирование холста. Наблюдение за размером контейнера исправляет устаревшие размеры Phaser после смены ориентации мобильного устройства.
+Файлы — `src/game/scenes/{GameScene,BootScene}.ts`, `src/game/logic/{types,resolve,index}.ts`, `src/main.ts`, `tests/unit/logic/playback.test.ts`, `tests/e2e/game.spec.ts`, `README.md`, `PROJECT_SPEC.md`.
+Проверки — `npm run lint` и `npm run typecheck` прошли. `npm test` — 102 теста в восьми файлах, включая 200 ходов в бесконечной модели и воспроизведение независимых шагов каскада. `npm run build` прошла с прежним предупреждением о размере файла Phaser. `npm run test:e2e -- --reporter=line --workers=1` — 20 тестов за 2,3 минуты. Браузерные тесты охватывают отмену недопустимого обмена, блокировку ввода, соответствие отрисовки модели, сенсорный жест на ширине 320 пикселей, 40 последовательных ходов в каждом профиле, паузу, обмен с клавиатуры, изменение размеров во время анимации, размещение холста и отсутствие горизонтальной прокрутки на ширинах 320, 375, 768 и 1280 пикселей и при 667×375 в альбомной ориентации. При ручной проверке в настольном браузере на 1280×720 выбор двух фишек удалил совпадения, поле заполнилось, счёт обновился и игра снова принимала ввод. Поле и игровая панель оставались раздельными.
+Известные проблемы и следующий шаг — M2 принят. Во временном бесконечном режиме отсутствуют снег, лимит ходов и экран победы или поражения. Десять полных конфигураций уровней, цели, продвижение, сохранение и баланс относятся к M3. Mobile Chrome — мобильный профиль Chromium. Проверки на реальных устройствах, в Safari и Firefox относятся к M6. CI отложен.
 
-## 18. First Codex prompt
+## 18. Первый запрос для Codex
 
-Copy this instruction into Codex after placing `PROJECT_SPEC.md` in the repository root:
+После добавления `PROJECT_SPEC.md` в корень репозитория скопируйте эту инструкцию в Codex.
 
-> Read `PROJECT_SPEC.md` in full and inspect the repository. Treat it as the source of truth. Start with **M0** only. Briefly describe your implementation plan, then scaffold the Phaser 3 + TypeScript + Vite project with tests, lint, typecheck, and a minimal responsive scene using placeholder assets. Run the available checks, document actual results, and check off only completed M0 tasks in `PROJECT_SPEC.md`. Do **not** start M1 or build the leaderboard yet. Keep all code and comments in English.
+> Прочитай `PROJECT_SPEC.md` целиком и изучи репозиторий. Используй этот файл как источник требований. Начни только с **M0**. Кратко опиши план, затем создай каркас проекта на Phaser 3, TypeScript и Vite с тестами, линтингом, проверкой типов и минимальной адаптивной сценой с временными ресурсами. Запусти доступные проверки, задокументируй фактические результаты и отметь в `PROJECT_SPEC.md` только выполненные задачи M0. Работу над M1 и таблицей лидеров оставь для следующих этапов. Пиши весь код и комментарии на английском.
