@@ -86,27 +86,27 @@ final class LocalBackup {
             final String replyId = id;
             io.execute(() -> {
                 try {
-                    JSONObject reply;
                     switch (action) {
-                        case "status": reply = status(); break;
+                        case "status": break;
                         case "activate":
                             if (!prepared || !hasAccess()) throw new IllegalStateException("not-prepared");
                             if (!preferences.edit().putBoolean("enabled", true).putLong("savedAt", 0)
                                     .putString("error", "").commit()) throw new java.io.IOException("preferences");
                             prepared = false;
-                            reply = status(); break;
+                            break;
                         case "disable":
                             prepared = false;
                             if (!preferences.edit().putBoolean("enabled", false).putString("error", "").commit())
                                 throw new java.io.IOException("preferences");
                             // Leave external copies in place, including when access has been revoked.
-                            reply = status(); break;
+                            break;
                         case "write":
                             if (!preferences.getBoolean("enabled", false)) throw new IllegalStateException("disabled");
-                            write(request.getString("data")); reply = status(); break;
+                            write(request.getString("data"));
+                            break;
                         default: throw new IllegalArgumentException("unknown-action");
                     }
-                    reply(replyId, reply);
+                    reply(replyId, status());
                 } catch (Exception exception) { fail(replyId, "backup-operation-failed"); }
             });
         } catch (Exception exception) { fail(id, "backup-request-failed"); }
@@ -159,8 +159,7 @@ final class LocalBackup {
         }
     }
 
-    private void put(File directory, String name, String raw) throws Exception {
-        File file = new File(directory, name);
+    private void put(File file, String raw) throws Exception {
         AtomicFile atomic = new AtomicFile(file);
         FileOutputStream output = null;
         try {
@@ -184,9 +183,9 @@ final class LocalBackup {
                 String previous = read(main);
                 boolean valid = false;
                 try { validate(previous); valid = true; } catch (Exception ignored) { }
-                if (valid) put(directory, "backup.previous.json", previous);
+                if (valid) put(new File(directory, "backup.previous.json"), previous);
             }
-            put(directory, "backup.json", raw);
+            put(main, raw);
             preferences.edit().putLong("savedAt", backup.getLong("savedAt")).putString("error", "").commit();
         } catch (Exception exception) {
             preferences.edit().putString("error", "write-failed").commit();

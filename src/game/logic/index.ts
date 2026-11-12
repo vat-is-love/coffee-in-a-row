@@ -16,7 +16,7 @@ import {
   Position,
   MoveResult,
   cloneBoardState,
-  areAdjacent
+  SCORING
 } from './types';
 import { SeededRNG, createRandomSeed } from './rng';
 import { findMatches, wouldCreateMatch } from './matches';
@@ -39,15 +39,8 @@ export function simulateMove(
   pos2: Position,
   options: { endless?: boolean } = {}
 ): MoveResult {
-  if (!options.endless && state.movesLeft <= 0) return createInvalidMoveResult(state, 'no-moves-left');
-  // Validate adjacency
-  if (!areAdjacent(pos1, pos2)) {
-    return createInvalidMoveResult(state, 'not-adjacent');
-  }
-
-  // Check if swap would create a match
-  if (!wouldCreateMatch(config, state, pos1, pos2)) {
-    return createInvalidMoveResult(state, 'no-match');
+  if ((!options.endless && state.movesLeft <= 0) || !wouldCreateMatch(config, state, pos1, pos2)) {
+    return createInvalidMoveResult(state);
   }
 
   // Clone state and apply swap
@@ -67,7 +60,7 @@ export function simulateMove(
 
   if (initialMatches.length === 0) {
     // Should not happen since we validated, but safety check
-    return createInvalidMoveResult(state, 'no-match-after-swap');
+    return createInvalidMoveResult(state);
   }
 
   // Resolve all matches (handles cascades)
@@ -85,7 +78,7 @@ export function simulateMove(
   if (!options.endless && isSnowCleared(config, newState)) {
     gameOver = 'victory';
     // Add remaining move bonus
-    newState.score += newState.movesLeft * 100;
+    newState.score += newState.movesLeft * SCORING.REMAINING_MOVE_BONUS;
   } else if (!options.endless && newState.movesLeft <= 0) {
     gameOver = 'defeat';
   } else if (needsReshuffle(config, newState)) {
@@ -112,7 +105,7 @@ export function simulateMove(
 /**
  * Create result for invalid move (no state change, no move consumed).
  */
-function createInvalidMoveResult(state: BoardState, _reason: string): MoveResult {
+function createInvalidMoveResult(state: BoardState): MoveResult {
   return {
     frames: [],
     valid: false,
@@ -130,10 +123,7 @@ function createInvalidMoveResult(state: BoardState, _reason: string): MoveResult
  * Initialize a new game/level.
  */
 export function initializeGame(config: GameConfig, seed?: number): BoardState {
-  const initialSeed = seed ?? createRandomSeed();
-  const rng = new SeededRNG(initialSeed);
-  const state = generateInitialBoard(config, rng);
-  return state;
+  return generateInitialBoard(config, new SeededRNG(seed ?? createRandomSeed()));
 }
 
 /**

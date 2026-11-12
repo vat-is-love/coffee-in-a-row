@@ -1,10 +1,8 @@
 import { backupControls, installBackupControls, refreshBackupStatus } from './backup';
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
-import { t, getPreferences, getStartupPreferences, savePreferences, type Language } from './preferences';
+import { t, getPreferences, getStartupPreferences, savePreferences, type Language, type Mode } from './preferences';
 import type { Game } from 'phaser';
-
-type Mode = 'classic' | 'falling';
 
 /** Native controls keep settings usable with touch, keyboard, and screen readers. */
 export function installSettings(game: Game): void {
@@ -15,7 +13,7 @@ export function installSettings(game: Game): void {
   modePicker.className = 'settings-dialog mode-picker';
   modePicker.setAttribute('aria-labelledby', 'mode-picker-title');
   modePicker.setAttribute('aria-describedby', 'mode-picker-hint');
-  const renderModePicker = () => { modePicker.innerHTML = `
+  modePicker.innerHTML = `
     <form method="dialog">
       <h1 id="mode-picker-title">${t('Choose game mode')}</h1>
       ${!startup.languageChosen ? `<label class="preference-option">Language / Язык
@@ -33,8 +31,7 @@ export function installSettings(game: Game): void {
       `}
       ${backupControls()}
       <p id="mode-picker-hint">${t('You can change the mode in settings.')}</p>
-    </form>`; };
-  renderModePicker();
+    </form>`;
   document.body.append(modePicker);
   installBackupControls(modePicker);
   // A mode must be chosen before gameplay starts, including with Escape.
@@ -136,10 +133,10 @@ export function installSettings(game: Game): void {
   };
   // Keep dialog keyboard events out of Phaser's global keyboard handler.
   const stopKey = (event: KeyboardEvent) => event.stopPropagation();
-  modePicker.addEventListener('keydown', stopKey);
-  modePicker.addEventListener('keyup', stopKey);
-  dialog.addEventListener('keydown', stopKey);
-  dialog.addEventListener('keyup', stopKey);
+  for (const modal of [modePicker, dialog]) {
+    modal.addEventListener('keydown', stopKey);
+    modal.addEventListener('keyup', stopKey);
+  }
   dialog.addEventListener('close', () => {
     const selected = (dialog.querySelector('input[name="mode"]:checked') as HTMLInputElement).value as Mode;
     if (dialog.returnValue === 'apply') {
@@ -148,7 +145,6 @@ export function installSettings(game: Game): void {
         vibration: dialog.querySelector<HTMLInputElement>('input[name="vibration"]')!.checked,
         mode: selected
       });
-      renderModePicker();
       game.events.emit('language-changed');
     }
     if (dialog.returnValue === 'apply' && selected !== mode && suspended) {

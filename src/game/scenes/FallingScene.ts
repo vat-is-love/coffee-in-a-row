@@ -1,5 +1,5 @@
 import { createBoardSurface } from '../render/boardSurface';
-import { iconButton } from '../../ui/iconButton';
+import { createHud } from '../render/hud';
 import { t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { FALLING, createFalling, clearGroup, findGroup, addFallingRow, rowInterval, turnDuration, type FallingState } from '../logic/falling';
@@ -126,18 +126,15 @@ export class FallingScene extends Scene {
 
   private createHUD(): void {
     this.hudContainer?.destroy();
-    const width = Math.min(this.scale.width - 24, 620);
-    this.hudContainer = this.add.container((this.scale.width - width) / 2, 10).setDepth(20);
-    const bg = this.add.graphics().fillStyle(0x16213e, 0.95).fillRoundedRect(0, 0, width, 104, 14);
-    const style = { fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#f5f0e8' };
-    const title = this.add.text(12, 10, t('FALLING ROWS'), { ...style, color: '#e8a87c', fontStyle: 'bold' });
-    if (title.width > width - 128) title.setScale((width - 128) / title.width);
-    const settings = iconButton(this, width - 104, 8, 'settings', () => window.dispatchEvent(new Event('game-settings')));
-    this.scoreText = this.add.text(12, 36, '', style);
-    const pause = iconButton(this, width - 54, 8, this.gameOver ? 'restart' : this.paused ? 'play' : 'pause', () => this.gameOver ? this.scene.restart() : this.togglePause());
-    this.timerText = this.add.text(12, 62, '', { ...style, fontSize: '12px' });
-    this.statusText = this.add.text(12, 84, '', { ...style, fontSize: '11px', color: '#e4cfad' });
-    this.hudContainer.add([bg, title, settings, this.scoreText, pause, this.timerText, this.statusText]);
+    const icon = this.gameOver ? 'restart' : this.paused ? 'play' : 'pause';
+    const hud = createHud(this, t('FALLING ROWS'), icon, () => {
+      if (this.gameOver) this.scene.restart();
+      else this.togglePause();
+    });
+    this.hudContainer = hud.container;
+    this.scoreText = hud.score;
+    this.timerText = hud.progress;
+    this.statusText = hud.status;
     this.createPreview();
     this.updateHUD();
   }
@@ -166,8 +163,8 @@ export class FallingScene extends Scene {
     this.dropButton?.setAlpha(this.paused || this.gameOver || this.droppingRow || this.remaining <= 0 ? 0.45 : 1);
     this.scoreText.setText(`${t('Score')}: ${this.state.score} · ${t('Rows')}: ${this.state.rowsAdded}`);
     this.timerText.setText(`${t('Next row')}: ${(this.remaining / 1000).toFixed(1)}s`);
-    const highest = this.state.grid.findIndex(row => row.some(color => color >= 0));
-    const danger = highest >= 0 && highest <= 1;
+    const [top, second] = this.state.grid;
+    const danger = top.some(color => color >= 0) || second.some(color => color >= 0);
     this.danger.clear();
     if (danger) this.danger.fillStyle(0xe74c3c, 0.12 + Math.sin(this.elapsed / 300) * 0.04).fillRect(0, 0, 512, 128);
     this.timerText.setColor(danger || this.remaining < 2000 ? '#ffb49f' : '#f5f0e8');
@@ -306,21 +303,18 @@ export class FallingScene extends Scene {
     const started = this.time.now;
     this.updateHUD();
     this.removingTiles = new Set(result.removed.map(p => this.board[p.row][p.col]!));
-    const previewBoard = Array.from({ length: 8 }, () => Array<TileView | null>(8).fill(null));
-    result.motions.forEach(({ from, to }) => { previewBoard[to.row][to.col] = this.board[from.row][from.col]; });
+    const survivors = result.motions.map(({ from, to }) => ({ tile: this.board[from.row][from.col]!, to }));
+    const previewBoard = Array.from({ length: FALLING.rows }, () => Array<TileView | null>(FALLING.cols).fill(null));
+    for (const { tile, to } of survivors) previewBoard[to.row][to.col] = tile;
     this.settlingPreview = { grid: result.state.grid, board: previewBoard };
     const removed = [...this.removingTiles].map(tile => tile.sprite);
     const turnMs = turnDuration(this.state.rowsAdded);
     await this.spinAway(removed, turnMs * 0.48);
     removed.forEach(sprite => sprite.destroy());
-    const survivors = result.motions.map(motion => ({ tile: this.board[motion.from.row][motion.from.col]!, to: motion.to }));
     await Promise.all(survivors.map(({ tile, to }) => this.animate([tile.sprite], { y: to.row * 64 + 32 }, turnMs * 0.28)));
     await Promise.all(survivors.map(({ tile, to }) => this.animate([tile.sprite], { x: to.col * 64 + 32 }, turnMs * 0.20)));
-    this.board = Array.from({ length: 8 }, () => Array<TileView | null>(8).fill(null));
-    survivors.forEach(({ tile, to }) => {
-      Object.assign(tile, to);
-      this.board[to.row][to.col] = tile;
-    });
+    for (const { tile, to } of survivors) Object.assign(tile, to);
+    this.board = previewBoard;
     this.state = result.state;
     this.settlingPreview = null;
     // Reduced motion and short falls retain the same gameplay rate limit.

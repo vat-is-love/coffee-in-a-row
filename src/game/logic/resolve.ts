@@ -60,26 +60,20 @@ export function refillBoard(config: GameConfig, state: BoardState, rng: SeededRN
  * Returns number of tiles cleared and snow layers removed.
  */
 export function clearMatches(state: BoardState, matches: Match[]): { tilesCleared: number; snowCleared: number } {
-  const clearedPositions = new Set<string>();
   let tilesCleared = 0;
   let snowCleared = 0;
 
   for (const match of matches) {
-    for (const pos of match.tiles) {
-      const key = `${pos.row},${pos.col}`;
-      if (!clearedPositions.has(key)) {
-        clearedPositions.add(key);
-        const tile = state.grid[pos.row][pos.col];
-        if (tile.type !== -1) {
-          tilesCleared++;
-          if (tile.snow > 0) {
-            snowCleared++;
-            tile.snow--;
-          }
-          // Mark as empty
-          tile.type = -1;
-        }
+    for (const { row, col } of match.tiles) {
+      const tile = state.grid[row][col];
+      // Intersections are already empty when the second match reaches them.
+      if (tile.type === -1) continue;
+      tilesCleared++;
+      if (tile.snow > 0) {
+        snowCleared++;
+        tile.snow--;
       }
+      tile.type = -1;
     }
   }
 
@@ -95,10 +89,7 @@ export function calculateScoreDelta(
   matchLengths: number[],
   cascadeDepth: number
 ): number {
-  let score = 0;
-
-  // Base tile points
-  score += tilesCleared * SCORING.TILE_BASE;
+  let score = tilesCleared * SCORING.TILE_BASE;
 
   // Bonus for matches of 4+ (per tile beyond 3 in each line)
   for (const length of matchLengths) {
@@ -109,9 +100,7 @@ export function calculateScoreDelta(
 
   // Cascade multiplier applies to tile points only; snow earns a fixed bonus.
   const multiplier = Math.min(cascadeDepth, SCORING.CASCADE_MULTIPLIER_CAP);
-  score = score * multiplier + snowCleared * SCORING.SNOW_LAYER;
-
-  return score;
+  return score * multiplier + snowCleared * SCORING.SNOW_LAYER;
 }
 
 /**
@@ -155,19 +144,17 @@ export function resolveAllMatches(
   let totalTilesCleared = 0;
   let totalSnowCleared = 0;
   let totalScoreDelta = 0;
-  let cascades = 0;
   const frames: ResolutionFrame[] = [];
   let currentMatches = initialMatches;
-  let cascadeDepth = 1;
 
   while (currentMatches.length > 0) {
     // Bound work even for a pathological RNG. The safety reshuffle awards no
     // extra points and preserves the remaining snow and move/score counters.
-    if (cascades >= MAX_CASCADES) {
+    if (frames.length >= MAX_CASCADES) {
       state.grid = reshuffleBoard(config, state, rng, 0).grid;
       break;
     }
-    const stepResult = resolveStep(config, state, currentMatches, cascadeDepth, rng);
+    const stepResult = resolveStep(config, state, currentMatches, frames.length + 1, rng);
 
     totalTilesCleared += stepResult.tilesCleared;
     totalSnowCleared += stepResult.snowCleared;
@@ -176,18 +163,14 @@ export function resolveAllMatches(
     frameState.score += totalScoreDelta;
     frameState.rngSeed = rng.getSeed();
     frames.push({ matches: currentMatches, boardState: frameState, scoreDelta: stepResult.scoreDelta });
-    cascades++;
-
-    // Check for new matches (cascade)
     currentMatches = findMatches(config, state);
-    cascadeDepth++;
   }
 
   state.rngSeed = rng.getSeed();
   return {
     frames,
     matches: initialMatches,
-    cascades,
+    cascades: frames.length,
     scoreDelta: totalScoreDelta,
     snowCleared: totalSnowCleared,
     tilesCleared: totalTilesCleared,

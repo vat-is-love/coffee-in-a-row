@@ -2,94 +2,43 @@
  * E2E tests for Coffee Match game
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 test.describe('Coffee Match: Match-3 Demo', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    // Wait for Phaser to initialize
-    await page.waitForSelector('canvas', { timeout: 10000 });
-    await page.getByRole('button', { name: /Match three/ }).click();
-  });
-
-  test('should load game without errors', async ({ page }) => {
-    // Check that canvas exists and is visible
-    const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible();
-
-    // Check that no console errors occurred
+  test('loads the playable board without errors', async ({ page }) => {
     const errors: string[] = [];
-    page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        errors.push(msg.text());
+    page.on('console', message => {
+      if (message.type() === 'error' && !/font|preload/.test(message.text())) {
+        errors.push(message.text());
       }
     });
-
-    // Wait a bit for game to fully load
-    await page.waitForTimeout(2000);
-
-    // Filter out expected warnings (like font loading)
-    const realErrors = errors.filter(e =>
-      !e.includes('font') && !e.includes('preload')
-    );
-    expect(realErrors).toHaveLength(0);
-  });
-
-  test('should show loading screen then game board', async ({ page }) => {
-    // Wait for loading to complete and game scene to start
-    await page.waitForTimeout(3000);
-
-    // Canvas should be present
+    await ready(page);
     const canvas = page.locator('canvas');
     await expect(canvas).toBeVisible();
-
-    // Check canvas has reasonable dimensions
     const box = await canvas.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.width).toBeGreaterThan(300);
-    expect(box!.height).toBeGreaterThan(200);
+    expect(box?.width).toBeGreaterThan(300);
+    expect(box?.height).toBeGreaterThan(200);
+    expect(errors).toHaveLength(0);
   });
 
-  test('should be responsive on mobile viewport', async ({ page }) => {
-    // Set mobile viewport
-    await page.setViewportSize({ width: 375, height: 667 });
-    await page.reload();
-    await page.getByRole('button', { name: /Match three/ }).click();
-    await page.waitForSelector('canvas', { timeout: 10000 });
-    await page.waitForTimeout(2000);
-
-    const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible();
-
-    const box = await canvas.boundingBox();
-    expect(box).not.toBeNull();
-    // Canvas should fit within viewport
-    expect(box!.width).toBeLessThanOrEqual(375);
-  });
-
-  test('should be responsive on tablet viewport', async ({ page }) => {
-    await page.setViewportSize({ width: 768, height: 1024 });
-    await page.reload();
-    await page.getByRole('button', { name: /Match three/ }).click();
-    await page.waitForSelector('canvas', { timeout: 10000 });
-    await page.waitForTimeout(2000);
-
-    const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible();
-  });
-
-  test('should be responsive on desktop viewport', async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 720 });
-    await page.reload();
-    await page.getByRole('button', { name: /Match three/ }).click();
-    await page.waitForSelector('canvas', { timeout: 10000 });
-    await page.waitForTimeout(2000);
-
-    const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible();
-  });
+  for (const viewport of [
+    { width: 375, height: 667 },
+    { width: 768, height: 1024 },
+    { width: 1280, height: 720 }
+  ]) {
+    test(`restores the board and fits a ${viewport.width}×${viewport.height} viewport`, async ({ page }) => {
+      await ready(page);
+      await page.setViewportSize(viewport);
+      await page.reload();
+      await waitForBoard(page);
+      const canvas = page.locator('canvas');
+      await expect(canvas).toBeVisible();
+      await expect.poll(async () => (await canvas.boundingBox())?.width).toBeLessThanOrEqual(viewport.width);
+    });
+  }
 
   test('keeps the board below the HUD and maps clicks after resizing', async ({ page }) => {
+    await ready(page);
     for (const viewport of [
       { width: 320, height: 568 },
       { width: 375, height: 667 },
@@ -136,13 +85,17 @@ test.describe('Coffee Match: Match-3 Demo', () => {
   });
 
 });
-async function ready(page: import('@playwright/test').Page) {
+async function ready(page: Page) {
   await page.goto('/');
   await page.getByRole('button', { name: /Match three/ }).click();
+  await waitForBoard(page);
+}
+
+async function waitForBoard(page: Page) {
   await page.waitForFunction(() => (window as any).__GAME__?.scene.isActive('GameScene'));
 }
 
-async function candidate(page: import('@playwright/test').Page, valid = true) {
+async function candidate(page: Page, valid = true) {
   return page.evaluate(async (wantValid) => {
     const path = '/src/game/logic/index.ts';
     const logic = await import(path);
@@ -164,11 +117,11 @@ async function candidate(page: import('@playwright/test').Page, valid = true) {
   }, valid);
 }
 
-async function settled(page: import('@playwright/test').Page) {
+async function settled(page: Page) {
   await page.waitForFunction(() => !(window as any).__GAME__.scene.getScene('GameScene').isProcessing);
 }
 
-async function snapshot(page: import('@playwright/test').Page) {
+async function snapshot(page: Page) {
   return page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('GameScene');
     return { state: scene.state, moves: scene.movesPlayed, score: scene.scoreText.text,
@@ -223,6 +176,12 @@ test('endless board remains playable through 40 moves and pause blocks input', a
   test.setTimeout(120000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await ready(page);
+  await page.evaluate(async () => {
+    const logic = await import('/src/game/logic/index.ts' as string);
+    const scene = (window as any).__GAME__.scene.getScene('GameScene');
+    scene.state = logic.initializeGame(scene.config, 0);
+    scene.renderBoard();
+  });
   await page.keyboard.press('Escape');
   const frozen = await snapshot(page);
   const move = await candidate(page);
@@ -271,18 +230,7 @@ test('matches clean fixed cells, completion saves once and restart resets progre
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await ready(page);
   const move = await candidate(page);
-  const expectedCells = await page.evaluate(async () => {
-    const logic = await import('/src/game/logic/index.ts' as string);
-    const scene = (window as any).__GAME__.scene.getScene('GameScene');
-    for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
-      for (const [dr, dc] of [[0, 1], [1, 0]]) {
-        if (row + dr >= 8 || col + dc >= 8) continue;
-        const result = logic.simulateMove(scene.config, scene.state, { row, col }, { row: row + dr, col: col + dc }, { endless: true });
-        if (result.valid) return [...new Set(result.frames.flatMap((frame: any) => frame.matches.flatMap((match: any) => match.tiles.map((p: any) => `${p.row},${p.col}`))))].sort();
-      }
-    }
-    return [];
-  });
+  const expectedCells = [...new Set(move.cleared)].sort();
   await page.mouse.click(move.a.x, move.a.y);
   await page.mouse.click(move.b.x, move.b.y);
   await settled(page);
@@ -311,14 +259,26 @@ test('matches clean fixed cells, completion saves once and restart resets progre
 
 test('classic timer stops during pause and settings', async ({ page }) => {
   await ready(page);
-  await page.keyboard.press('Escape');
-  const elapsed = await page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed);
+  const readElapsed = () => page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed);
+  expect(await readElapsed()).toBe(0);
   await page.waitForTimeout(200);
-  expect(await page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed)).toBe(elapsed);
+  expect(await readElapsed()).toBe(0);
+
+  const move = await candidate(page, false);
+  await page.mouse.click(move.a.x, move.a.y);
+  await page.mouse.click(move.b.x, move.b.y);
+  await settled(page);
+  await expect.poll(readElapsed).toBeGreaterThan(0);
+
   await page.keyboard.press('Escape');
-  await expect.poll(() => page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed)).toBeGreaterThan(elapsed);
+  const elapsed = await readElapsed();
+  await page.waitForTimeout(200);
+  expect(await readElapsed()).toBe(elapsed);
+  await page.keyboard.press('Escape');
+  await expect.poll(readElapsed).toBeGreaterThan(elapsed);
+
   await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
-  const paused = await page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed);
+  const paused = await readElapsed();
   await page.waitForTimeout(200);
-  expect(await page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed)).toBe(paused);
+  expect(await readElapsed()).toBe(paused);
 });

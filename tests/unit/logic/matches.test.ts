@@ -30,7 +30,7 @@ function createTile(type: Tile['type'], snow: Tile['snow'] = 0): Tile {
 }
 
 function createEmptyGrid(): Tile[][] {
-  return Array(8).fill(null).map(() => Array(8).fill(null).map(() => createTile(-1 as Tile['type'])));
+  return Array.from({ length: 8 }, () => Array.from({ length: 8 }, () => createTile(-1)));
 }
 
 describe('findMatches', () => {
@@ -162,9 +162,9 @@ describe('findMatches', () => {
 
   it('should not match tiles with type -1 (empty)', () => {
     const grid = createEmptyGrid();
-    grid[0][0] = createTile(-1 as Tile['type']);
-    grid[0][1] = createTile(-1 as Tile['type']);
-    grid[0][2] = createTile(-1 as Tile['type']);
+    grid[0][0] = createTile(-1);
+    grid[0][1] = createTile(-1);
+    grid[0][2] = createTile(-1);
 
     const state = createTestState(grid);
     const matches = findMatches(TEST_CONFIG, state);
@@ -201,6 +201,18 @@ describe('wouldCreateMatch', () => {
     expect(result).toBe(false);
   });
 
+  it('ignores the source color after swapping and any unrelated match', () => {
+    const grid = createEmptyGrid();
+    grid[0][0] = createTile(1);
+    grid[0][1] = createTile(2);
+    grid[0][2] = createTile(1);
+    grid[7] = Array.from({ length: 8 }, () => createTile(4));
+    const state = createTestState(grid);
+
+    expect(wouldCreateMatch(TEST_CONFIG, state, { row: 0, col: 0 }, { row: 0, col: 1 })).toBe(false);
+    expect(grid[0].slice(0, 3).map(tile => tile.type)).toEqual([1, 2, 1]);
+  });
+
   it('should return false for non-adjacent positions', () => {
     const grid = createEmptyGrid();
     grid[0][0] = createTile(1);
@@ -230,7 +242,7 @@ describe('hasValidMoves', () => {
     // Checkerboard pattern - no matches possible
     for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
-        grid[row][col] = createTile((row + col) % 5);
+        grid[row][col] = createTile(((row + col) % 5) as Tile['type']);
       }
     }
 
@@ -255,6 +267,9 @@ describe('getAllValidMoves', () => {
     const state = createTestState(grid);
     const moves = getAllValidMoves(TEST_CONFIG, state);
 
-    expect(moves.length).toBeGreaterThanOrEqual(2);
+    expect(moves).toEqual([
+      [{ row: 0, col: 0 }, { row: 0, col: 1 }],
+      [{ row: 1, col: 2 }, { row: 1, col: 3 }]
+    ]);
   });
 });

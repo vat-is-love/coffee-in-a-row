@@ -1,4 +1,3 @@
-import './pwa';
 /**
  * Coffee Match: Match-3 Demo
  * Main entry point - boots the Phaser game
@@ -31,12 +30,6 @@ const config: Types.Core.GameConfig = {
     mode: Phaser.Scale.RESIZE,
     // The parent uses flex centering; Phaser margins would offset the canvas twice on resize.
     autoCenter: Phaser.Scale.NO_CENTER
-  },
-  physics: {
-    default: 'arcade',
-    arcade: {
-      debug: false
-    }
   },
   render: {
     antialias: true,
@@ -71,10 +64,8 @@ game.events.once(Core.Events.READY, () => {
 });
 game.events.once(Core.Events.DESTROY, () => resizeObserver?.disconnect());
 
-
 // Make game globally accessible for debugging (dev only)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-if ((import.meta as any).env?.DEV) {
+if (import.meta.env.DEV) {
   (window as Window & { __GAME__?: Game }).__GAME__ = game;
 }
 

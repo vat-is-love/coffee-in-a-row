@@ -66,17 +66,15 @@ final class ApkUpdater {
         checking = true;
         manualCheck = manual;
         worker.execute(() -> {
-            Release latest = null;
-            boolean failed = false;
+            Release release;
             try {
-                latest = fetchRelease();
+                release = fetchRelease();
             } catch (Exception exception) {
-                failed = true;
                 android.util.Log.w("CoffeeUpdate", "APK update check failed", exception);
+                activity.runOnUiThread(() -> finishCheck(build, sameBuild, retryAt, null, true));
+                return;
             }
-            Release release = latest;
-            boolean requestFailed = failed;
-            activity.runOnUiThread(() -> finishCheck(build, sameBuild, retryAt, release, requestFailed));
+            activity.runOnUiThread(() -> finishCheck(build, sameBuild, retryAt, release, false));
         });
     }
 

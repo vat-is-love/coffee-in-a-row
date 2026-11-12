@@ -53,32 +53,22 @@ export function reshuffleBoard(config: GameConfig, state: BoardState, rng: Seede
   // Collect existing tile types (excluding empty)
   const tileTypes = collectTileTypes(config, newState);
 
-  let attempts = 0;
-  while (attempts < maxAttempts && tileTypes.length === config.rows * config.cols) {
+  const full = tileTypes.length === config.rows * config.cols;
+  for (let attempt = 0; full && attempt < maxAttempts; attempt++) {
     // Shuffle tile types
     shuffleArray(tileTypes, rng);
 
-    // Redistribute shuffled types back to non-empty cells
-    let idx = 0;
+    let index = 0;
     for (let row = 0; row < config.rows; row++) {
       for (let col = 0; col < config.cols; col++) {
-        if (newState.grid[row][col].type !== -1) {
-          newState.grid[row][col].type = tileTypes[idx++];
-          // Preserve snow!
-        }
+        newState.grid[row][col].type = tileTypes[index++];
       }
     }
 
-    // Verify: no matches AND has valid moves
-    const matches = findMatches(config, newState);
-    const validMoves = hasValidMoves(config, newState);
-
-    if (matches.length === 0 && validMoves) {
+    if (findMatches(config, newState).length === 0 && hasValidMoves(config, newState)) {
       newState.rngSeed = rng.getSeed();
       return newState;
     }
-
-    attempts++;
   }
 
   // A fixed multiset may have no playable arrangement. Regenerate tile colors

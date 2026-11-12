@@ -3,15 +3,9 @@ import { test, expect, type Page } from '@playwright/test';
 async function sceneValue(page: Page, expression: string) {
   return page.evaluate(expression);
 }
-async function openSettings(page: Page, key = 'GameScene') {
-  const point = await page.evaluate(key => {
-    const scene = (window as any).__GAME__.scene.getScene(key);
-    const label = scene.hudContainer.list.find((item: any) => item.text?.includes('Settings'));
-    const b = label.getBounds();
-    return { x: b.centerX, y: b.centerY };
-  }, key);
-  await page.mouse.click(point.x, point.y);
-  await expect(page.getByRole('dialog')).toBeVisible();
+async function openSettings(page: Page) {
+  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
 }
 async function startFalling(page: Page) {
   await page.goto('/');
@@ -20,21 +14,21 @@ async function startFalling(page: Page) {
 }
 const falling = `(window.__GAME__.scene.getScene('FallingScene'))`;
 
-test('mode selection repeats on reload, settings pause the timer, cancel and switch back', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('coffee-game-mode', 'falling'));
+test('settings pause the timer; the first-launch picker requires a choice', async ({ page }) => {
   await startFalling(page);
-  await openSettings(page, 'FallingScene');
+  await openSettings(page);
   const frozen = await sceneValue(page, `${falling}.remaining`);
   await page.waitForTimeout(300);
   expect(await sceneValue(page, `${falling}.remaining`)).toBe(frozen);
   await page.getByRole('radio', { name: /Match three/ }).check();
   await page.getByRole('button', { name: 'Cancel' }).click();
   expect(await sceneValue(page, `window.__GAME__.scene.isActive('FallingScene')`)).toBe(true);
-  await openSettings(page, 'FallingScene');
+  await openSettings(page);
   await page.getByRole('radio', { name: /Match three/ }).check();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).not.toBeVisible();
   expect(await sceneValue(page, `window.__GAME__.scene.isActive('FallingScene')`)).toBe(true);
+  await page.evaluate(() => localStorage.removeItem('coffee-preferences'));
   await page.reload();
   const picker = page.getByRole('dialog', { name: 'Choose game mode' });
   await expect(picker).toBeVisible();
@@ -45,7 +39,7 @@ test('mode selection repeats on reload, settings pause the timer, cancel and swi
   await expect(picker).toBeVisible();
   await picker.getByRole('button', { name: /Falling pieces/ }).click();
   await page.waitForFunction(() => (window as any).__GAME__?.scene.isActive('FallingScene'));
-  await openSettings(page, 'FallingScene');
+  await openSettings(page);
   await page.getByRole('radio', { name: /Match three/ }).check();
   await page.getByRole('button', { name: 'Apply' }).click();
   await page.waitForFunction(() => (window as any).__GAME__?.scene.isActive('GameScene'));

@@ -17,6 +17,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
+    private static final Uri GAME_URI = Uri.parse(BuildConfig.GAME_URL);
     private WebView web;
     private LocalBackup backup;
     private ApkUpdater updater;
@@ -60,12 +61,14 @@ public class MainActivity extends Activity {
     }
 
     private static boolean isGameUrl(String url) {
-        if (url == null) return false;
-        Uri caller = Uri.parse(url);
-        Uri game = Uri.parse(BuildConfig.GAME_URL);
-        return "https".equals(caller.getScheme()) && game.getHost().equals(caller.getHost())
-                && caller.getPort() == game.getPort() && caller.getPath() != null
-                && caller.getPath().startsWith(game.getPath());
+        return url != null && isGameUrl(Uri.parse(url));
+    }
+
+    private static boolean isGameUrl(Uri url) {
+        String path = url.getPath();
+        return "https".equals(url.getScheme()) && GAME_URI.getHost().equals(url.getHost())
+                && url.getPort() == GAME_URI.getPort() && path != null
+                && path.startsWith(GAME_URI.getPath());
     }
 
     @Override
@@ -131,10 +134,7 @@ public class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri url = request.getUrl();
-                Uri game = Uri.parse(BuildConfig.GAME_URL);
-                if ("https".equals(url.getScheme()) && game.getHost().equals(url.getHost())
-                        && url.getPort() == game.getPort() && url.getPath() != null
-                        && url.getPath().startsWith(game.getPath())) return false;
+                if (isGameUrl(url)) return false;
                 if (request.isForMainFrame() && ("https".equals(url.getScheme()) || "http".equals(url.getScheme()))) {
                     try { startActivity(new Intent(Intent.ACTION_VIEW, url)); }
                     catch (android.content.ActivityNotFoundException ignored) { }
@@ -214,11 +214,7 @@ public class MainActivity extends Activity {
         // Permission settings return before the activity necessarily regains focus.
         // Wait before delivering data that can trigger the next trusted JS prompt.
         if (!hasWindowFocus()) { pendingBackupReplies.add(() -> backupReply(id, reply)); return; }
-        Uri current = Uri.parse(web.getUrl() == null ? "" : web.getUrl());
-        Uri game = Uri.parse(BuildConfig.GAME_URL);
-        if (!"https".equals(current.getScheme()) || !game.getHost().equals(current.getHost())
-                || current.getPort() != game.getPort() || current.getPath() == null
-                || !current.getPath().startsWith(game.getPath())) return;
+        if (!isGameUrl(web.getUrl())) return;
         web.evaluateJavascript("window.dispatchEvent(new CustomEvent('coffee-backup-result',{detail:{id:"
                 + org.json.JSONObject.quote(id) + ",reply:" + reply.toString() + "}}))", null);
     }

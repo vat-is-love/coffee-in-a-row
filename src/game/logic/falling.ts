@@ -40,7 +40,8 @@ export function findGroup(grid: FallingGrid, start: Position): Position[] {
     if (visited.has(key) || grid[pos.row]?.[pos.col] !== color) continue;
     visited.add(key);
     group.push(pos);
-    for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) queue.push({ row: pos.row + dr, col: pos.col + dc });
+    const { row, col } = pos;
+    queue.push({ row: row + 1, col }, { row: row - 1, col }, { row, col: col + 1 }, { row, col: col - 1 });
   }
   return group;
 }

@@ -21,15 +21,16 @@ export function validateAttempts(maxAttempts: number): void {
 /** Fill every cell, including snow-covered cells, without forming triples. */
 export function fillBoardRandom(config: GameConfig, state: BoardState, rng: SeededRNG): void {
   validateGenerationConfig(config);
-  fillUnassigned(config, state, rng, new Set());
+  fillUnassigned(config, state, rng);
 }
 
 function fillUnassigned(
-  config: GameConfig, state: BoardState, rng: SeededRNG, fixed: Set<string>
+  config: GameConfig, state: BoardState, rng: SeededRNG, fixed?: Set<string>
 ): void {
+  const colors = Array.from({ length: config.tileTypes }, (_, type) => type);
   for (let row = 0; row < config.rows; row++) {
     for (let col = 0; col < config.cols; col++) {
-      if (fixed.has(`${row},${col}`)) continue;
+      if (fixed?.has(`${row},${col}`)) continue;
       const forbidden = new Set<number>();
       if (col >= 2 && state.grid[row][col - 1].type === state.grid[row][col - 2].type) {
         forbidden.add(state.grid[row][col - 1].type);
@@ -37,8 +38,7 @@ function fillUnassigned(
       if (row >= 2 && state.grid[row - 1][col].type === state.grid[row - 2][col].type) {
         forbidden.add(state.grid[row - 1][col].type);
       }
-      const choices = Array.from({ length: config.tileTypes }, (_, type) => type)
-        .filter(type => !forbidden.has(type));
+      const choices = colors.filter(type => !forbidden.has(type));
       state.grid[row][col].type = choices[rng.nextInt(choices.length)] as Tile['type'];
     }
   }
@@ -55,7 +55,7 @@ export function generateInitialBoard(config: GameConfig, rng: SeededRNG, maxAtte
   validateAttempts(maxAttempts);
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const state = createEmptyBoardState(config, rng.getSeed());
-    fillBoardRandom(config, state, rng);
+    fillUnassigned(config, state, rng);
     if (hasValidMoves(config, state)) {
       state.rngSeed = rng.getSeed();
       return state;

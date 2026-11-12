@@ -9,9 +9,12 @@ let vibration = true;
 try {
   const saved = JSON.parse(localStorage.getItem(PREFERENCES_KEY) ?? '{}');
   if (saved && typeof saved === 'object' && !Array.isArray(saved) && (saved.version === undefined || saved.version === 1)) {
-  if (saved?.language === 'ru' || saved?.language === 'en') { language = saved.language; languageChosen = true; }
-  if (saved?.mode === 'classic' || saved?.mode === 'falling') mode = saved.mode;
-  if (typeof saved?.vibration === 'boolean') vibration = saved.vibration;
+    if (saved.language === 'ru' || saved.language === 'en') {
+      language = saved.language;
+      languageChosen = true;
+    }
+    if (saved.mode === 'classic' || saved.mode === 'falling') mode = saved.mode;
+    if (typeof saved.vibration === 'boolean') vibration = saved.vibration;
   }
 } catch { /* Preferences are optional when storage is unavailable. */ }
 export function getPreferences() { return { language, vibration }; }
@@ -31,16 +34,16 @@ export function t(english: string): string {
   return language === 'ru' ? (russian[english] ?? english) : english;
 }
 type HapticEvent = 'match' | 'loss' | 'cancel';
-function requestVibration(event: HapticEvent): string {
+function requestVibration(event: HapticEvent): void {
   try {
     // Only the APK advertises this protocol; ordinary browsers must never show a prompt.
     if (typeof window !== 'undefined' && /CoffeeHaptics\/1/.test(navigator.userAgent)) {
-      return `Android: ${window.prompt('coffee-haptics', event) ?? 'unavailable'}`;
+      window.prompt('coffee-haptics', event);
+      return;
     }
-    if (typeof navigator.vibrate !== 'function') return 'Browser: unsupported';
     const pattern = event === 'cancel' ? 0 : event === 'match' ? 25 : [80, 50, 120];
-    return navigator.vibrate(pattern) ? 'Browser: requested' : 'Browser: rejected';
-  } catch { return 'Vibration: error'; }
+    navigator.vibrate?.(pattern);
+  } catch { /* Haptics are optional. */ }
 }
 export function vibrate(event: 'match' | 'loss'): void {
   if (!vibration || document.hidden) return;

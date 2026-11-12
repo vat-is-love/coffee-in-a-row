@@ -10,150 +10,87 @@ import {
   Match,
   Direction,
   areAdjacent,
-  cloneBoardState,
   inBounds
 } from './types';
 
-/**
- * Find all matches on the board.
- * Returns matches with unique tiles (intersections counted once per tile).
- */
+/** Find match lines in row order, then in column order. */
 export function findMatches(config: GameConfig, state: BoardState): Match[] {
   const matches: Match[] = [];
 
-  // Horizontal matches
-  for (let row = 0; row < config.rows; row++) {
-    let matchStart = 0;
-    for (let col = 1; col <= config.cols; col++) {
-      const currentTile = state.grid[row][col];
-      const startTile = state.grid[row][matchStart];
+  for (const direction of [Direction.Horizontal, Direction.Vertical]) {
+    const horizontal = direction === Direction.Horizontal;
+    const lineCount = horizontal ? config.rows : config.cols;
+    const lineLength = horizontal ? config.cols : config.rows;
+    if (lineLength < 3) continue;
 
-      if (col < config.cols &&
-          currentTile.type === startTile.type &&
-          currentTile.type !== -1) {
-        continue;
-      }
-
-      const matchLength = col - matchStart;
-      if (matchLength >= 3) {
-        const tiles: Position[] = [];
-        for (let c = matchStart; c < col; c++) {
-          tiles.push({ row, col: c });
+    for (let line = 0; line < lineCount; line++) {
+      let start = 0;
+      let type = horizontal ? state.grid[line][0].type : state.grid[0][line].type;
+      for (let i = 1; i <= lineLength; i++) {
+        const next = i === lineLength ? -1
+          : horizontal ? state.grid[line][i].type : state.grid[i][line].type;
+        if (next !== -1 && next === type) continue;
+        if (i - start >= 3) {
+          const tiles: Position[] = [];
+          for (let cell = start; cell < i; cell++) {
+            tiles.push(horizontal ? { row: line, col: cell } : { row: cell, col: line });
+          }
+          matches.push({ tiles, direction });
         }
-        matches.push({ tiles, direction: Direction.Horizontal });
+        start = i;
+        type = next;
       }
-      matchStart = col;
-    }
-  }
-
-  // Vertical matches
-  for (let col = 0; col < config.cols; col++) {
-    let matchStart = 0;
-    for (let row = 1; row <= config.rows; row++) {
-      // Check bounds before accessing grid
-      const currentTile = row < config.rows ? state.grid[row][col] : { type: -1, snow: 0 };
-      const startTile = state.grid[matchStart][col];
-
-      if (row < config.rows &&
-          currentTile.type === startTile.type &&
-          currentTile.type !== -1) {
-        continue;
-      }
-
-      const matchLength = row - matchStart;
-      if (matchLength >= 3) {
-        const tiles: Position[] = [];
-        for (let r = matchStart; r < row; r++) {
-          tiles.push({ row: r, col });
-        }
-        matches.push({ tiles, direction: Direction.Vertical });
-      }
-      matchStart = row;
     }
   }
 
   return matches;
 }
 
-/**
- * Check if a swap between two adjacent positions would create at least one match.
- * Does not mutate the board state.
- */
+/** Only a line through one of the two swapped cells can validate the swap. */
 export function wouldCreateMatch(config: GameConfig, state: BoardState, pos1: Position, pos2: Position): boolean {
-  if (!inBounds(config, pos1) || !inBounds(config, pos2) || !areAdjacent(pos1, pos2)) {
-    return false;
-  }
+  if (!inBounds(config, pos1) || !inBounds(config, pos2) || !areAdjacent(pos1, pos2)) return false;
   const first = state.grid[pos1.row][pos1.col].type;
   const second = state.grid[pos2.row][pos2.col].type;
   if (first === -1 || second === -1 || first === second) return false;
 
-  // Clone state to test swap
-  const testState = cloneBoardState(state);
+  return hasLineAt(pos1, pos2, second) || hasLineAt(pos2, pos1, first);
 
-  // Perform swap
-  const tile1 = testState.grid[pos1.row][pos1.col];
-  const tile2 = testState.grid[pos2.row][pos2.col];
-  [tile1.type, tile2.type] = [tile2.type, tile1.type];
+  function hasLineAt({ row, col }: Position, source: Position, type: number): boolean {
+    return hasTriple(0, 1) || hasTriple(1, 0);
 
-  // Check for matches
-  const matches = findMatches(config, testState);
-  return matches.some(match => match.tiles.some(pos =>
-    (pos.row === pos1.row && pos.col === pos1.col) ||
-    (pos.row === pos2.row && pos.col === pos2.col)
-  ));
+    function hasTriple(dr: number, dc: number): boolean {
+      const before = matchesAt(row - dr, col - dc);
+      const after = matchesAt(row + dr, col + dc);
+      return (before && (after || matchesAt(row - 2 * dr, col - 2 * dc))) ||
+        (after && matchesAt(row + 2 * dr, col + 2 * dc));
+    }
+
+    function matchesAt(r: number, c: number): boolean {
+      // The source cell receives the other color and cannot extend this line.
+      return r >= 0 && r < config.rows && c >= 0 && c < config.cols &&
+        (r !== source.row || c !== source.col) && state.grid[r][c].type === type;
+    }
+  }
 }
 
-/**
- * Check if the board has at least one valid move.
- */
+function* validMoves(config: GameConfig, state: BoardState): Generator<[Position, Position]> {
+  for (let row = 0; row < config.rows; row++) {
+    for (let col = 0; col < config.cols; col++) {
+      const from = { row, col };
+      const right = { row, col: col + 1 };
+      const down = { row: row + 1, col };
+      if (wouldCreateMatch(config, state, from, right)) yield [from, right];
+      if (wouldCreateMatch(config, state, from, down)) yield [{ ...from }, down];
+    }
+  }
+}
+
 export function hasValidMoves(config: GameConfig, state: BoardState): boolean {
-  for (let row = 0; row < config.rows; row++) {
-    for (let col = 0; col < config.cols; col++) {
-      // Check right
-      if (col + 1 < config.cols) {
-        if (wouldCreateMatch(config, state, { row, col }, { row, col: col + 1 })) {
-          return true;
-        }
-      }
-      // Check down
-      if (row + 1 < config.rows) {
-        if (wouldCreateMatch(config, state, { row, col }, { row: row + 1, col })) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
+  return validMoves(config, state).next().done === false;
 }
 
-/**
- * Get all valid moves on the board as pairs of positions.
- */
 export function getAllValidMoves(config: GameConfig, state: BoardState): Array<[Position, Position]> {
-  const moves: Array<[Position, Position]> = [];
-
-  for (let row = 0; row < config.rows; row++) {
-    for (let col = 0; col < config.cols; col++) {
-      // Check right
-      if (col + 1 < config.cols) {
-        const pos1: Position = { row, col };
-        const pos2: Position = { row, col: col + 1 };
-        if (wouldCreateMatch(config, state, pos1, pos2)) {
-          moves.push([pos1, pos2]);
-        }
-      }
-      // Check down
-      if (row + 1 < config.rows) {
-        const pos1: Position = { row, col };
-        const pos2: Position = { row: row + 1, col };
-        if (wouldCreateMatch(config, state, pos1, pos2)) {
-          moves.push([pos1, pos2]);
-        }
-      }
-    }
-  }
-
-  return moves;
+  return Array.from(validMoves(config, state));
 }
 
 /**

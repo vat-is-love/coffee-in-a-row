@@ -9,24 +9,36 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 let statusText = '';
 export const supportsBackup = () => /CoffeeBackup\/[12]/.test(navigator.userAgent);
 const automaticBackup = () => /CoffeeBackup\/2/.test(navigator.userAgent);
+const BACKUP_WARNING = 'Backup could not be saved. Check free space and turn saving off and on to grant access again.';
+const backupErrorMessage = () => t(automaticBackup() ? BACKUP_WARNING
+  : 'Backup failed. Check folder access and free space; choose the folder again if needed.');
+
 function status(text: string) {
   statusText = text;
   document.querySelectorAll('[data-backup-status]').forEach(el => { el.textContent = text; });
 }
-function request(action: string, data?: string): Promise<Reply> {
+function request(action: 'status' | 'choose' | 'enable' | 'activate' | 'disable' | 'write', data?: string): Promise<Reply> {
   return new Promise((resolve, reject) => {
     const id = `${Date.now()}-${++serial}`;
     // Folder selection is user-paced; other operations have a bounded wait.
+    const cleanup = () => {
+      clearTimeout(timeout);
+      waiting.delete(id);
+    };
     const timeout = (action === 'choose' || action === 'enable') ? undefined : setTimeout(() => {
-      waiting.delete(id); reject(Error('Backup timeout'));
+      cleanup();
+      reject(Error('Backup timeout'));
     }, 30000);
     waiting.set(id, reply => {
-      clearTimeout(timeout); waiting.delete(id);
+      cleanup();
       if (reply.error) reject(Error(reply.error)); else resolve(reply);
     });
     try {
       if (window.prompt('coffee-backup', JSON.stringify({ id, action, data })) !== 'accepted') throw Error('Bridge unavailable');
-    } catch (error) { clearTimeout(timeout); waiting.delete(id); reject(error); }
+    } catch (error) {
+      cleanup();
+      reject(error);
+    }
   });
 }
 export async function refreshBackupStatus(): Promise<void> {
@@ -34,8 +46,8 @@ export async function refreshBackupStatus(): Promise<void> {
   try {
     const reply = await request('status');
     document.querySelectorAll<HTMLInputElement>('[data-backup-enabled]').forEach(control => { control.checked = !!reply.enabled; });
-    status(reply.warning ? t('Backup could not be saved. Check free space and turn saving off and on to grant access again.') : reply.folder ? `${t('Backup folder')}: ${reply.folder}. ${reply.savedAt ? `${t('Last backup')}: ${new Date(reply.savedAt).toLocaleString()}` : t('No backup saved yet.')}` : t('Backup is not configured.'));
-  } catch { status(t(automaticBackup() ? 'Backup could not be saved. Check free space and turn saving off and on to grant access again.' : 'Backup failed. Check folder access and free space; choose the folder again if needed.')); }
+    status(reply.warning ? t(BACKUP_WARNING) : reply.folder ? `${t('Backup folder')}: ${reply.folder}. ${reply.savedAt ? `${t('Last backup')}: ${new Date(reply.savedAt).toLocaleString()}` : t('No backup saved yet.')}` : t('Backup is not configured.'));
+  } catch { status(backupErrorMessage()); }
 }
 export async function saveBackup(): Promise<void> {
   if (!supportsBackup() || busy) return;
@@ -44,7 +56,7 @@ export async function saveBackup(): Promise<void> {
     if (!current.folder || busy) return;
     await request('write', JSON.stringify(createBackup(localStorage)));
     await refreshBackupStatus();
-  } catch { status(t(automaticBackup() ? 'Backup could not be saved. Check free space and turn saving off and on to grant access again.' : 'Backup failed. Check folder access and free space; choose the folder again if needed.')); }
+  } catch { status(backupErrorMessage()); }
 }
 export async function chooseBackupFolder(): Promise<void> {
   if (busy) return;

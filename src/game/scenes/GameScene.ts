@@ -1,10 +1,10 @@
 import { createBoardSurface } from '../render/boardSurface';
 import { showClassicLeaderboard, formatDuration } from '../../ui/fallingLeaderboard';
-import { iconButton } from '../../ui/iconButton';
+import { createHud } from '../render/hud';
 import { t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import {
-  initializeGame, simulateMove, areAdjacent, cloneBoardState,
+  initializeGame, simulateMove, areAdjacent, MAX_CASCADES,
   type BoardState, type GameConfig, type Position, type ResolutionFrame
 } from '../logic';
 
@@ -61,7 +61,6 @@ export class GameScene extends Scene {
     this.background = this.add.graphics();
     this.boardContainer = this.add.container(0, 0);
     this.createBoardSurface();
-    this.createHUD();
     this.resizeLayout();
     try {
       this.state = initializeGame(this.config);
@@ -111,19 +110,12 @@ export class GameScene extends Scene {
   }
 
   private createHUD(): void {
-    const width = Math.min(this.scale.width - 24, 620);
-    this.hudContainer = this.add.container((this.scale.width - width) / 2, 10).setDepth(20);
-    const bg = this.add.graphics().fillStyle(0x16213e, 0.95);
-    bg.fillRoundedRect(0, 0, width, 104, 14);
-    const style = { fontFamily: 'Nunito, sans-serif', fontSize: '14px', color: '#f5f0e8' };
-    const title = this.add.text(12, 10, t('Match three'), { ...style, color: '#e8a87c', fontStyle: 'bold' });
-    if (title.width > width - 128) title.setScale((width - 128) / title.width);
-    const settings = iconButton(this, width - 104, 8, 'settings', () => window.dispatchEvent(new Event('game-settings')));
-    this.movesText = this.add.text(12, 62, '', { ...style, fontSize: '12px' });
-    this.scoreText = this.add.text(12, 36, '', style);
-    const pause = iconButton(this, width - 54, 8, this.paused ? 'play' : 'pause', () => this.togglePause());
-    this.statusText = this.add.text(12, 84, '', { ...style, fontSize: '11px', color: '#e4cfad' });
-    this.hudContainer.add([bg, title, settings, this.movesText, this.scoreText, pause, this.statusText]);
+    this.hudContainer?.destroy();
+    const hud = createHud(this, t('Match three'), this.paused ? 'play' : 'pause', () => this.togglePause());
+    this.hudContainer = hud.container;
+    this.scoreText = hud.score;
+    this.movesText = hud.progress;
+    this.statusText = hud.status;
     if (this.state) this.updateHUD();
   }
 
@@ -131,7 +123,6 @@ export class GameScene extends Scene {
     const { width, height } = this.scale;
     this.cancelGesture();
     this.background.clear().fillStyle(0x1a1a2e).fillRect(0, 0, width, height);
-    this.hudContainer.destroy();
     this.createHUD();
     const boardWidth = this.config.cols * TILE_SIZE;
     const boardHeight = this.config.rows * TILE_SIZE;
@@ -243,7 +234,6 @@ export class GameScene extends Scene {
     this.paused = !this.paused;
     this.cancelGesture();
     this.clearSelection();
-    this.hudContainer.destroy();
     this.createHUD();
   }
 
@@ -261,15 +251,11 @@ export class GameScene extends Scene {
     this.cancelGesture();
     try {
       const result = simulateMove(this.config, this.state, a, b, { endless: true });
-      await Promise.all([
-        this.animate(a.sprite, { x: b.col * 64 + 32, y: b.row * 64 + 32 }, 150),
-        this.animate(b.sprite, { x: a.col * 64 + 32, y: a.row * 64 + 32 }, 150)
-      ]);
+      const moveTo = (tile: TileView, { row, col }: Position) =>
+        this.animate(tile.sprite, { x: col * TILE_SIZE + TILE_SIZE / 2, y: row * TILE_SIZE + TILE_SIZE / 2 }, 150);
+      await Promise.all([moveTo(a, b), moveTo(b, a)]);
       if (!result.valid) {
-        await Promise.all([
-          this.animate(a.sprite, { x: a.col * 64 + 32, y: a.row * 64 + 32 }, 150),
-          this.animate(b.sprite, { x: b.col * 64 + 32, y: b.row * 64 + 32 }, 150)
-        ]);
+        await Promise.all([moveTo(a, a), moveTo(b, b)]);
         this.updateHUD(t('Try a swap that makes a line of 3'));
         return;
       }
@@ -281,7 +267,7 @@ export class GameScene extends Scene {
         this.updateHUD(i === 0 ? t('Match!') : `${t('Cascade')} ×${i + 1}`);
         await this.playFrame(result.frames[i]);
       }
-      if (result.gameOver === 'reshuffle' || result.cascades >= 100) {
+      if (result.gameOver === 'reshuffle' || result.cascades >= MAX_CASCADES) {
         this.updateHUD(t('No moves · Shuffling…'));
         const sprites = this.board.flat().map(tile => tile.sprite);
         await this.animate(sprites, { alpha: 0.2 }, 250);
@@ -323,9 +309,7 @@ export class GameScene extends Scene {
     }
     this.board = next;
     await Promise.all(falls);
-    const score = this.state.score + frame.scoreDelta;
-    this.state = cloneBoardState(frame.boardState);
-    this.state.score = score;
+    this.state = { ...frame.boardState, score: this.state.score + frame.scoreDelta };
     this.updateHUD(t('Resolving…'));
   }
 
