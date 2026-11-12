@@ -1,17 +1,17 @@
-# Repository instructions
+# Инструкции для репозитория
 
-This repository is part of the coffee-in-a-row project.
+Этот репозиторий входит в проект coffee-in-a-row.
 
-## Coding workflow
+## Работа с кодом
 
-Use Ponytail in `full` mode by default when writing, fixing, or refactoring application code or tests. If the Ponytail skill is unavailable in the current session, follow the same approach: reuse existing code and platform APIs, choose the simplest implementation that satisfies the request, and preserve existing behavior outside the requested change. Verify changes with the relevant checks.
+При написании, исправлении или рефакторинге кода приложения и тестов по умолчанию используйте Ponytail в режиме `full`. Если навык Ponytail недоступен в текущем сеансе, придерживайтесь того же подхода. Переиспользуйте существующий код и API платформы, выбирайте самую простую реализацию, которая выполняет запрос, и сохраняйте поведение за пределами запрошенного изменения. Запускайте проверки, относящиеся к внесённым изменениям.
 
-## Application version
+## Версия приложения
 
-- The repository owns the first two numbers (major/minor), currently `0.1`. Store them as the valid npm version `0.1.0-local` in `package.json`. The trailing `0-local` is a local placeholder, not a published build number. Keep the root and `packages[""].version` in `package-lock.json` synchronized.
-- Change major/minor deliberately for a new release series; do not increment them for every ordinary edit. Preserve the `.0-local` suffix in the repository.
-- Pages CI runs `node scripts/set-ci-version.mjs` before building. The published version is exactly `major.minor.GITHUB_RUN_NUMBER`: `0.1.0-local` with run 25 becomes `0.1.25`. Do not add the repository patch or another offset.
-- This only modifies the disposable CI checkout. Never commit or push generated version changes from CI. Keep `contents: read`; versioning must not require pulling bot commits.
-- Existing workflow run numbers mean the first published number may be higher than 1. Failed/cancelled runs leave gaps. Manual dispatch gets a new number; rerunning the same run keeps its version. Preserve the workflow identity to keep numbering increasing within a release series.
-- Settings use the version imported from `package.json`: local `0.1.0-local` is displayed as `0.1 (local build)` (translated), published builds as e.g. `0.1.25`. Never hardcode a separate UI version.
-- The Android wrapper has its own native build version. Change it only when rebuilding/releasing the wrapper.
+- Первые два числа версии (мажорное и минорное) задаются в репозитории. Сейчас это `0.1`. Храните их в `package.json` в формате `0.1.0-local`, допустимом для npm. Окончание `0-local` служит локальной заглушкой для номера публикуемой сборки. В `package-lock.json` поддерживайте ту же версию в корневом поле `version` и в `packages[""].version`.
+- Меняйте мажорное или минорное число при переходе на новую серию выпусков. При обычных правках оставляйте эти числа прежними. Сохраняйте суффикс `.0-local` в репозитории.
+- Перед сборкой для GitHub Pages CI запускает `node scripts/set-ci-version.mjs`. Публикуемая версия имеет точный формат `major.minor.GITHUB_RUN_NUMBER`. При запуске № 25 из `0.1.0-local` получается `0.1.25`. Используйте номер запуска напрямую, без прибавления патч-версии из репозитория или другого смещения.
+- Версия меняется только во временной копии репозитория в CI. Запрещено коммитить или отправлять изменения версии, сгенерированные в CI. Сохраняйте разрешение `contents: read`. Нумерация версий должна работать без получения коммитов от бота.
+- Из-за предыдущих запусков GitHub Actions номер первой опубликованной сборки может быть больше 1. Неудачные и отменённые запуски оставляют пропуски. Ручной запуск получает новый номер, а повтор того же запуска сохраняет его версию. Используйте тот же рабочий процесс GitHub Actions, чтобы нумерация продолжала расти в пределах серии выпусков.
+- Настройки показывают версию, импортированную из `package.json`. Для локальной версии `0.1.0-local` отображается локализованная строка `0.1 (локальная сборка)`, для опубликованной — номер вида `0.1.25`. Запрещено задавать отдельную версию в коде интерфейса.
+- У Android-оболочки свой номер нативной сборки. Меняйте его только при пересборке или выпуске оболочки.

@@ -125,51 +125,63 @@ Debug APK не следует использовать вместо подпис
 дальнейших обновлений. В репозитории нет Gradle Wrapper: в Actions нужную версию
 устанавливает `gradle/actions/setup-gradle`.
 
-## Recovery and diagnostics (2026-11)
+## Восстановление и диагностика (2026-11)
 
-Supported: Android 8/API 26 or newer **with Android System WebView/Chrome 102+**.
-API 26 is required for the renderer-process recovery callback.
-OS version alone does not guarantee a compatible WebView. Google Play Services are not required.
-The web build targets Chrome 102 and checks native dialog support before startup.
+Поддерживается Android 8 (API 26) и новее **с Android System WebView или Chrome версии 102 и выше**.
+API 26 нужен для вызова обработчика восстановления процесса отрисовки.
+Одной версии Android недостаточно, чтобы гарантировать совместимость WebView. Google Play Services не требуются.
+Веб-сборка рассчитана на Chrome 102 и перед запуском проверяет поддержку встроенных диалогов.
 
-Web deployment (`npm run build`, publish the complete `dist` through the existing Pages workflow)
-adds an independent inline loading/recovery screen, a 20-second watchdog and local diagnostic export.
-Startup succeeds only after the mode picker is shown. No automatic reload occurs. Diagnostics
-contain only error categories/names, source basenames, timestamps, build/APK identifiers and UA;
-they never include saved values or error payloads. The bounded journal lives in memory and is lost
-on reload: copy it before Retry. If clipboard access fails, select the displayed text manually.
-Corrupt falling records are copied verbatim to `coffee-falling-records-recovery-<timestamp>` before
-replacement. If backup fails, writing records is disabled for that attempt; the original survives.
-Existing arrays are version 0; preference objects accept legacy/no version and version 1.
+Веб-сборка добавляет независимый экран загрузки и восстановления, который встроен в страницу,
+20-секундный таймер контроля запуска и локальный экспорт диагностики. Выполните `npm run build`
+и опубликуйте всю папку `dist` через существующий процесс GitHub Pages.
+Запуск считается успешным после появления экрана выбора режима. Автоматической перезагрузки нет.
+В диагностику попадают только категории и названия ошибок, имена исходных файлов без путей,
+время событий, идентификаторы веб-сборки и APK, а также строка User-Agent. Сохранённые значения
+и содержимое ошибок в диагностику не попадают. Журнал ограничен по размеру, хранится в памяти
+и сбрасывается при перезагрузке. Скопируйте его перед нажатием **«Повторить»**. Если буфер обмена
+недоступен, выделите показанный текст вручную.
+Повреждённые рекорды режима «Падающие ряды» перед заменой копируются без изменений в
+`coffee-falling-records-recovery-<timestamp>`. Если копирование не удаётся, запись рекордов
+при этой попытке отключается, а исходные данные сохраняются. Существующие массивы считаются
+версией 0. Поддерживаются старые объекты настроек без номера версии и объекты версии 1.
 
-Service worker installs only after every precached file matches its build digest. No skipWaiting
-or forced reload: close **all** game tabs/app windows to let a waiting update activate. Cache cleanup
-only touches this game's scoped prefix; storage is never cleared. First launch still needs internet.
-A previously installed broken worker may keep serving the previous site until its windows close.
+Service worker устанавливается после того, как контрольная сумма каждого предварительно
+кешируемого файла совпадёт с указанной в сборке. Обновление ждёт закрытия **всех** вкладок
+и окон игры. Вызов `skipWaiting` и принудительная перезагрузка не используются. При очистке кеша
+затрагиваются только кеши с префиксом этой игры, а хранилище данных не очищается. Для первого запуска
+по-прежнему нужен интернет. Если ранее установился неисправный service worker, он может продолжать
+отдавать старую версию сайта, пока открыты окна игры.
 
-The native timeout, renderer recovery, native diagnostic dialog, APK user-agent identifier and
-debug-only remote inspection require an **updated APK**. Build using the existing Android workflow
-with a higher `versionCode`, the same application ID and signing key. Install over the old APK
-(`adb install -r <apk>`); do not uninstall or clear app data, as that deletes local records.
-For local Gradle builds use `gradle -p android assembleDebug` or signed `assembleRelease` with
-existing signing environment variables (see above). No Gradle wrapper is included in this project.
+Для тайм-аута на стороне оболочки, восстановления процесса отрисовки, нативного окна диагностики,
+идентификатора APK в строке User-Agent и удалённой отладки, доступной только в отладочной сборке,
+нужна **обновлённая APK**. Соберите её существующим процессом сборки Android, увеличив `versionCode`
+и сохранив идентификатор приложения и ключ подписи. Установите новую APK поверх старой
+(`adb install -r <apk>`). Чтобы сохранить локальные рекорды, не удаляйте приложение и не очищайте его данные.
+Для локальной сборки Gradle используйте `gradle -p android assembleDebug` или подпишите сборку
+`assembleRelease` с помощью существующих переменных окружения для подписи (см. выше).
+В проекте нет Gradle Wrapper.
 
-On the affected phone:
-1. Copy existing diagnostics before retrying. Record Android and System WebView versions.
-2. Publish the web build, close every game window, reopen online, then install the updated signed APK.
-3. Open both modes and verify existing records/settings; play Falling rows through a loss.
-4. Relaunch offline after a successful online launch; test airplane mode on first launch separately.
-5. Test native main-page HTTP/network failures and renderer termination using a debug APK/device.
-6. On a debug build inspect via desktop Chrome `chrome://inspect`; release inspection is disabled.
-7. To verify update safety, start a round on release A, publish B, confirm the round is uninterrupted,
-   close every client, reopen and copy diagnostics to confirm B. Never clear app storage to update.
+Выполните эти проверки на телефоне, где возникла проблема.
 
-Checks: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`,
-`node scripts/check-service-worker.mjs`, `npm run test:e2e -- tests/e2e/recovery.spec.ts`.
-Browser tests cover interface readiness, missing main JS, startup exception/timeouts, clipboard
-fallback and denied storage/vibration. Unit tests cover exact backup and preserved legacy records.
-Native callbacks and real-device WebView behavior require a device/emulator; web recovery cannot
-handle a totally frozen renderer thread, which must be closed/reopened through Android.
+1. Скопируйте текущую диагностику перед повторной попыткой запуска. Запишите версии Android и System WebView.
+2. Опубликуйте веб-сборку, закройте все окна игры, откройте игру с подключением к интернету и установите обновлённую подписанную APK.
+3. Откройте оба режима и проверьте сохранённые рекорды и настройки. Сыграйте партию в «Падающих рядах» до проигрыша.
+4. После успешного запуска с интернетом перезапустите игру офлайн. Отдельно проверьте первый запуск в авиарежиме.
+5. На устройстве с отладочной APK проверьте обработку ошибок HTTP и сети при загрузке главной страницы, а также завершение процесса отрисовки.
+6. Для отладки используйте `chrome://inspect` в настольном Chrome. В релизной сборке удалённая отладка отключена.
+7. Чтобы проверить обновление, начните партию в версии A, опубликуйте версию B и убедитесь, что партия не прервалась.
+   Закройте все вкладки и окна игры, снова откройте её и скопируйте диагностику, чтобы подтвердить запуск версии B.
+   При обновлении запрещено очищать хранилище приложения.
+
+Запустите `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`,
+`node scripts/check-service-worker.mjs` и `npm run test:e2e -- tests/e2e/recovery.spec.ts`.
+Браузерные тесты проверяют готовность интерфейса, отсутствие основного JS-файла, исключения
+и тайм-ауты при запуске, работу при недоступном буфере обмена и отказ в доступе к хранилищу
+или вибрации. Модульные тесты проверяют точность резервной копии и сохранность рекордов старого формата.
+Для проверки нативных обработчиков и поведения WebView нужно устройство или эмулятор.
+Если поток отрисовки полностью завис, веб-страница не сможет восстановиться самостоятельно.
+Закройте приложение средствами Android и откройте его снова.
 
 ## Локальные резервные копии после удаления приложения
 

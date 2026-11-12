@@ -1,4 +1,4 @@
-# Coffee Match: Match-3 Demo
+# Coffee Match — демоверсия игры «три в ряд»
 
 Браузерная кофейная Match-3 игра. Сейчас доступно бесконечное тестовое поле (M2); 10 уровней и публичный лидерборд запланированы в следующих этапах.
 
@@ -247,9 +247,9 @@ supabase functions invoke admin-reset --data '{"action": "new_period"}'
 
 ## Дорожная карта
 
-См. `PROJECT_SPEC.md` §12 — Roadmap с этапами M0-M6.
+См. дорожную карту с этапами M0–M6 в разделе 12 файла `PROJECT_SPEC.md`.
 
-Текущий этап: **M2 — Playable scene and controls** ✓. Следующий этап — **M3: Snow, goals, scoring, 10 levels**.
+Текущий этап — **M2 — Игровая сцена и управление** ✓. Следующий этап — **M3 — Снег, цели, подсчёт очков и десять уровней**.
 
 Движок `src/game/logic/` работает независимо от Phaser. Генерация создаёт поле без готовых совпадений и с допустимым ходом, включая клетки со снегом. Поддерживаются целочисленные размеры от 2×3 или 3×2 и 3–6 типов тайлов; игровые конфигурации используют 8×8 и 5–6 типов. Неподдерживаемые размеры, число типов и некорректный лимит попыток отклоняются с `RangeError`.
 
@@ -257,9 +257,9 @@ supabase functions invoke admin-reset --data '{"action": "new_period"}'
 
 Все 102 юнит-теста проходят; 13 тестов-заглушек заменены реальными проверками. Регрессии охватывают тысячи seed, принудительный резервный путь, неизменность входного состояния, продолжение после сериализации и ограничение каскадов даже при постоянном результате RNG.
 
-Сцена подключена к движку M1. Временный режим **Free Play**: поле 8×8, пять типов плиток, неограниченные ходы, счёт и число успешных обменов. Нет снега, условий победы/поражения и бонуса за оставшиеся ходы. Конфигурации 2–10, прогресс и баланс остаются в M3.
+Сцена подключена к движку M1. Во временном режиме **«Свободная игра»** поле 8×8, пять типов плиток, неограниченные ходы, счёт и число успешных обменов. Нет снега, условий победы/поражения и бонуса за оставшиеся ходы. Конфигурации 2–10, прогресс и баланс остаются в M3.
 
-Управление: свайп мышью/пальцем либо два нажатия на соседние плитки. Повторное нажатие снимает выделение; нажатие на дальнюю плитку переносит его. Стрелки перемещают выделение, Space/Enter начинают выбор, Shift + стрелка выполняет обмен. Pause/Resume и Escape приостанавливают ввод между ходами.
+Управление: свайп мышью/пальцем либо два нажатия на соседние плитки. Повторное нажатие снимает выделение; нажатие на дальнюю плитку переносит его. Стрелки перемещают выделение, Space/Enter начинают выбор, Shift + стрелка выполняет обмен. Между ходами игру можно поставить на паузу и возобновить кнопками **«Пауза»** и **«Продолжить»** или клавишей Escape.
 
 Неверный обмен анимируется обратно без изменения счёта и счётчика обменов. Каскады проигрываются последовательно: удаление → падение → заполнение; ввод блокируется до конца анимации. При отсутствии ходов движок автоматически перемешивает поле. `prefers-reduced-motion` сокращает анимации. Изменение размера окна сохраняет поле; ResizeObserver синхронизирует canvas с контейнером после смены ориентации, центрирование выполняется через CSS. Ошибка загрузки предлагает повторную загрузку, ошибка поля показывает явное сообщение.
 
@@ -275,23 +275,23 @@ M0 принят по результатам локальных проверок.
 
 *Разработано в соответствии с PROJECT_SPEC.md v1.0*
 
-### Falling rows mode
+### Режим «Падающие ряды»
 
-Open **Settings** in the game HUD to choose **Match three**, **Falling pieces**, or **Story mode**. Opening settings freezes the current game, and Cancel resumes it. On the next launch, the game starts in the saved arcade mode. If you last played Story, it opens Falling pieces.
+Откройте **«Настройки»** на игровой панели, чтобы выбрать **«Три в ряд»**, **«Падающие ряды»** или **«Режим истории»**. Пока открыты настройки, партия приостановлена. Кнопка **«Отмена»** возвращает к игре. При следующем запуске откроется сохранённый аркадный режим. Если последним был выбран режим истории, откроются **«Падающие ряды»**.
 
-Falling rows starts with the bottom three rows filled and four tile colors. Tap an orthogonally connected group of at least two matching tiles to remove it. Surviving tiles fall down, then nonempty columns gather in the center while retaining their order. Tiles spin around their vertical axis when removed. Rows arrive every 5 seconds initially; the interval decreases by 250 ms every 10 rows, stopping at 3.5 seconds after 60 rows. Each removal takes one tenth of the current row interval (500 ms initially, decreasing to 350 ms after 60 rows), including with reduced motion enabled. During resolution, the last tapped tile is buffered and its group is removed once the board settles; an expired row timer takes priority. A subtle, steady coffee-colored outline marks the pending group and follows its tiles as they move. Singletons receive no pending outline.
+В начале партии заполнены три нижних ряда и доступны четыре цвета фишек. Нажмите на группу из двух или более фишек одного цвета, соприкасающихся сторонами, чтобы убрать её. Оставшиеся фишки падают вниз, затем непустые столбцы сдвигаются к центру, сохраняя порядок. При удалении фишки вращаются вокруг вертикальной оси. Сначала новый ряд появляется каждые 5 секунд. Каждые 10 рядов интервал сокращается на 250 мс и после 60 рядов достигает 3,5 секунды. Удаление группы занимает десятую часть текущего интервала, от 500 мс в начале до 350 мс после 60 рядов, в том числе при включённой настройке уменьшения движения. Если нажать на фишку во время обработки хода, игра запомнит последнее нажатие и уберёт соответствующую группу, когда фишки перестанут двигаться. Если таймер ряда уже истёк, сначала появится новый ряд. Ожидающую удаления группу отмечает тонкий контур кофейного цвета, который движется вместе с её фишками. У одиночных фишек контура нет.
 
-A full-size preview directly above the board builds the next row from left to right over the countdown, with each tile aligned to its destination column. The **Drop next row** button below the board completes the preview and releases the next row early, restarting the countdown. If a removal is underway, the requested row waits for it to finish. The countdown continues through removal animations; a due row waits for the current move to settle. Pause and settings freeze the timer. A new row that cannot fit ends the game; use Restart to begin again. Larger groups earn more points per tile.
+Над полем виден следующий ряд в полном размере. По мере отсчёта он заполняется слева направо, каждая фишка появляется над своим столбцом. Кнопка **«Сбросить ряд ↓»** под полем сразу заполняет ряд, запускает его досрочно и начинает новый отсчёт. Во время анимации удаления таймер продолжает идти. Ряд, вызванный кнопкой или таймером, появится после завершения текущего хода. Пауза и настройки останавливают таймер. Если новый ряд не помещается, партия заканчивается. Нажмите **«Заново»**, чтобы начать новую. Чем больше группа, тем больше очков приносит каждая её фишка.
 
-**Story mode** drops a row every four seconds on all nine levels. **Drop next row** releases a row early. Each set uses three, four, then five colors:
+В **«Режиме истории»** на всех девяти уровнях новый ряд падает каждые четыре секунды. Кнопка **«Сбросить ряд ↓»** запускает его досрочно. В каждой тройке уровней используется по очереди три, четыре и пять цветов.
 
-- Levels 1–3: clear 100 tiles per level.
-- Levels 4–6: clear 100 tiles per level and use the lightning tile at least once. While rows 7, 15, 23, and so on are falling, a regular tile already on the board flips into lightning. Tap it to clear every tile in its row, then the remaining tiles fall straight down. After clearing the bottom row, the remaining columns slide together toward the center.
-- Levels 7–9: get five cups to the bottom by clearing the tiles below them. Cups arrive in rows 5, 15, 25, and so on. Lightning appears on the same schedule as on levels 4–6. A cup in the cleared row is destroyed. A cup above it counts toward the goal if it falls to the bottom.
+- На уровнях 1–3 уберите по 100 фишек.
+- На уровнях 4–6 уберите по 100 фишек и хотя бы раз активируйте молнию. Когда падает 7-й, 15-й, 23-й и каждый следующий восьмой ряд, одна из обычных фишек на поле переворачивается и превращается в молнию. Нажмите на неё, чтобы очистить весь её ряд. Оставшиеся фишки упадут вертикально вниз. После очистки нижнего ряда оставшиеся столбцы сдвигаются к центру.
+- На уровнях 7–9 опустите пять чашек до нижнего ряда, убирая фишки под ними. Чашки появляются в 5-м, 15-м, 25-м и каждом следующем десятом ряду. Молнии появляются с той же периодичностью, что и на уровнях 4–6. Молния уничтожает чашку в очищаемом ряду. Чашка выше него засчитывается, если падает до нижнего ряда.
 
-Press **Continue** after each level, or **Retry level** if the board fills up. After the final level, you can replay the story or choose another mode. To resume a saved story after reopening the game, choose **Story mode** in **Settings**, then **Continue**.
+После прохождения уровня нажмите **«Продолжить»**. Если поле заполнится, нажмите **«Повторить уровень»**. После последнего уровня можно пройти историю заново или выбрать другой режим. Чтобы вернуться к сохранённому прогрессу после повторного запуска игры, выберите **«Режим истории»** в **«Настройках»**, затем нажмите **«Продолжить»**.
 
-The placeholder art is in `src/game/render/row-clear-item.svg` and `src/game/render/story-item.svg`.
+Временные изображения находятся в `src/game/render/row-clear-item.svg` и `src/game/render/story-item.svg`.
 
 ## GitHub Pages и установка на телефон
 
@@ -319,37 +319,17 @@ APK-оболочка с Android WebView, открывающая HTTPS-адрес
 Пошаговая настройка подписи, скачивание APK и установка: [docs/ANDROID.md](docs/ANDROID.md).
 Для HarmonyOS NEXT требуется отдельное решение: Android APK там не поддерживаются.
 
-### Match three: clear the board
+### Очистка поля в режиме «Три в ряд»
 
-All modes use the same board surface. In Match three, all 64 cells
-start with a pale coating. Matching tiles removes the coating at their cell
-positions, including cascade matches. Gravity, refills and reshuffles never
-restore it. Clear every cell to finish the game.
+Во всех режимах используется одна и та же поверхность поля. В режиме «Три в ряд» у всех 64 клеток в начале партии светлый фон. Он исчезает в тех клетках, где убираются совпавшие фишки, в том числе при каскадах. Падение, заполнение и перемешивание поля оставляют очищенные клетки без фона. Чтобы завершить игру, очистите все клетки.
 
-The HUD shows cleared cells and active play time (excluding pause, settings and
-hidden tabs). Completing a board opens a separate local top ten with score,
-completion time and date. Shorter completion times rank first; ties favor higher scores.
-The current result is highlighted, including below the top ten. Start again
-resets the board, coating and timer while keeping records on the device.
+На игровой панели видны число очищенных клеток и время активной игры. Время на паузе, в настройках и в скрытой вкладке не учитывается. После очистки поля открывается отдельная таблица десяти лучших результатов на устройстве с очками, временем прохождения и датой. Выше в таблице тот, кто прошёл поле быстрее. При равном времени выше результат с бо́льшим числом очков. Текущий результат выделяется, даже если он ниже первой десятки. Кнопка **«Начать заново»** сбрасывает поле, фон клеток и таймер. Рекорды сохраняются на устройстве.
 
 
-### Automatic application version
+### Автоматическая нумерация версий приложения
 
-The repository owns major/minor (`0.1`), stored in `package.json` as
-`0.1.0-local` to satisfy npm's three-component format. Settings display this as
-`0.1 (local build)`. The zero is a placeholder, not a published build number.
-Change the first two numbers deliberately for a new release series and keep the
-package lockfile in sync; ordinary edits do not require a manual version bump.
+Первые два компонента версии (`0.1`) задаются в репозитории. В `package.json` указано `0.1.0-local`, чтобы соблюсти трёхкомпонентный формат npm. В настройках отображается `0.1 (локальная сборка)`. Ноль служит заглушкой для номера сборки. При переходе на новую серию выпусков измените первые два числа и обновите версию в `package-lock.json`. При обычных правках менять версию вручную не нужно.
 
-Before building, Pages CI runs `scripts/set-ci-version.mjs` and replaces the
-placeholder with `GITHUB_RUN_NUMBER`: run 25 publishes `0.1.25`; run 26 publishes
-`0.1.26`. Changing the repository prefix to `0.2.0-local` makes run 27 publish
-`0.2.27`. The workflow counter does not reset when the prefix changes.
-Failed/cancelled runs can leave gaps. Manual dispatch allocates a new number;
-rerunning the same run keeps its number. Preserve the workflow identity to keep
-numbering increasing within a release series.
+Перед сборкой для GitHub Pages CI запускает `scripts/set-ci-version.mjs` и подставляет номер из `GITHUB_RUN_NUMBER`. Запуск № 25 публикует `0.1.25`, а запуск № 26 — `0.1.26`. Если поменять версию в репозитории на `0.2.0-local`, запуск № 27 опубликует `0.2.27`. При смене первых двух чисел счётчик запусков продолжает расти. Из-за неудачных или отменённых запусков в нумерации могут быть пропуски. Ручной запуск получает новый номер, а повтор того же запуска сохраняет прежний. Чтобы нумерация продолжала расти в пределах одной серии выпусков, сохраняйте тот же рабочий процесс GitHub Actions.
 
-Generated versions only exist in the disposable CI checkout. CI never commits
-or pushes back, so you can keep editing, committing and pushing without pulling
-bot commits. No personal token or write access to repository contents is needed.
-Android retains its separate native wrapper version.
+Сгенерированная версия существует только во временной копии репозитория в CI. CI не создаёт и не отправляет коммиты, поэтому можно продолжать редактировать, коммитить и отправлять изменения без получения коммитов от бота. Для нумерации версий личный токен и права на запись в репозиторий не нужны. У Android-оболочки свой номер версии.
