@@ -139,7 +139,7 @@ export class BootScene extends Scene {
     this.loadingText.setText(t('Ready!'));
     this.time.delayedCall(300, () => {
       this.game.events.once('game-mode-selected', () => {
-        this.scene.start(this.registry.get('gameMode') === 'falling' ? 'FallingScene' : 'GameScene');
+        this.scene.start(this.registry.get('gameMode') === 'classic' ? 'GameScene' : 'FallingScene');
       });
       this.game.events.emit('choose-game-mode');
     });

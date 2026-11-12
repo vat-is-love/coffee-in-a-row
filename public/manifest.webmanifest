@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Coffee Match",
   "short_name": "Coffee Match",
-  "description": "Coffee puzzles: classic match-3 and falling rows.",
+  "description": "Coffee puzzles: classic match-3, falling rows, and story mode.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",

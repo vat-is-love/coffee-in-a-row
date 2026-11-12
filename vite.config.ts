@@ -37,7 +37,8 @@ export default defineConfig({
     alias: {
       ...(levelsDir && {
         '@game/levels/match3.json': path.join(levelsDir, 'match3.json'),
-        '@game/levels/falling.json': path.join(levelsDir, 'falling.json')
+        '@game/levels/falling.json': path.join(levelsDir, 'falling.json'),
+        '@game/levels/story.json': path.join(levelsDir, 'story.json')
       }),
       '@': path.resolve(__dirname, './src'),
       '@game': path.resolve(__dirname, './src/game'),

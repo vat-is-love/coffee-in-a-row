@@ -2,6 +2,10 @@
 
 This repository is part of the coffee-in-a-row project.
 
+## Coding workflow
+
+Use Ponytail in `full` mode by default when writing, fixing, or refactoring application code or tests. If the Ponytail skill is unavailable in the current session, follow the same approach: reuse existing code and platform APIs, choose the simplest implementation that satisfies the request, and preserve existing behavior outside the requested change. Verify changes with the relevant checks.
+
 ## Application version
 
 - The repository owns the first two numbers (major/minor), currently `0.1`. Store them as the valid npm version `0.1.0-local` in `package.json`. The trailing `0-local` is a local placeholder, not a published build number. Keep the root and `packages[""].version` in `package-lock.json` synchronized.

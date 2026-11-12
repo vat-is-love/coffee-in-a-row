@@ -108,7 +108,7 @@ npm run test:e2e:ui
 
 ### Добавление новых уровней
 
-Публичный движок по умолчанию использует демонстрационные файлы `src/game/levels/match3.json` и `src/game/levels/falling.json`.
+Публичный движок по умолчанию использует демонстрационные файлы `match3.json`, `falling.json` и `story.json` из `src/game/levels/`.
 
 В своей рабочей папке клонируйте два приватных репозитория рядом с `coffee-in-a-row`:
 
@@ -117,20 +117,20 @@ gh repo clone vat-is-love/coffee-level-editor
 gh repo clone vat-is-love/coffee-levels
 ```
 
-Откройте `coffee-level-editor/index.html` в браузере и загрузите JSON из `coffee-levels/publish/`. Редактор экспортирует ручную раскладку в JSON. Черновики можно хранить в `coffee-levels/drafts/`. Из папки движка можно запустить игру с выбранной папкой уровней:
+Откройте `coffee-level-editor/index.html` в браузере и загрузите `match3.json` или `falling.json` из `coffee-levels/publish/`, чтобы экспортировать ручную раскладку. Историю можно изменить прямо в `story.json`. Черновики можно хранить в `coffee-levels/drafts/`. Из папки движка можно запустить игру с выбранной папкой уровней:
 
 ```bash
 COFFEE_LEVELS_DIR=../coffee-levels/publish npm run dev
 ```
 
-Для GitHub Pages нужен fine-grained personal access token владельца `vat-is-love` с доступом только к `coffee-levels` и разрешением `Contents: Read-only`. Добавьте его в `coffee-in-a-row` в **Settings → Secrets and variables → Actions → New repository secret** под именем `COFFEE_LEVELS_TOKEN`. Workflow читает только `publish/match3.json` и `publish/falling.json` для проверки и сборки. Данные из этих двух файлов доступны игрокам в опубликованной сборке. Для публикации правок только в уровнях запушьте их в `coffee-levels`, затем нажмите **Run workflow** у **Deploy game to GitHub Pages** на основной ветке движка.
+Для GitHub Pages нужен fine-grained personal access token владельца `vat-is-love` с доступом только к `coffee-levels` и разрешением `Contents: Read-only`. Добавьте его в `coffee-in-a-row` в **Settings → Secrets and variables → Actions → New repository secret** под именем `COFFEE_LEVELS_TOKEN`. Workflow проверяет и включает в публичную сборку три JSON из `publish/`: `match3.json`, `falling.json` и `story.json`. Для публикации правок только в уровнях запушьте их в `coffee-levels`, затем нажмите **Run workflow** у **Deploy game to GitHub Pages** на основной ветке движка.
 
 - Для ручной раскладки замените `board.initial` на объект с `"kind": "fixed"` и матрицей `"tiles"`. Строки идут сверху вниз, столбцы слева направо, а цвета нумеруются с нуля до `tileTypes - 1`.
 - В Match-3 все клетки заполнены, на старте нет готовых совпадений и есть допустимый обмен. Если меняете размер, задайте `objective.targetCells` равным `rows * cols`.
 - В Falling Rows пустая клетка обозначается `-1`. Под фишками не должно быть пустот. Задайте `incomingRows.tilesPerRow` равным `cols`. Для случайного старта `filledBottomRows + emptyTopRows` должно равняться `rows`.
 - Для повторяемой партии укажите `"random": { "seedPolicy": "fixed", "seed": 12345 }`. Ручная матрица сохраняется при любом seed. Seed задаёт дальнейшее заполнение или входящие ряды, а при случайном старте также начальную раскладку.
 
-Сейчас у каждого режима одна встроенная конфигурация. Поддерживаемые цели — очистка всего покрытия в Match-3 и выживание до переполнения в Falling Rows. Новые цели, лимиты ходов и авторские очереди рядов потребуют соответствующих правил в движке.
+- В истории порядок задаёт массив `levels`. У каждого уровня свои `tileTypes` (число цветов) и `targetTiles` (сколько фишек нужно убрать). Размер поля, число заполненных рядов на старте и интервал падения общие для всей истории. Тексты экрана перехода и меню победы задаются в `messages.en` и `messages.ru`.
 
 ### Плейсхолдерные ассеты
 
@@ -276,11 +276,13 @@ M0 принят по результатам локальных проверок.
 
 ### Falling rows mode
 
-Open **Settings** in the game HUD to choose **Classic** or **Falling rows**. Switching modes starts a fresh game; the selection is remembered on this device. Opening settings freezes the current game, and Cancel resumes it.
+Open **Settings** in the game HUD to choose **Match three**, **Falling pieces**, or **Story mode**. Switching modes starts a fresh game; the selection is remembered on this device. Opening settings freezes the current game, and Cancel resumes it.
 
 Falling rows starts with the bottom three rows filled and four tile colors. Tap an orthogonally connected group of at least two matching tiles to remove it. Surviving tiles fall down, then nonempty columns gather in the center while retaining their order. Tiles spin around their vertical axis when removed. Rows arrive every 5 seconds initially; the interval decreases by 250 ms every 10 rows, stopping at 3.5 seconds after 60 rows. Each removal takes one tenth of the current row interval (500 ms initially, decreasing to 350 ms after 60 rows), including with reduced motion enabled. During resolution, the last tapped tile is buffered and its group is removed once the board settles; an expired row timer takes priority. A subtle, steady coffee-colored outline marks the pending group and follows its tiles as they move. Singletons receive no pending outline.
 
-A full-size preview directly above the board builds the next row from left to right over the countdown, with each tile aligned to its destination column. Rows arrive every five seconds, gradually speeding up by a quarter second every ten rows to a four-second minimum. Removal time scales with the interval to preserve roughly eight moves per row. The **Drop next row** button below the board completes the preview and releases the next row early, restarting the countdown. If a removal is underway, the requested row waits for it to finish. The countdown continues through removal animations; a due row waits for the current move to settle. Pause and settings freeze the timer. A new row that cannot fit ends the game; use Restart to begin again. Larger groups earn more points per tile.
+A full-size preview directly above the board builds the next row from left to right over the countdown, with each tile aligned to its destination column. The **Drop next row** button below the board completes the preview and releases the next row early, restarting the countdown. If a removal is underway, the requested row waits for it to finish. The countdown continues through removal animations; a due row waits for the current move to settle. Pause and settings freeze the timer. A new row that cannot fit ends the game; use Restart to begin again. Larger groups earn more points per tile.
+
+**Story mode** uses the same group removal rules. Rows arrive every four seconds on all three levels, and **Drop next row** releases a row early. The palette grows from three colors to four, then five. Clear 100 tiles to complete a level, then press **Continue** to start the next one. After the final level, you can replay the story or choose another mode. If the board fills up, Restart retries the current level. Reloading the game starts the story from level one.
 
 ## GitHub Pages и установка на телефон
 
@@ -310,7 +312,7 @@ APK-оболочка с Android WebView, открывающая HTTPS-адрес
 
 ### Match three: clear the board
 
-Both modes use the same board surface and grid. In Match three, all 64 cells
+All modes use the same board surface. In Match three, all 64 cells
 start with a pale coating. Matching tiles removes the coating at their cell
 positions, including cascade matches. Gravity, refills and reshuffles never
 restore it. Clear every cell to finish the game.

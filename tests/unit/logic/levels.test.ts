@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { match3Level, startMatch3 } from '../../../src/game/levels/match3';
+import { loadStory } from '../../../src/game/levels/story';
 import { addFallingRow, createFalling, fallingLevel, rowInterval, turnDuration } from '../../../src/game/logic/falling';
 
 describe('JSON level configuration', () => {
@@ -10,10 +11,23 @@ describe('JSON level configuration', () => {
     it('loads release levels with the game rules', () => {
       const match3 = JSON.parse(readFileSync(join(levelsDir, 'match3.json'), 'utf8'));
       const falling = JSON.parse(readFileSync(join(levelsDir, 'falling.json'), 'utf8'));
+      const story = JSON.parse(readFileSync(join(levelsDir, 'story.json'), 'utf8'));
       startMatch3(match3);
       createFalling(undefined, falling);
+      loadStory(story);
     });
   }
+
+  it('keeps the story in JSON order with a fixed pace and the configured palette', () => {
+    const { stages } = loadStory();
+    expect(stages.map(({ level }) => level.board.tileTypes)).toEqual([3, 4, 5]);
+    for (const { level, targetTiles } of stages) {
+      const state = createFalling(42, level);
+      expect(addFallingRow(state, level).state.nextRow.every(tile => tile < level.board.tileTypes)).toBe(true);
+      expect([rowInterval(0, level), rowInterval(60, level), turnDuration(60, level), targetTiles])
+        .toEqual([4000, 4000, 400, 100]);
+    }
+  });
 
   it('loads the exact Match-3 layout, with the configured seed for future refills', () => {
     const tiles = [[0, 1, 0], [2, 0, 2]];

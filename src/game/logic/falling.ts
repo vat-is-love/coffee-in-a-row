@@ -3,7 +3,7 @@ import type { Position } from './types';
 import level from '@game/levels/falling.json';
 import { fixedTiles, levelSeed } from '../levels/initial';
 
-type FallingLevel = Omit<typeof level, 'board' | 'random'> & {
+export type FallingLevel = Omit<typeof level, 'board' | 'random'> & {
   board: Omit<typeof level.board, 'initial'> & {
     initial: { kind: string; filledBottomRows: number; emptyTopRows: number } |
       { kind: string; tiles: number[][] };

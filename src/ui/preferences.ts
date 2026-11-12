@@ -1,6 +1,6 @@
 import { notifyDataChanged } from './storage';
 export type Language = 'en' | 'ru';
-export type Mode = 'classic' | 'falling';
+export type Mode = 'classic' | 'falling' | 'story';
 let mode: Mode | undefined;
 let languageChosen = false;
 export const PREFERENCES_KEY = 'coffee-preferences';
@@ -13,7 +13,9 @@ try {
       language = saved.language;
       languageChosen = true;
     }
-    if (saved.mode === 'classic' || saved.mode === 'falling') mode = saved.mode;
+    if (saved.mode === 'classic' || saved.mode === 'falling') {
+      mode = saved.mode === 'falling' && saved.storyMode === true ? 'story' : saved.mode;
+    }
     if (typeof saved.vibration === 'boolean') vibration = saved.vibration;
   }
 } catch { /* Preferences are optional when storage is unavailable. */ }
@@ -25,7 +27,9 @@ export function savePreferences(next: { language: Language; vibration: boolean; 
   language = next.language;
   vibration = next.vibration;
   document.documentElement.lang = language;
-  try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ ...next, mode, version: 1 })); } catch { /* Keep in memory. */ }
+  // Installed Android wrappers only accept the original mode names in backups.
+  const storedMode = mode === 'story' ? { mode: 'falling', storyMode: true } : { mode };
+  try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ ...next, ...storedMode, version: 1 })); } catch { /* Keep in memory. */ }
   notifyDataChanged();
   if (!vibration) requestVibration('cancel');
 }
@@ -91,6 +95,10 @@ const russian: Record<string, string> = {
   "FREE PLAY": "СВОБОДНАЯ ИГРА",
   "Choose game mode": "Выберите режим игры",
   "Falling pieces": "Падающие ряды",
+  "Story mode": "Режим истории",
+  "Clear the tile goal on each level to advance. More colors appear as you go.": "Убирайте нужное число фишек, чтобы пройти уровень. С каждым уровнем цветов становится больше.",
+  "Level": "Уровень",
+  "Tiles cleared": "Фишек убрано",
   "Tap connected groups of 2+ before the next row arrives.": "Убирайте группы от 2 фишек до появления нового ряда.",
   "Match three": "Три в ряд",
   "Swap tiles to make lines of 3.": "Меняйте фишки местами, собирая линии от 3.",

@@ -12,7 +12,8 @@ function validateData(key: string, raw: string): void {
   if (key === BACKUP_KEYS[0]) {
     if (!object(v) || (v.version !== undefined && v.version !== 1) ||
       !['ru', 'en'].includes(v.language as string) || typeof v.vibration !== 'boolean' ||
-      (v.mode !== undefined && v.mode !== 'classic' && v.mode !== 'falling')) throw Error('Invalid preferences');
+      (v.mode !== undefined && v.mode !== 'classic' && v.mode !== 'falling') ||
+      (v.storyMode !== undefined && (v.storyMode !== true || v.mode !== 'falling'))) throw Error('Invalid preferences');
   } else if (!Array.isArray(v) || !v.every(r => object(r) && uint(r.score) && uint(r.rows) &&
     uint(r.playedAt) && r.playedAt <= 8640000000000000 &&
     (r.durationMs === undefined || uint(r.durationMs)) && (key !== BACKUP_KEYS[2] || uint(r.durationMs)))) {

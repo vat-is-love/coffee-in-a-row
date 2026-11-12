@@ -31,7 +31,7 @@ test('invalid, future and oversized backups are refused before changing storage'
 });
 test('restore merges results without duplicates and imports settings', () => {
   const source = storage(); const target = storage();
-  source.setItem(BACKUP_KEYS[0], JSON.stringify({ version: 1, language: 'ru', vibration: false }));
+  source.setItem(BACKUP_KEYS[0], JSON.stringify({ version: 1, language: 'ru', vibration: false, mode: 'falling', storyMode: true }));
   source.setItem(BACKUP_KEYS[1], JSON.stringify([record]));
   const newer = { ...record, playedAt: 2000, score: 500 };
   target.setItem(BACKUP_KEYS[1], JSON.stringify([newer, record]));

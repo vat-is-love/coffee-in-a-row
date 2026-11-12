@@ -9,6 +9,17 @@ export function installSettings(game: Game): void {
   const startup = getStartupPreferences();
   let mode: Mode = startup.mode ?? 'classic';
   game.registry.set('gameMode', mode);
+  const startMode = (selected: Mode, currentScene: string) => {
+    mode = selected;
+    game.registry.set('gameMode', mode);
+    game.scene.stop(currentScene);
+    game.scene.start(mode === 'classic' ? 'GameScene' : 'FallingScene');
+  };
+  const selectAfterStory = (selected: Mode) => {
+    savePreferences({ ...getPreferences(), mode: selected });
+    startMode(selected, 'FallingScene');
+  };
+  game.events.on('select-mode-after-story', selectAfterStory);
   const modePicker = document.createElement('dialog');
   modePicker.className = 'settings-dialog mode-picker';
   modePicker.setAttribute('aria-labelledby', 'mode-picker-title');
@@ -28,6 +39,10 @@ export function installSettings(game: Game): void {
         <strong>${t('Match three')}</strong>
         <small>${t("Match lines of 3 to clear every cell's pale background.")}</small>
       </button>
+      <button class="mode-option" value="story">
+        <strong>${t('Story mode')}</strong>
+        <small>${t('Clear the tile goal on each level to advance. More colors appear as you go.')}</small>
+      </button>
       `}
       ${backupControls()}
       <p id="mode-picker-hint">${t('You can change the mode in settings.')}</p>
@@ -37,8 +52,9 @@ export function installSettings(game: Game): void {
   // A mode must be chosen before gameplay starts, including with Escape.
   modePicker.addEventListener('cancel', event => event.preventDefault());
   modePicker.addEventListener('close', () => {
-    if (modePicker.returnValue !== 'classic' && modePicker.returnValue !== 'falling') return;
-    mode = modePicker.returnValue;
+    const choice = modePicker.returnValue;
+    if (choice !== 'classic' && choice !== 'falling' && choice !== 'story') return;
+    mode = choice;
     savePreferences({ ...getPreferences(), mode,
       language: (modePicker.querySelector<HTMLSelectElement>('[name="startup-language"]')?.value as Language | undefined) ?? getPreferences().language
     });
@@ -82,6 +98,10 @@ export function installSettings(game: Game): void {
         <label class="mode-option">
           <input type="radio" name="mode" value="falling">
           <span><strong>${t('Falling pieces')}</strong><small>${t('Tap connected groups of 2+. Columns gather in the center. Clear space before the next row arrives.')}</small></span>
+        </label>
+        <label class="mode-option">
+          <input type="radio" name="mode" value="story">
+          <span><strong>${t('Story mode')}</strong><small>${t('Clear the tile goal on each level to advance. More colors appear as you go.')}</small></span>
         </label>
       </fieldset>
       <p>${t('Changing mode starts a new game.')}</p>
@@ -148,10 +168,7 @@ export function installSettings(game: Game): void {
       game.events.emit('language-changed');
     }
     if (dialog.returnValue === 'apply' && selected !== mode && suspended) {
-      mode = selected;
-      game.registry.set('gameMode', mode);
-      game.scene.stop(suspended);
-      game.scene.start(mode === 'falling' ? 'FallingScene' : 'GameScene');
+      startMode(selected, suspended);
     } else if (suspended) game.scene.resume(suspended);
     suspended = null;
   });
@@ -159,6 +176,7 @@ export function installSettings(game: Game): void {
   game.events.once('destroy', () => {
     window.removeEventListener('game-settings', open);
     game.events.off('choose-game-mode', chooseMode);
+    game.events.off('select-mode-after-story', selectAfterStory);
     modePicker.remove();
     dialog.remove();
   });
