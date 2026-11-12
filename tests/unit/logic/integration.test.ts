@@ -14,9 +14,9 @@ import {
   initializeGame,
   getSnowRemaining,
   serializeState,
-  deserializeState,
-  LEVEL_1_CONFIG
+  deserializeState
 } from '../../../src/game/logic/index';
+import { LEVEL_1_CONFIG } from '../fixtures/match3';
 
 describe('simulateMove', () => {
   it('should return invalid for non-adjacent swap', () => {

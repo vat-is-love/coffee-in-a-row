@@ -41,7 +41,7 @@ export function installSettings(game: Game): void {
       </button>
       <button class="mode-option" value="story">
         <strong>${t('Story mode')}</strong>
-        <small>${t('Clear the tile goal on each level to advance. More colors appear as you go.')}</small>
+        <small>${t('Clear groups, activate lightning tiles, then deliver items to the bottom.')}</small>
       </button>
       `}
       ${backupControls()}
@@ -101,7 +101,7 @@ export function installSettings(game: Game): void {
         </label>
         <label class="mode-option">
           <input type="radio" name="mode" value="story">
-          <span><strong>${t('Story mode')}</strong><small>${t('Clear the tile goal on each level to advance. More colors appear as you go.')}</small></span>
+          <span><strong>${t('Story mode')}</strong><small>${t('Clear groups, activate lightning tiles, then deliver items to the bottom.')}</small></span>
         </label>
       </fieldset>
       <p>${t('Changing mode starts a new game.')}</p>

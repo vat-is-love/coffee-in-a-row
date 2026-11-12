@@ -5,6 +5,7 @@ node_modules/
 dist/
 build/
 /.private-levels/
+/src/game/levels/*.json
 
 # Environment files
 .env

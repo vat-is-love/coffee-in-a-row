@@ -5,12 +5,28 @@ import {
   type GameConfig, type TileType
 } from '../logic';
 
-type Match3Level = Omit<typeof level, 'board' | 'random'> & {
-  board: Omit<typeof level.board, 'initial'> & {
+export type Match3Level = {
+  mode: string;
+  board: {
+    rows: number;
+    cols: number;
+    tileTypes: number;
     initial: { kind: string; fill: string; allowInitialMatches: boolean; requireLegalSwap: boolean } |
       { kind: string; tiles: number[][] };
+    coating: { kind: string; clearsOn: string };
   };
   random: Parameters<typeof levelSeed>[0];
+  rules: {
+    minimumMatchLength: number;
+    swap: string;
+    gravity: string;
+    refill: string;
+    cascades: boolean;
+    onNoLegalSwaps: string;
+  };
+  objective: { type: string; targetCells: number };
+  limits: { moves: number | null; timeMs: number | null };
+  timer: { startsOn: string };
 };
 
 export const match3Level = level;

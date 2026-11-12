@@ -2,9 +2,10 @@ import type { StoryMessages } from '../game/levels/story';
 import { t, type Mode } from './preferences';
 
 export function showStoryResult(
-  messages: StoryMessages,
+  title: string,
+  actionLabel: string,
   restartOrContinue: () => void,
-  chooseMode?: (mode: Mode) => void
+  victory?: { messages: StoryMessages; chooseMode: (mode: Mode) => void }
 ): () => void {
   const dialog = document.createElement('dialog');
   dialog.className = 'settings-dialog';
@@ -12,7 +13,7 @@ export function showStoryResult(
   dialog.innerHTML = `
     <form method="dialog">
       <h1 id="story-result-title"></h1>
-      ${chooseMode ? `
+      ${victory ? `
       <p></p>
       <fieldset>
         <legend></legend>
@@ -20,13 +21,14 @@ export function showStoryResult(
         <label class="mode-option"><input type="radio" name="mode" value="falling"> ${t('Falling pieces')}</label>
       </fieldset>` : ''}
       <div class="settings-actions">
-        <button value="continue" ${chooseMode ? 'formnovalidate' : 'class="primary"'}></button>
-        ${chooseMode ? '<button value="choose" class="primary"></button>' : ''}
+        <button value="continue" ${victory ? 'formnovalidate' : 'class="primary"'}></button>
+        ${victory ? '<button value="choose" class="primary"></button>' : ''}
       </div>
     </form>`;
-  dialog.querySelector('h1')!.textContent = chooseMode ? messages.victory : messages.levelComplete;
-  dialog.querySelector('button[value="continue"]')!.textContent = chooseMode ? messages.restart : messages.continue;
-  if (chooseMode) {
+  dialog.querySelector('h1')!.textContent = title;
+  dialog.querySelector('button[value="continue"]')!.textContent = actionLabel;
+  if (victory) {
+    const { messages } = victory;
     dialog.querySelector('p')!.textContent = messages.victoryPrompt;
     dialog.querySelector('legend')!.textContent = messages.modeLabel;
     dialog.querySelector('button[value="choose"]')!.textContent = messages.choose;
@@ -37,7 +39,7 @@ export function showStoryResult(
   dialog.addEventListener('close', () => {
     const mode = dialog.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value;
     dialog.remove();
-    if (dialog.returnValue === 'choose' && (mode === 'classic' || mode === 'falling')) chooseMode?.(mode);
+    if (victory && dialog.returnValue === 'choose' && (mode === 'classic' || mode === 'falling')) victory.chooseMode(mode);
     else restartOrContinue();
   }, { once: true });
   document.body.append(dialog);

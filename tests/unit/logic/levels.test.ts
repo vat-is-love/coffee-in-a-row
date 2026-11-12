@@ -1,31 +1,46 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import story from '@game/levels/story.json';
 import { match3Level, startMatch3 } from '../../../src/game/levels/match3';
 import { loadStory } from '../../../src/game/levels/story';
-import { addFallingRow, createFalling, fallingLevel, rowInterval, turnDuration } from '../../../src/game/logic/falling';
+import { addFallingRow, createFalling, fallingLevel, rowInterval, ROW_CLEAR_ITEM, STORY_ITEM, turnDuration } from '../../../src/game/logic/falling';
 
 describe('JSON level configuration', () => {
-  const levelsDir = process.env.COFFEE_LEVELS_DIR;
-  if (levelsDir) {
-    it('loads release levels with the game rules', () => {
-      const match3 = JSON.parse(readFileSync(join(levelsDir, 'match3.json'), 'utf8'));
-      const falling = JSON.parse(readFileSync(join(levelsDir, 'falling.json'), 'utf8'));
-      const story = JSON.parse(readFileSync(join(levelsDir, 'story.json'), 'utf8'));
-      startMatch3(match3);
-      createFalling(undefined, falling);
-      loadStory(story);
-    });
-  }
+  it('loads configured levels with the game rules', () => {
+    startMatch3();
+    createFalling();
+    loadStory();
+  });
 
   it('keeps the story in JSON order with a fixed pace and the configured palette', () => {
-    const { stages } = loadStory();
-    expect(stages.map(({ level }) => level.board.tileTypes)).toEqual([3, 4, 5]);
-    for (const { level, targetTiles } of stages) {
-      const state = createFalling(42, level);
-      expect(addFallingRow(state, level).state.nextRow.every(tile => tile < level.board.tileTypes)).toBe(true);
-      expect([rowInterval(0, level), rowInterval(60, level), turnDuration(60, level), targetTiles])
-        .toEqual([4000, 4000, 400, 100]);
+    const { stages } = loadStory({
+      messages: story.messages,
+      board: { rows: 4, cols: 5, filledBottomRows: 1 },
+      rowIntervalMs: 3000,
+      delivery: { firstRow: 2, everyRows: 3 },
+      rowClear: { firstRow: 3, everyRows: 2 },
+      levels: [{ tileTypes: 5, targetTiles: 20 }, { tileTypes: 3, targetItems: 3, rowClear: true }]
+    });
+    expect(stages.map(({ level }) => level.board.tileTypes)).toEqual([5, 3]);
+    expect(stages.map(({ target }) => target)).toEqual([20, 3]);
+    for (const [i, { level }] of stages.entries()) {
+      let state = createFalling(42, level);
+      expect(state.grid.flat().every(tile => tile < level.board.tileTypes)).toBe(true);
+      expect([rowInterval(0, level), rowInterval(60, level), turnDuration(60, level)])
+        .toEqual([3000, 3000, 300]);
+      for (let row = 1; row <= 8; row++) {
+        const expectedItems = i === 1 && row % 3 === 2 ? [STORY_ITEM] : [];
+        expect(state.nextRow).toHaveLength(level.board.cols);
+        expect(state.nextRow.filter(tile => tile >= level.board.tileTypes)).toEqual(expectedItems);
+        // Leave one settled tile in a column where it won't block a cup.
+        const col = state.nextRow.findIndex(tile => tile !== STORY_ITEM);
+        state.grid.forEach(cells => cells.fill(-1));
+        state.grid.at(-1)![col] = 0;
+        const drop = addFallingRow(state, level);
+        expect(drop.lightning).toEqual(i === 1 && row >= 3 && row % 2 === 1 ? { row: level.board.rows - 1, col } : undefined);
+        expect(drop.added.map(({ row, col }) => drop.state.grid[row][col])).not.toContain(ROW_CLEAR_ITEM);
+        state = drop.state;
+      }
+      expect(state.delivered).toBe(i === 1 ? 3 : 0);
     }
   });
 

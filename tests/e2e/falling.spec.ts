@@ -111,6 +111,7 @@ test('preview builds left to right, survives resize, and early drop releases exa
   });
   expect(preview.alphas).toEqual([1, 1, 0, 0, 0, 0, 0, 0]);
   await page.setViewportSize({ width: 667, height: 375 });
+  await page.waitForFunction(`${falling}.dropButton.getBounds().bottom <= 375`);
   const button = await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
     const board = scene.boardContainer.getBounds();

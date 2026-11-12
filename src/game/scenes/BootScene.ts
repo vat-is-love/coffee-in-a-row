@@ -4,6 +4,9 @@ import { t } from '../../ui/preferences';
  */
 
 import { Scene, GameObjects } from 'phaser';
+import { ROW_CLEAR_ITEM, STORY_ITEM } from '../logic/falling';
+import storyItem from '../render/story-item.svg?url';
+import rowClearItem from '../render/row-clear-item.svg?url';
 
 export class BootScene extends Scene {
   private failed = false;
@@ -25,6 +28,8 @@ export class BootScene extends Scene {
     try {
       this.generateTileTextures();
       this.generateSelectionTexture();
+      this.load.image(`tile-${STORY_ITEM}`, storyItem);
+      this.load.image(`tile-${ROW_CLEAR_ITEM}`, rowClearItem);
     } catch (error) { this.showLoadError(error); }
     this.load.on('loaderror', () => this.showLoadError(new Error('Asset loading failed')));
 

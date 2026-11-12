@@ -1,10 +1,11 @@
 /** Regression and seeded invariant checks for the M1 engine (no Phaser/DOM). */
 import { describe, expect, it, vi } from 'vitest';
 import {
-  LEVEL_1_CONFIG, GameConfig, BoardState, SeededRNG, generateInitialBoard,
+  GameConfig, BoardState, SeededRNG, generateInitialBoard,
   initializeGame, findMatches, hasValidMoves, reshuffleBoard, simulateMove,
   wouldCreateMatch, resolveAllMatches, MAX_CASCADES, serializeState, deserializeState
 } from '../../src/game/logic';
+import { LEVEL_1_CONFIG } from './fixtures/match3';
 
 function assertPlayable(config: GameConfig, state: BoardState): void {
   expect(findMatches(config, state)).toEqual([]);

@@ -1,7 +1,7 @@
-import { defineConfig } from 'vitest/config';
-import path from 'path';
+import { defineConfig, mergeConfig } from 'vitest/config';
+import viteConfig from './vite.config';
 
-export default defineConfig({
+export default mergeConfig(viteConfig, defineConfig({
   test: {
     environment: 'node',
     globals: true,
@@ -20,13 +20,5 @@ export default defineConfig({
         'src/vite-env.d.ts'
       ]
     }
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@game': path.resolve(__dirname, './src/game'),
-      '@services': path.resolve(__dirname, './src/services'),
-      '@ui': path.resolve(__dirname, './src/ui')
-    }
   }
-});
+}));

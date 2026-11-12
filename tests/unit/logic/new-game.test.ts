@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { initializeGame, LEVEL_1_CONFIG } from '../../../src/game/logic/index';
-import { createFalling, addFallingRow } from '../../../src/game/logic/falling';
+import { initializeGame } from '../../../src/game/logic/index';
+import { createFalling, addFallingRow, fallingLevel, type FallingLevel } from '../../../src/game/logic/falling';
 import { createRandomSeed } from '../../../src/game/logic/rng';
+import { LEVEL_1_CONFIG } from '../fixtures/match3';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -16,12 +17,20 @@ describe('new game randomness', () => {
       const classic = initializeGame(LEVEL_1_CONFIG);
       expect(classic).toEqual(initializeGame(LEVEL_1_CONFIG, 100));
       expect(initializeGame(LEVEL_1_CONFIG).grid).not.toEqual(classic.grid);
-      const falling = createFalling();
-      const nextFalling = createFalling();
-      expect(falling).toEqual(createFalling(102));
+      const level: FallingLevel = {
+        ...fallingLevel,
+        board: { rows: 5, cols: 6, tileTypes: 4, initial: { kind: 'generated', filledBottomRows: 2, emptyTopRows: 3 } },
+        incomingRows: { ...fallingLevel.incomingRows, tilesPerRow: 6 },
+        random: { seedPolicy: 'fresh_per_game' },
+        delivery: undefined,
+        rowClear: undefined
+      };
+      const falling = createFalling(undefined, level);
+      const nextFalling = createFalling(undefined, level);
+      expect(falling).toEqual(createFalling(102, level));
       expect(nextFalling.grid).not.toEqual(falling.grid);
       expect(nextFalling.nextRow).not.toEqual(falling.nextRow);
-      expect(addFallingRow(nextFalling).state.nextRow).not.toEqual(addFallingRow(falling).state.nextRow);
+      expect(addFallingRow(nextFalling, level).state.nextRow).not.toEqual(addFallingRow(falling, level).state.nextRow);
     } finally {
       vi.restoreAllMocks();
     }
