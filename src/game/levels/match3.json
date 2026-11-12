@@ -1,0 +1,30 @@
+{
+  "mode": "match3",
+  "board": {
+    "rows": 8,
+    "cols": 8,
+    "tileTypes": 5,
+    "initial": {
+      "kind": "generated",
+      "fill": "all_cells",
+      "allowInitialMatches": false,
+      "requireLegalSwap": true
+    },
+    "coating": {
+      "kind": "all_cells",
+      "clearsOn": "match_in_cell"
+    }
+  },
+  "random": { "seedPolicy": "fresh_per_game" },
+  "rules": {
+    "minimumMatchLength": 3,
+    "swap": "orthogonally_adjacent",
+    "gravity": "down",
+    "refill": "random",
+    "cascades": true,
+    "onNoLegalSwaps": "reshuffle"
+  },
+  "objective": { "type": "clear_all_coating", "targetCells": 64 },
+  "limits": { "moves": null, "timeMs": null },
+  "timer": { "startsOn": "first_swap_attempt" }
+}

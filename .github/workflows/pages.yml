@@ -12,6 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
+    if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -25,9 +26,31 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - name: Check access to production levels
+        env:
+          LEVELS_TOKEN: ${{ secrets.COFFEE_LEVELS_TOKEN }}
+        run: |
+          if [ -z "$LEVELS_TOKEN" ]; then
+            echo '::error::Set the COFFEE_LEVELS_TOKEN secret to publish production levels.'
+            exit 1
+          fi
+      - name: Checkout production levels
+        uses: actions/checkout@v4
+        with:
+          repository: vat-is-love/coffee-levels
+          token: ${{ secrets.COFFEE_LEVELS_TOKEN }}
+          path: .private-levels
+          persist-credentials: false
+          sparse-checkout: publish
+      - name: Validate production levels
+        env:
+          COFFEE_LEVELS_DIR: .private-levels/publish
+        run: npm test -- tests/unit/logic/levels.test.ts -t 'loads release levels'
       - name: Set application version for this build
         run: node scripts/set-ci-version.mjs
       - run: npm run build
+        env:
+          COFFEE_LEVELS_DIR: .private-levels/publish
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

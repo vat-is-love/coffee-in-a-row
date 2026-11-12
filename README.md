@@ -108,20 +108,29 @@ npm run test:e2e:ui
 
 ### Добавление новых уровней
 
-Уровни конфигурируются через JSON/TypeScript файлы в `src/game/levels/`. Схема конфигурации:
+Публичный движок по умолчанию использует демонстрационные файлы `src/game/levels/match3.json` и `src/game/levels/falling.json`.
 
-```typescript
-interface LevelConfig {
-  id: number;                    // 1..10
-  rows: number;
-  cols: number;
-  tileTypes: number;             // количество типов тайлов
-  maxMoves: number;
-  snow: Array<{row: number; col: number; layers: 1 | 2}>;
-  goal: {type: 'clear_all_snow'};
-  seed?: number;                 // опционально для фикстур
-}
+В своей рабочей папке клонируйте два приватных репозитория рядом с `coffee-in-a-row`:
+
+```bash
+gh repo clone vat-is-love/coffee-level-editor
+gh repo clone vat-is-love/coffee-levels
 ```
+
+Откройте `coffee-level-editor/index.html` в браузере и загрузите JSON из `coffee-levels/publish/`. Редактор экспортирует ручную раскладку в JSON. Черновики можно хранить в `coffee-levels/drafts/`. Из папки движка можно запустить игру с выбранной папкой уровней:
+
+```bash
+COFFEE_LEVELS_DIR=../coffee-levels/publish npm run dev
+```
+
+Для GitHub Pages нужен fine-grained personal access token владельца `vat-is-love` с доступом только к `coffee-levels` и разрешением `Contents: Read-only`. Добавьте его в `coffee-in-a-row` в **Settings → Secrets and variables → Actions → New repository secret** под именем `COFFEE_LEVELS_TOKEN`. Workflow читает только `publish/match3.json` и `publish/falling.json` для проверки и сборки. Данные из этих двух файлов доступны игрокам в опубликованной сборке. Для публикации правок только в уровнях запушьте их в `coffee-levels`, затем нажмите **Run workflow** у **Deploy game to GitHub Pages** на основной ветке движка.
+
+- Для ручной раскладки замените `board.initial` на объект с `"kind": "fixed"` и матрицей `"tiles"`. Строки идут сверху вниз, столбцы слева направо, а цвета нумеруются с нуля до `tileTypes - 1`.
+- В Match-3 все клетки заполнены, на старте нет готовых совпадений и есть допустимый обмен. Если меняете размер, задайте `objective.targetCells` равным `rows * cols`.
+- В Falling Rows пустая клетка обозначается `-1`. Под фишками не должно быть пустот. Задайте `incomingRows.tilesPerRow` равным `cols`. Для случайного старта `filledBottomRows + emptyTopRows` должно равняться `rows`.
+- Для повторяемой партии укажите `"random": { "seedPolicy": "fixed", "seed": 12345 }`. Ручная матрица сохраняется при любом seed. Seed задаёт дальнейшее заполнение или входящие ряды, а при случайном старте также начальную раскладку.
+
+Сейчас у каждого режима одна встроенная конфигурация. Поддерживаемые цели — очистка всего покрытия в Match-3 и выживание до переполнения в Falling Rows. Новые цели, лимиты ходов и авторские очереди рядов потребуют соответствующих правил в движке.
 
 ### Плейсхолдерные ассеты
 

@@ -1,0 +1,33 @@
+{
+  "mode": "falling",
+  "board": {
+    "rows": 8,
+    "cols": 8,
+    "tileTypes": 4,
+    "initial": {
+      "kind": "generated",
+      "filledBottomRows": 3,
+      "emptyTopRows": 5
+    }
+  },
+  "random": { "seedPolicy": "fresh_per_game" },
+  "rules": {
+    "minimumGroupSize": 2,
+    "groupConnectivity": "orthogonal",
+    "gravity": "down",
+    "afterRemoval": "center_nonempty_columns"
+  },
+  "incomingRows": {
+    "kind": "generated",
+    "tilesPerRow": 8,
+    "previewNextRow": true,
+    "allowEarlyDrop": true,
+    "initialIntervalMs": 5000,
+    "minimumIntervalMs": 3500,
+    "decreaseEveryRows": 10,
+    "decreaseByMs": 250,
+    "removalDurationFractionOfInterval": 0.1
+  },
+  "objective": { "type": "survive_until_overflow", "targetRows": null },
+  "lossCondition": { "type": "top_row_occupied_when_next_row_drops" }
+}

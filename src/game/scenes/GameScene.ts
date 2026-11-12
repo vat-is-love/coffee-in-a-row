@@ -3,8 +3,9 @@ import { showClassicLeaderboard, formatDuration } from '../../ui/fallingLeaderbo
 import { createHud } from '../render/hud';
 import { t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
+import { startMatch3, match3Level } from '../levels/match3';
 import {
-  initializeGame, simulateMove, areAdjacent, MAX_CASCADES,
+  simulateMove, areAdjacent, MAX_CASCADES,
   type BoardState, type GameConfig, type Position, type ResolutionFrame
 } from '../logic';
 
@@ -12,7 +13,6 @@ const TILE_SIZE = 64;
 const BOARD_PADDING = 12;
 const HUD_BOTTOM = 120;
 const VIEW_MARGIN = 12;
-const FREE_PLAY: GameConfig = { rows: 8, cols: 8, tileTypes: 5, maxMoves: 0, snow: [] };
 
 interface TileView extends Position {
   sprite: GameObjects.Image;
@@ -20,7 +20,7 @@ interface TileView extends Position {
 
 /** Rendering follows the pure engine's frames; input stays locked until all tweens finish. */
 export class GameScene extends Scene {
-  private config = FREE_PLAY;
+  private config!: GameConfig;
   private clearedCells = new Set<string>();
   private coating!: GameObjects.Graphics;
   private completed = false;
@@ -58,12 +58,21 @@ export class GameScene extends Scene {
     this.selectedTile = null;
     this.gesture = null;
     this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    try {
+      const { config, state } = startMatch3();
+      this.config = config;
+      this.state = state;
+    } catch (error) {
+      console.error('Unable to load Match-3 level', error);
+      this.failed = true;
+      window.CoffeeRecovery?.fail('invalid-match3-level');
+      return;
+    }
     this.background = this.add.graphics();
     this.boardContainer = this.add.container(0, 0);
     this.createBoardSurface();
     this.resizeLayout();
     try {
-      this.state = initializeGame(this.config);
       this.renderBoard();
       this.updateHUD();
     } catch (error) { this.showError(error); }
@@ -90,7 +99,7 @@ export class GameScene extends Scene {
   }
 
   private createBoardSurface(): void {
-    this.boardContainer.add(createBoardSurface(this));
+    this.boardContainer.add(createBoardSurface(this, this.config));
     this.coating = this.add.graphics();
     this.boardContainer.add(this.coating);
     this.drawCoating();
@@ -98,7 +107,7 @@ export class GameScene extends Scene {
 
   private drawCoating(): void {
     this.coating.clear().fillStyle(0xffffff, 0.10);
-    for (let row = 0; row < 8; row++) for (let col = 0; col < 8; col++) {
+    for (let row = 0; row < this.config.rows; row++) for (let col = 0; col < this.config.cols; col++) {
       if (!this.clearedCells.has(`${row},${col}`)) this.coating.fillRect(col * 64 + 1, row * 64 + 1, 62, 62);
     }
   }
@@ -142,7 +151,7 @@ export class GameScene extends Scene {
   }
 
   private updateProgress(): void {
-    this.movesText.setText(`${t('Cleared')}: ${this.clearedCells.size}/64 · ${t('Time')}: ${formatDuration(this.elapsed)}`);
+    this.movesText.setText(`${t('Cleared')}: ${this.clearedCells.size}/${match3Level.objective.targetCells} · ${t('Time')}: ${formatDuration(this.elapsed)}`);
   }
 
   private createTile(row: number, col: number, type: number, y = row * 64 + 32): TileView {
@@ -274,7 +283,7 @@ export class GameScene extends Scene {
       }
       this.state = result.boardState;
       this.renderBoard();
-      if (this.clearedCells.size === this.config.rows * this.config.cols) {
+      if (this.clearedCells.size === match3Level.objective.targetCells) {
         this.completed = true;
         this.clearSelection();
         const cleanup = showClassicLeaderboard(this.state.score, this.elapsed, () => this.scene.restart());
