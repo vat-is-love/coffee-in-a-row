@@ -1,6 +1,6 @@
 import { createBoardSurface } from '../render/boardSurface';
 import { createHud } from '../render/hud';
-import { getPreferences, t, vibrate } from '../../ui/preferences';
+import { getPreferences, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { fallingLevel, createFalling, clearAt, findRemoval, addFallingRow, rowInterval, ROW_CLEAR_ITEM, STORY_ITEM, turnDuration, type FallingLevel, type FallingState } from '../logic/falling';
 import { loadStory } from '../levels/story';
@@ -397,6 +397,7 @@ export class FallingScene extends Scene {
     if (!this.story || !this.storyGoalReached) return false;
     const next = this.levelIndex + 1;
     const finished = next === this.story.stages.length;
+    saveStoryCheckpoint(finished ? 0 : next);
     this.gameOver = true;
     this.pendingTile = null;
     this.updateHUD();

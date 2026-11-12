@@ -68,7 +68,10 @@ test('Story offers a retry after defeat, advances after each level and offers re
   await completed.getByRole('button', { name: 'Continue' }).click();
   await expectLevel(2, 5);
   await removePair(98);
-  await completed.getByRole('button', { name: 'Continue' }).click();
+  await expect(completed).toBeVisible();
+  await page.reload();
+  const storyPicker = page.getByRole('dialog', { name: 'Story mode' });
+  await storyPicker.getByRole('button', { name: 'Continue Level 4' }).click();
   for (const [index, colors] of [[3, 3], [4, 4], [5, 5]]) {
     await expectLevel(index, colors);
     await removePair(98);
@@ -133,6 +136,34 @@ test('Story offers a retry after defeat, advances after each level and offers re
   await expectLevel(0, 3);
   await page.reload();
   await expectLevel(0, 3);
+});
+
+test('switching modes keeps the Story checkpoint until the player starts a new game', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (localStorage.getItem('coffee-preferences') === null) {
+      localStorage.setItem('coffee-preferences', JSON.stringify({
+        language: 'en', vibration: false, mode: 'falling', storyMode: true, storyCheckpoint: 1
+      }));
+    }
+  });
+  await page.goto('/');
+  const storyPicker = page.getByRole('dialog', { name: 'Story mode' });
+  await storyPicker.getByRole('button', { name: 'Continue Level 2' }).click();
+  await expect.poll(() => page.evaluate(`${scene}?.levelIndex`)).toBe(1);
+  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  await page.getByRole('radio', { name: /Falling pieces/ }).check();
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect.poll(() => page.evaluate(`${scene}.scoreText.text`)).toContain('Score:');
+  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  await page.getByRole('radio', { name: /Story mode/ }).check();
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(storyPicker.getByRole('button', { name: 'Continue Level 2' })).toBeVisible();
+  await storyPicker.getByRole('button', { name: 'New game' }).click();
+  const firstLevel = () => expect.poll(() => page.evaluate(`[${scene}?.levelIndex, ${scene}?.scoreText?.text]`))
+    .toEqual([0, 'Tiles cleared: 0 / 100']);
+  await firstLevel();
+  await page.reload();
+  await firstLevel();
 });
 
 test('a settled tile flips into lightning during a drop and clears its whole row outward', async ({ page }) => {

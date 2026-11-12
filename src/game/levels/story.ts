@@ -12,6 +12,8 @@ export type StoryConfig = {
   rowClear?: FallingLevel['rowClear'];
 };
 
+export const storyLevelCount = Array.isArray(story?.levels) ? story.levels.length : 0;
+
 export function loadStory({ board, rowIntervalMs, levels, messages, delivery, rowClear }: StoryConfig = story) {
   if (!Array.isArray(levels) || !levels.length) throw new RangeError('Story must contain at least one level');
   for (const language of ['en', 'ru'] as const) {

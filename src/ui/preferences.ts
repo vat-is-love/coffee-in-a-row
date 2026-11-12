@@ -6,32 +6,55 @@ let languageChosen = false;
 export const PREFERENCES_KEY = 'coffee-preferences';
 let language: Language = 'en';
 let vibration = true;
-try {
+let pendingStoryCheckpoint: number | undefined;
+function readStoredPreferences() {
   const saved = JSON.parse(localStorage.getItem(PREFERENCES_KEY) ?? '{}');
-  if (saved && typeof saved === 'object' && !Array.isArray(saved) && (saved.version === undefined || saved.version === 1)) {
-    if (saved.language === 'ru' || saved.language === 'en') {
-      language = saved.language;
-      languageChosen = true;
-    }
-    if (saved.mode === 'classic' || saved.mode === 'falling') {
-      mode = saved.mode === 'falling' && saved.storyMode === true ? 'story' : saved.mode;
-    }
-    if (typeof saved.vibration === 'boolean') vibration = saved.vibration;
+  return saved && typeof saved === 'object' && !Array.isArray(saved) &&
+    (saved.version === undefined || saved.version === 1) ? saved : {};
+}
+try {
+  const saved = readStoredPreferences();
+  if (saved.language === 'ru' || saved.language === 'en') {
+    language = saved.language;
+    languageChosen = true;
   }
+  if (saved.mode === 'classic' || saved.mode === 'falling') {
+    mode = saved.mode === 'falling' && saved.storyMode === true ? 'story' : saved.mode;
+  }
+  if (typeof saved.vibration === 'boolean') vibration = saved.vibration;
 } catch { /* Preferences are optional when storage is unavailable. */ }
 export function getPreferences() { return { language, vibration }; }
 export function getStartupPreferences() { return { mode, languageChosen }; }
+export function getStoryCheckpoint(): number {
+  if (pendingStoryCheckpoint !== undefined) return pendingStoryCheckpoint;
+  try {
+    const saved = readStoredPreferences().storyCheckpoint;
+    return Number.isSafeInteger(saved) && saved > 0 ? saved : 0;
+  } catch { return 0; }
+}
+export function saveStoryCheckpoint(levelIndex: number): void {
+  persistPreferences(levelIndex, true);
+}
 export function savePreferences(next: { language: Language; vibration: boolean; mode?: Mode }): void {
   if (next.mode) mode = next.mode;
   languageChosen = true;
   language = next.language;
   vibration = next.vibration;
   document.documentElement.lang = language;
+  persistPreferences(getStoryCheckpoint());
+  if (!vibration) requestVibration('cancel');
+}
+function persistPreferences(levelIndex: number, preserveStoredPreferences = false): void {
   // Installed Android wrappers only accept the original mode names in backups.
   const storedMode = mode === 'story' ? { mode: 'falling', storyMode: true } : { mode };
-  try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ ...next, ...storedMode, version: 1 })); } catch { /* Keep in memory. */ }
+  try {
+    const saved = preserveStoredPreferences ? readStoredPreferences() : {};
+    localStorage.setItem(PREFERENCES_KEY, JSON.stringify({
+      language, vibration, ...storedMode, version: 1, ...saved, storyCheckpoint: levelIndex || undefined
+    }));
+    pendingStoryCheckpoint = undefined;
+  } catch { pendingStoryCheckpoint = levelIndex; }
   notifyDataChanged();
-  if (!vibration) requestVibration('cancel');
 }
 document.documentElement.lang = language;
 export function t(english: string): string {
@@ -92,6 +115,7 @@ const russian: Record<string, string> = {
   "Cleared": "Очищено",
   "Match lines of 3 to clear every cell's pale background.": "Собирайте линии от 3, чтобы очистить светлый фон каждой клетки.",
   "Continue": "Продолжить",
+  "New game": "Новая игра",
   "FREE PLAY": "СВОБОДНАЯ ИГРА",
   "Choose game mode": "Выберите режим игры",
   "Falling pieces": "Падающие ряды",
@@ -111,7 +135,7 @@ const russian: Record<string, string> = {
   "Game mode": "Режим игры",
   "Swap tiles to make lines of 3. New tiles refill the board.": "Собирайте линии от 3 фишек. Поле заполняется новыми фишками.",
   "Tap connected groups of 2+. Columns gather in the center. Clear space before the next row arrives.": "Убирайте группы от 2 фишек. Столбцы сдвигаются к центру. Освобождайте место для нового ряда.",
-  "Changing mode starts a new game.": "Смена режима начинает новую игру.",
+  "Changing mode ends the current round.": "Смена режима завершает текущую партию.",
   "Cancel": "Отмена",
   "Apply": "Применить",
   "Language": "Язык",

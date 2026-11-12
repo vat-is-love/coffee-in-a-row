@@ -57,7 +57,11 @@ test('first launch restores a valid previous generation if main is damaged', asy
 test('invalid copies do not activate or overwrite backup', async ({ page }) => {
   await bridge(page, ['broken']);
   await page.goto('/');
-  await page.getByRole('checkbox', { name: 'Save progress after uninstall' }).check();
-  await expect(page.locator('.mode-picker [data-backup-status]')).toContainText('Could not enable');
+  const checkbox = page.getByRole('checkbox', { name: 'Save progress after uninstall' });
+  const status = page.locator('.mode-picker [data-backup-status]');
+  await expect(status).toHaveText('Backup is not configured.');
+  await checkbox.click();
+  await expect(status).toContainText('Could not enable');
+  await expect(checkbox).not.toBeChecked();
   expect(await page.evaluate(() => (window as any).backupCalls.some((r: any) => ['activate', 'write'].includes(r.action)))).toBe(false);
 });

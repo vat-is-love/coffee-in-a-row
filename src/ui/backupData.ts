@@ -13,6 +13,7 @@ function validateData(key: string, raw: string): void {
     if (!object(v) || (v.version !== undefined && v.version !== 1) ||
       !['ru', 'en'].includes(v.language as string) || typeof v.vibration !== 'boolean' ||
       (v.mode !== undefined && v.mode !== 'classic' && v.mode !== 'falling') ||
+      (v.storyCheckpoint !== undefined && !uint(v.storyCheckpoint)) ||
       (v.storyMode !== undefined && (v.storyMode !== true || v.mode !== 'falling'))) throw Error('Invalid preferences');
   } else if (!Array.isArray(v) || !v.every(r => object(r) && uint(r.score) && uint(r.rows) &&
     uint(r.playedAt) && r.playedAt <= 8640000000000000 &&

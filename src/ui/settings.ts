@@ -1,7 +1,8 @@
 import { backupControls, installBackupControls, refreshBackupStatus } from './backup';
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
-import { t, getPreferences, getStartupPreferences, savePreferences, type Language, type Mode } from './preferences';
+import { storyLevelCount } from '../game/levels/story';
+import { t, getPreferences, getStartupPreferences, getStoryCheckpoint, savePreferences, saveStoryCheckpoint, type Language, type Mode } from './preferences';
 import type { Game } from 'phaser';
 
 /** Native controls keep settings usable with touch, keyboard, and screen readers. */
@@ -9,12 +10,42 @@ export function installSettings(game: Game): void {
   const startup = getStartupPreferences();
   let mode: Mode = startup.mode ?? 'classic';
   game.registry.set('gameMode', mode);
-  const startMode = (selected: Mode, currentScene: string) => {
+  const storyPicker = document.createElement('dialog');
+  storyPicker.className = 'settings-dialog mode-picker';
+  storyPicker.setAttribute('aria-labelledby', 'story-picker-title');
+  storyPicker.addEventListener('cancel', event => event.preventDefault());
+  document.body.append(storyPicker);
+  const chooseStartingLevel = (selected: Mode, start: (levelIndex: number) => void) => {
+    const checkpoint = selected === 'story' ? getStoryCheckpoint() : 0;
+    if (checkpoint === 0 || checkpoint >= storyLevelCount) {
+      start(0);
+      return;
+    }
+    storyPicker.innerHTML = `
+      <form method="dialog">
+        <h1 id="story-picker-title">${t('Story mode')}</h1>
+        <button class="mode-option" value="continue">
+          <strong>${t('Continue')}</strong>
+          <small>${t('Level')} ${checkpoint + 1}</small>
+        </button>
+        <button class="mode-option" value="new">${t('New game')}</button>
+      </form>`;
+    storyPicker.addEventListener('close', () => {
+      if (storyPicker.returnValue === 'new') {
+        saveStoryCheckpoint(0);
+        start(0);
+      } else start(checkpoint);
+    }, { once: true });
+    storyPicker.showModal();
+    requestAnimationFrame(() => window.CoffeeRecovery?.ready());
+  };
+  const startMode = (selected: Mode, currentScene: string) => chooseStartingLevel(selected, levelIndex => {
     mode = selected;
     game.registry.set('gameMode', mode);
     game.scene.stop(currentScene);
-    game.scene.start(mode === 'classic' ? 'GameScene' : 'FallingScene');
-  };
+    game.scene.start(mode === 'classic' ? 'GameScene' : 'FallingScene', { levelIndex });
+  });
+  const startFromBoot = () => chooseStartingLevel(mode, levelIndex => game.events.emit('game-mode-selected', levelIndex));
   const selectAfterStory = (selected: Mode) => {
     savePreferences({ ...getPreferences(), mode: selected });
     startMode(selected, 'FallingScene');
@@ -59,12 +90,12 @@ export function installSettings(game: Game): void {
       language: (modePicker.querySelector<HTMLSelectElement>('[name="startup-language"]')?.value as Language | undefined) ?? getPreferences().language
     });
     game.registry.set('gameMode', mode);
-    game.events.emit('game-mode-selected');
+    startFromBoot();
   });
   const chooseMode = () => {
     window.CoffeeRecovery?.stage('choose-game-mode');
     if (startup.mode && startup.languageChosen) {
-      game.events.emit('game-mode-selected');
+      startFromBoot();
       return;
     }
     modePicker.returnValue = '';
@@ -104,7 +135,7 @@ export function installSettings(game: Game): void {
           <span><strong>${t('Story mode')}</strong><small>${t('Clear groups, activate lightning tiles, then deliver items to the bottom.')}</small></span>
         </label>
       </fieldset>
-      <p>${t('Changing mode starts a new game.')}</p>
+      <p>${t('Changing mode ends the current round.')}</p>
       <div class="settings-actions"><button value="cancel">${t('Cancel')}</button><button value="apply" class="primary">${t('Apply')}</button></div>
     </form>`; };
   renderSettings();
@@ -138,7 +169,7 @@ export function installSettings(game: Game): void {
   });
   let suspended: string | null = null;
   const open = () => {
-    if (dialog.open) return;
+    if (dialog.open || storyPicker.open) return;
     suspended = game.scene.isActive('FallingScene') ? 'FallingScene' : game.scene.isActive('GameScene') ? 'GameScene' : null;
     if (!suspended) return;
     renderSettings();
@@ -153,7 +184,7 @@ export function installSettings(game: Game): void {
   };
   // Keep dialog keyboard events out of Phaser's global keyboard handler.
   const stopKey = (event: KeyboardEvent) => event.stopPropagation();
-  for (const modal of [modePicker, dialog]) {
+  for (const modal of [modePicker, storyPicker, dialog]) {
     modal.addEventListener('keydown', stopKey);
     modal.addEventListener('keyup', stopKey);
   }
@@ -178,6 +209,7 @@ export function installSettings(game: Game): void {
     game.events.off('choose-game-mode', chooseMode);
     game.events.off('select-mode-after-story', selectAfterStory);
     modePicker.remove();
+    storyPicker.remove();
     dialog.remove();
   });
 }
