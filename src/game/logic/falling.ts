@@ -4,6 +4,8 @@ import level from '@game/levels/falling.json';
 import { fixedTiles, levelSeed } from '../levels/initial';
 
 type ItemSchedule = { firstRow: number; everyRows: number };
+type BuffType = keyof typeof BUFF_TILES;
+type BuffSchedule = ItemSchedule & { minimumEveryRows?: number };
 
 export type FallingLevel = {
   mode: string;
@@ -30,12 +32,15 @@ export type FallingLevel = {
   objective: { type: string; targetRows: number | null };
   lossCondition: { type: string };
   delivery?: ItemSchedule;
-  rowClear?: ItemSchedule;
+  buffs?: { types: BuffType[]; first?: BuffType; schedule: BuffSchedule };
 };
 
 export const fallingLevel: FallingLevel = level;
 export const STORY_ITEM = 6;
 export const ROW_CLEAR_ITEM = 7;
+export const COLUMN_CLEAR_ITEM = 8;
+export const BOMB_ITEM = 9;
+export const BUFF_TILES = { horizontal: ROW_CLEAR_ITEM, vertical: COLUMN_CLEAR_ITEM, bomb: BOMB_ITEM };
 export type FallingGrid = number[][];
 export interface FallingState {
   grid: FallingGrid;
@@ -44,6 +49,8 @@ export interface FallingState {
   score: number;
   rowsAdded: number;
   delivered: number;
+  buffsSpawned: number;
+  nextBuffRow?: number;
 }
 export interface TileMotion { from: Position; to: Position }
 
@@ -67,7 +74,7 @@ function generateRow(rng: SeededRNG, { board, delivery }: FallingLevel, rowNumbe
 }
 
 export function createFalling(seed?: number, description: FallingLevel = fallingLevel): FallingState {
-  const { board, rules, incomingRows, objective, lossCondition, delivery, rowClear } = description;
+  const { board, rules, incomingRows, objective, lossCondition, delivery, buffs } = description;
   const { rows, cols, tileTypes, initial } = board;
   const { initialIntervalMs, minimumIntervalMs, decreaseEveryRows, decreaseByMs, removalDurationFractionOfInterval } = incomingRows;
   if (!Number.isInteger(rows) || rows < 2 || !Number.isInteger(cols) || cols < 1 ||
@@ -85,9 +92,18 @@ export function createFalling(seed?: number, description: FallingLevel = falling
       lossCondition.type !== 'top_row_occupied_when_next_row_drops') {
     throw new RangeError('Unsupported Falling Rows level rules');
   }
-  if ([delivery, rowClear].some(schedule => schedule &&
+  if ([delivery, buffs?.schedule].some(schedule => schedule &&
       ![schedule.firstRow, schedule.everyRows].every(n => Number.isSafeInteger(n) && n > 0))) {
     throw new RangeError('Invalid Story item schedule');
+  }
+  if (buffs) {
+    const { everyRows, minimumEveryRows = everyRows } = buffs.schedule;
+    if (!Array.isArray(buffs.types) || !buffs.types.length ||
+        buffs.types.some(type => !Object.hasOwn(BUFF_TILES, type)) ||
+        (buffs.first !== undefined && !buffs.types.includes(buffs.first)) ||
+        !Number.isSafeInteger(minimumEveryRows) || minimumEveryRows < 1 || minimumEveryRows > everyRows) {
+      throw new RangeError('Invalid Story buff configuration');
+    }
   }
   const rng = new SeededRNG(seed ?? levelSeed(description.random));
   let grid: FallingGrid;
@@ -105,7 +121,10 @@ export function createFalling(seed?: number, description: FallingLevel = falling
     throw new RangeError('Invalid Falling Rows starting layout');
   }
   const nextRow = generateRow(rng, description, 1);
-  return { grid, nextRow, seed: rng.getSeed(), score: 0, rowsAdded: 0, delivered: 0 };
+  return {
+    grid, nextRow, seed: rng.getSeed(), score: 0, rowsAdded: 0, delivered: 0,
+    buffsSpawned: 0, nextBuffRow: buffs?.schedule.firstRow
+  };
 }
 
 export function findGroup(grid: FallingGrid, start: Position): Position[] {
@@ -128,11 +147,44 @@ export function findGroup(grid: FallingGrid, start: Position): Position[] {
 
 export function findRemoval(grid: FallingGrid, start: Position): Position[] {
   const { row, col } = start;
-  if (grid[row]?.[col] === ROW_CLEAR_ITEM) {
-    return grid[row].flatMap((tile, col) => tile < 0 ? [] : [{ row, col }]);
+  const tile = grid[row]?.[col];
+  if (tile === ROW_CLEAR_ITEM || tile === COLUMN_CLEAR_ITEM || tile === BOMB_ITEM) {
+    return grid.flatMap((cells, r) => cells.flatMap((value, c) => {
+      const inArea = tile === ROW_CLEAR_ITEM ? r === row : tile === COLUMN_CLEAR_ITEM ? c === col :
+        Math.abs(r - row) <= 1 && Math.abs(c - col) <= 1;
+      return inArea && value >= 0 ? [{ row: r, col: c }] : [];
+    }));
   }
   const group = findGroup(grid, start);
   return group.length >= 2 ? group : [];
+}
+
+function settle(grid: FallingGrid, removed: Position[] = []) {
+  const keys = new Set(removed.map(p => `${p.row},${p.col}`));
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const columns: Position[][] = [];
+  const deliveries: TileMotion[] = [];
+  for (let col = 0; col < cols; col++) {
+    const survivors: Position[] = [];
+    for (let row = 0; row < rows; row++) {
+      if (grid[row][col] >= 0 && !keys.has(`${row},${col}`)) survivors.push({ row, col });
+    }
+    // Reaching the bottom removes the item and can free another item above it.
+    while (survivors.length && grid[survivors.at(-1)!.row][col] === STORY_ITEM) {
+      deliveries.push({ from: survivors.pop()!, to: { row: rows - 1, col } });
+    }
+    if (survivors.length) columns.push(survivors);
+  }
+  const settled = Array.from({ length: rows }, () => Array<number>(cols).fill(-1));
+  const offset = Math.floor((cols - columns.length) / 2);
+  const motions: TileMotion[] = [];
+  columns.forEach((column, index) => column.forEach((from, i) => {
+    const to = { row: rows - column.length + i, col: offset + index };
+    settled[to.row][to.col] = grid[from.row][from.col];
+    motions.push({ from, to });
+  }));
+  return { grid: settled, motions, deliveries };
 }
 
 /** Motion records preserve each surviving tile's identity through gravity and centering. */
@@ -141,31 +193,7 @@ export function clearAt(state: FallingState, start: Position): {
 } {
   const removed = findRemoval(state.grid, start);
   if (!removed.length) return { state, removed: [], motions: [], deliveries: [] };
-  const keys = new Set(removed.map(p => `${p.row},${p.col}`));
-  const rows = state.grid.length;
-  const cols = state.grid[0].length;
-  const keepColumns = state.grid[start.row][start.col] === ROW_CLEAR_ITEM && start.row !== rows - 1;
-  const columns: Position[][] = [];
-  const deliveries: TileMotion[] = [];
-  for (let col = 0; col < cols; col++) {
-    const survivors: Position[] = [];
-    for (let row = 0; row < rows; row++) {
-      if (state.grid[row][col] >= 0 && !keys.has(`${row},${col}`)) survivors.push({ row, col });
-    }
-    // Reaching the bottom removes the item and can free another item above it.
-    while (survivors.length && state.grid[survivors.at(-1)!.row][col] === STORY_ITEM) {
-      deliveries.push({ from: survivors.pop()!, to: { row: rows - 1, col } });
-    }
-    if (survivors.length) columns.push(survivors);
-  }
-  const grid = Array.from({ length: rows }, () => Array<number>(cols).fill(-1));
-  const offset = Math.floor((cols - columns.length) / 2);
-  const motions: TileMotion[] = [];
-  columns.forEach((column, index) => column.forEach((from, i) => {
-    const to = { row: rows - column.length + i, col: keepColumns ? from.col : offset + index };
-    grid[to.row][to.col] = state.grid[from.row][from.col];
-    motions.push({ from, to });
-  }));
+  const { grid, motions, deliveries } = settle(state.grid, removed);
   return {
     state: { ...state, grid, score: state.score + removed.length * (removed.length - 1) * 50, delivered: state.delivered + deliveries.length },
     removed, motions, deliveries
@@ -174,30 +202,42 @@ export function clearAt(state: FallingState, start: Position): {
 
 /** Check overflow before mutating anything; the incoming row covers the full board width. */
 export function addFallingRow(state: FallingState, description: FallingLevel = fallingLevel): {
-  state: FallingState; added: Position[]; overflow: boolean; lightning?: Position;
+  state: FallingState; added: Position[]; overflow: boolean; motions: TileMotion[]; deliveries: TileMotion[];
+  buff?: Position & { tile: number };
 } {
-  if (state.grid[0].some(color => color >= 0)) return { state, added: [], overflow: true };
-  const { board } = description;
+  if (state.grid[0].some(color => color >= 0)) return { state, added: [], overflow: true, motions: [], deliveries: [] };
+  const { board, buffs } = description;
   const grid = state.grid.map(row => [...row]);
   const added: Position[] = [];
-  let delivered = state.delivered;
   for (let col = 0; col < board.cols; col++) {
     let row = board.rows - 1;
     while (row >= 0 && grid[row][col] >= 0) row--;
-    const tile = state.nextRow[col];
-    if (tile === STORY_ITEM && row === board.rows - 1) delivered++;
-    else grid[row][col] = tile;
+    grid[row][col] = state.nextRow[col];
     added.push({ row, col });
   }
   const rng = new SeededRNG(state.seed);
   const rowsAdded = state.rowsAdded + 1;
-  // Pick from tiles that were already on the board. The scene transforms the tile mid-drop.
-  let lightning: Position | undefined;
-  if (isScheduled(description.rowClear, rowsAdded)) {
+  let buff: (Position & { tile: number }) | undefined;
+  let { buffsSpawned, nextBuffRow } = state;
+  if (buffs && rowsAdded === nextBuffRow) {
+    // The buff replaces a settled normal tile, leaving the incoming preview intact.
     const slots = state.grid.flatMap((cells, row) =>
       cells.flatMap((tile, col) => tile >= 0 && tile < STORY_ITEM ? [{ row, col }] : []));
-    if (slots.length) lightning = slots[rng.nextInt(slots.length)];
+    if (slots.length) {
+      const pos = slots[rng.nextInt(slots.length)];
+      const type = buffsSpawned === 0 && buffs.first ? buffs.first : buffs.types[rng.nextInt(buffs.types.length)];
+      const tile = BUFF_TILES[type];
+      grid[pos.row][pos.col] = tile;
+      buff = { ...pos, tile };
+      buffsSpawned++;
+    }
+    const { everyRows, minimumEveryRows = everyRows } = buffs.schedule;
+    nextBuffRow += Math.max(minimumEveryRows, everyRows - Math.max(0, buffsSpawned - 1));
   }
   const nextRow = generateRow(rng, description, rowsAdded + 1);
-  return { state: { ...state, grid, nextRow, seed: rng.getSeed(), rowsAdded, delivered }, added, overflow: false, lightning };
+  const { grid: settled, motions, deliveries } = settle(grid);
+  return {
+    state: { ...state, grid: settled, nextRow, seed: rng.getSeed(), rowsAdded, delivered: state.delivered + deliveries.length, buffsSpawned, nextBuffRow },
+    added, overflow: false, buff, motions, deliveries
+  };
 }

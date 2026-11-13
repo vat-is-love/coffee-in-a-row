@@ -2,6 +2,9 @@ import { test, expect, type Page } from '@playwright/test';
 
 const STORY_ITEM = 6;
 const ROW_CLEAR_ITEM = 7;
+const COLUMN_CLEAR_ITEM = 8;
+const BOMB_ITEM = 9;
+const tileTargets = [100, 100, 100, 200, 150, 120];
 const scene = "(window.__GAME__?.scene.getScene('FallingScene'))";
 
 async function selectStory(page: Page) {
@@ -18,7 +21,7 @@ test('Story offers a retry after defeat, advances after each level and offers re
   await page.getByRole('button', { name: /Story mode/ }).click();
   const expectLevel = async (index: number, tileTypes: number) => {
     const score = index < 3 ? 'Tiles cleared: 0 / 100' :
-      index < 6 ? 'Tiles cleared: 0 / 100 · Row clear: 0 / 1' : 'Items delivered: 0 / 5';
+      index < 6 ? `Tiles cleared: 0 / ${tileTargets[index]} · Buffs used: 0 / 1` : 'Items delivered: 0 / 5';
     await expect.poll(() => page.evaluate(`[${scene}?.levelIndex, ${scene}?.level?.board.tileTypes, ${scene}?.scoreText?.text]`))
       .toEqual([index, tileTypes, score]);
   };
@@ -82,25 +85,27 @@ test('Story offers a retry after defeat, advances after each level and offers re
   await selectStory(page);
   const storyPicker = page.getByRole('dialog', { name: 'Story mode' });
   await storyPicker.getByRole('button', { name: 'Continue Level 4' }).click();
-  for (const [index, colors] of [[3, 3], [4, 4], [5, 5]]) {
+  for (const [index, colors, buff] of [[3, 3, ROW_CLEAR_ITEM], [4, 4, COLUMN_CLEAR_ITEM], [5, 5, BOMB_ITEM]]) {
     await expectLevel(index, colors);
-    await removePair(98);
-    await expect.poll(() => page.evaluate(`${scene}.scoreText.text`)).toBe('Tiles cleared: 100 / 100 · Row clear: 0 / 1');
+    const target = tileTargets[index];
+    await removePair(target - 2);
+    await expect.poll(() => page.evaluate(`${scene}.scoreText.text`)).toBe(`Tiles cleared: ${target} / ${target} · Buffs used: 0 / 1`);
     await expect(completed).not.toBeVisible();
 
     await page.evaluate(`${scene}.state.rowsAdded = 5; ${scene}.requestDrop()`);
     await page.waitForFunction(`${scene}.state.rowsAdded === 6 && !${scene}.isProcessing`);
-    expect(await page.evaluate(`${scene}.preview.map(sprite => sprite.texture.key)`)).not.toContain(`tile-${ROW_CLEAR_ITEM}`);
+    expect(await page.evaluate(`${scene}.preview.map(sprite => sprite.texture.key)`)).not.toContain(`tile-${buff}`);
     await page.evaluate(`${scene}.requestDrop()`);
     await page.waitForFunction(`${scene}.state.rowsAdded === 7 && !${scene}.isProcessing`);
-    const lightning = await page.evaluate(`(() => {
+    const point = await page.evaluate(`(() => {
       const scene = ${scene};
-      const row = scene.state.grid.findIndex(row => row.includes(${ROW_CLEAR_ITEM}));
-      const col = scene.state.grid[row].indexOf(${ROW_CLEAR_ITEM});
+      const row = scene.state.grid.findIndex(row => row.includes(${buff}));
+      const col = scene.state.grid[row].indexOf(${buff});
+      if (scene.board[row][col].sprite.texture.key !== 'tile-${buff}') throw new Error('Buff texture missing');
       const board = scene.boardContainer;
       return { x: board.x + (col * 64 + 32) * board.scaleX, y: board.y + (row * 64 + 32) * board.scaleY };
     })()`);
-    await page.mouse.click(lightning.x, lightning.y);
+    await page.mouse.click(point.x, point.y);
     await completed.getByRole('button', { name: 'Continue' }).click();
   }
 
@@ -120,9 +125,14 @@ test('Story offers a retry after defeat, advances after each level and offers re
     const scene = ${scene};
     scene.state.grid.forEach(row => row.fill(-1));
     scene.renderBoard();
+    scene.state.nextRow = [0, 1, 2, ${STORY_ITEM}, 2, 1, 0, 1];
     scene.state.delivered = 4;
     scene.requestDrop();
   })()`);
+  await expect(completed).toBeVisible();
+  expect(await page.evaluate(`${scene}.state.grid[7]`)).toEqual([0, 1, 2, 2, 1, 0, 1, -1]);
+  expect(await page.evaluate(`${scene}.board[7].map(tile => tile?.sprite.x ?? null)`))
+    .toEqual([32, 96, 160, 224, 288, 352, 416, null]);
   await completed.getByRole('button', { name: 'Continue' }).click();
   await expectLevel(8, 5);
   await removePair(0, 4);
@@ -228,7 +238,7 @@ test('a settled tile flips into lightning during a drop and clears its whole row
     return { x: board.x + center.x * board.scaleX, y: board.y + center.y * board.scaleY };
   })()`);
   await page.mouse.click(point.x, point.y);
-  await page.waitForFunction(`${scene}.rowClearUsed && !${scene}.isProcessing`);
+  await page.waitForFunction(`${scene}.buffUsed && !${scene}.isProcessing`);
   expect(await page.evaluate('window.lightningChecks')).toEqual({ wave: true, fell: true, fellTooSoon: false });
   expect(await page.evaluate(`${scene}.state.grid[7]`)).toEqual([-1, -1, -1, 2, 2, -1, -1, -1]);
   expect(await page.evaluate(`${scene}.board[7].filter(Boolean).map(tile => tile.sprite.x)`)).toEqual([3 * 64 + 32, 4 * 64 + 32]);

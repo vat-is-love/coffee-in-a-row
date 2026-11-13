@@ -4,9 +4,11 @@ import { t } from '../../ui/preferences';
  */
 
 import { Scene, GameObjects } from 'phaser';
-import { ROW_CLEAR_ITEM, STORY_ITEM } from '../logic/falling';
+import { BOMB_ITEM, COLUMN_CLEAR_ITEM, ROW_CLEAR_ITEM, STORY_ITEM } from '../logic/falling';
 import storyItem from '../render/story-item.svg?url';
 import rowClearItem from '../render/row-clear-item.svg?url';
+import columnClearItem from '../render/column-clear-item.svg?url';
+import bombItem from '../render/bomb-item.svg?url';
 
 export class BootScene extends Scene {
   private failed = false;
@@ -30,6 +32,8 @@ export class BootScene extends Scene {
       this.generateSelectionTexture();
       this.load.image(`tile-${STORY_ITEM}`, storyItem);
       this.load.image(`tile-${ROW_CLEAR_ITEM}`, rowClearItem);
+      this.load.image(`tile-${COLUMN_CLEAR_ITEM}`, columnClearItem);
+      this.load.image(`tile-${BOMB_ITEM}`, bombItem);
     } catch (error) { this.showLoadError(error); }
     this.load.on('loaderror', () => this.showLoadError(new Error('Asset loading failed')));
 

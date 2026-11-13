@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { createFalling, clearAt, addFallingRow, fallingLevel, findGroup, rowInterval, ROW_CLEAR_ITEM, STORY_ITEM, turnDuration, type FallingLevel, type FallingState } from '../../../src/game/logic/falling';
+import { createFalling, clearAt, addFallingRow, fallingLevel, findGroup, rowInterval, BOMB_ITEM, COLUMN_CLEAR_ITEM, ROW_CLEAR_ITEM, STORY_ITEM, turnDuration, type FallingLevel, type FallingState } from '../../../src/game/logic/falling';
 
 const testLevel: FallingLevel = {
   ...fallingLevel,
   delivery: undefined,
-  rowClear: undefined,
   board: { rows: 8, cols: 8, tileTypes: 4, initial: { kind: 'generated', filledBottomRows: 3, emptyTopRows: 5 } },
   incomingRows: {
     ...fallingLevel.incomingRows, tilesPerRow: 8, initialIntervalMs: 5000, minimumIntervalMs: 3500,
@@ -81,13 +80,55 @@ describe('Falling rows', () => {
     expect(clearAt(result.state, { row: 7, col: 3 }).removed).toHaveLength(2);
   });
 
+  it('joins separated columns after clearing a row above the bottom', () => {
+    const state = empty();
+    state.grid[6][1] = ROW_CLEAR_ITEM;
+    state.grid[7][1] = state.grid[7][6] = 2;
+    const result = clearAt(state, { row: 6, col: 1 });
+    expect(result.state.grid[7]).toEqual([-1, -1, -1, 2, 2, -1, -1, -1]);
+  });
+
+  it('joins the tiles on either side of a cup delivered directly from the incoming row', () => {
+    const state = empty();
+    state.nextRow = [0, 1, 2, STORY_ITEM, 2, 1, 0, 1];
+    const result = addFallingRow(state, testLevel);
+    expect(result.deliveries).toEqual([{ from: { row: 7, col: 3 }, to: { row: 7, col: 3 } }]);
+    expect(result.state.delivered).toBe(1);
+    expect(result.state.grid[7]).toEqual([0, 1, 2, 2, 1, 0, 1, -1]);
+    expect(result.motions).toContainEqual({ from: { row: 7, col: 4 }, to: { row: 7, col: 3 } });
+  });
+
   it('does not substitute an incoming tile when no normal tile was already on the board', () => {
-    const level = { ...testLevel, rowClear: { firstRow: 7, everyRows: 8 } };
-    const state = { ...empty(), rowsAdded: 6 };
+    const level: FallingLevel = { ...testLevel, buffs: { types: ['horizontal'], schedule: { firstRow: 7, everyRows: 8 } } };
+    const state = { ...empty(), rowsAdded: 6, nextBuffRow: 7 };
     state.grid[7][0] = ROW_CLEAR_ITEM;
     const drop = addFallingRow(state, level);
-    expect(drop.lightning).toBeUndefined();
+    expect(drop.buff).toBeUndefined();
     expect(drop.added.map(({ row, col }) => drop.state.grid[row][col])).toEqual(state.nextRow);
+  });
+
+  it('clears the entire column, including other special tiles, with vertical lightning', () => {
+    const state = empty();
+    state.grid[4][2] = STORY_ITEM;
+    state.grid[5][2] = COLUMN_CLEAR_ITEM;
+    state.grid[6][2] = ROW_CLEAR_ITEM;
+    state.grid[7][2] = 0;
+    state.grid[7][3] = 1;
+    const result = clearAt(state, { row: 5, col: 2 });
+    expect(result.removed).toEqual([4, 5, 6, 7].map(row => ({ row, col: 2 })));
+    expect(result.deliveries).toEqual([]);
+    expect(result.state.grid[7][3]).toBe(1);
+  });
+
+  it('clears a 3×3 area with the bomb, including diagonals and clipping at board edges', () => {
+    const state = empty();
+    state.grid[6].fill(0);
+    state.grid[7].fill(1);
+    state.grid[7][1] = BOMB_ITEM;
+    expect(clearAt(state, { row: 7, col: 1 }).removed).toEqual([
+      { row: 6, col: 0 }, { row: 6, col: 1 }, { row: 6, col: 2 },
+      { row: 7, col: 0 }, { row: 7, col: 1 }, { row: 7, col: 2 }
+    ]);
   });
 
   it('removes cups and other lightning in the cleared row and delivers cups that fall from above', () => {
