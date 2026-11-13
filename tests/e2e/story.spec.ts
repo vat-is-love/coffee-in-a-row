@@ -4,7 +4,8 @@ const STORY_ITEM = 6;
 const ROW_CLEAR_ITEM = 7;
 const COLUMN_CLEAR_ITEM = 8;
 const BOMB_ITEM = 9;
-const tileTargets = [100, 100, 100, 200, 150, 120];
+const tileTargets = [100, 100, 100, 250, 200, 150];
+const finalDeliveryTarget = 4;
 const scene = "(window.__GAME__?.scene.getScene('FallingScene'))";
 
 async function selectStory(page: Page) {
@@ -21,7 +22,8 @@ test('Story offers a retry after defeat, advances after each level and offers re
   await page.getByRole('button', { name: /Story mode/ }).click();
   const expectLevel = async (index: number, tileTypes: number) => {
     const score = index < 3 ? 'Tiles cleared: 0 / 100' :
-      index < 6 ? `Tiles cleared: 0 / ${tileTargets[index]} · Buffs used: 0 / 1` : 'Items delivered: 0 / 5';
+      index < 6 ? `Tiles cleared: 0 / ${tileTargets[index]} · Buffs used: 0 / 1` :
+        `Items delivered: 0 / ${index === 8 ? finalDeliveryTarget : 5}`;
     await expect.poll(() => page.evaluate(`[${scene}?.levelIndex, ${scene}?.level?.board.tileTypes, ${scene}?.scoreText?.text]`))
       .toEqual([index, tileTypes, score]);
   };
@@ -135,13 +137,13 @@ test('Story offers a retry after defeat, advances after each level and offers re
     .toEqual([32, 96, 160, 224, 288, 352, 416, null]);
   await completed.getByRole('button', { name: 'Continue' }).click();
   await expectLevel(8, 5);
-  await removePair(0, 4);
+  await removePair(0, finalDeliveryTarget - 1);
   await victory.getByRole('button', { name: 'Start again' }).click();
   await expectLevel(0, 3);
 
   await page.evaluate(`void ${scene}.scene.restart({ levelIndex: 8 })`);
   await expectLevel(8, 5);
-  await removePair(0, 4);
+  await removePair(0, finalDeliveryTarget - 1);
   await victory.getByRole('button', { name: 'Choose' }).click();
   await expect(victory).toBeVisible();
   await victory.getByRole('radio', { name: 'Falling pieces' }).check();

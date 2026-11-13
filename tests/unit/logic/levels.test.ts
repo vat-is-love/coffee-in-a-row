@@ -46,9 +46,9 @@ describe('JSON level configuration', () => {
     }
   });
 
-  it('unlocks Story buffs in order and caps the level nine acceleration at five rows', () => {
+  it('unlocks Story buffs in order and caps the level nine acceleration at four rows', () => {
     const { stages } = loadStory();
-    expect(stages.slice(3, 6).map(({ target }) => target)).toEqual([200, 150, 120]);
+    expect(stages.slice(3, 6).map(({ target }) => target)).toEqual([250, 200, 150]);
     for (const [index, { level }] of stages.slice(3).entries()) {
       let state = createFalling(42, level);
       const drops = [];
@@ -66,7 +66,7 @@ describe('JSON level configuration', () => {
       expect(new Set(drops.map(({ tile }) => tile))).toEqual(new Set(types));
       if (index < 3) expect(drops[0]).toEqual({ row: 7, tile: types.at(-1) });
       if (index === 5) {
-        expect(drops.map(({ row }) => row)).toEqual([10, 20, 29, 37, 44, 50, 55, 60, 65, 70, 75, 80]);
+        expect(drops.map(({ row }) => row)).toEqual([7, 15, 22, 28, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 73, 77]);
       }
     }
   });
