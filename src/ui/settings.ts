@@ -1,7 +1,7 @@
 import { backupControls, installBackupControls, refreshBackupStatus } from './backup';
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
-import { storyLevelCount } from '../game/levels/story';
+import { isStoryMode, storyLevelCount } from '../game/levels/story';
 import { t, getPreferences, getStartupPreferences, getStoryCheckpoint, savePreferences, saveStoryCheckpoint, type Language, type Mode } from './preferences';
 import type { Game } from 'phaser';
 
@@ -16,14 +16,18 @@ export function installSettings(game: Game): void {
   storyPicker.addEventListener('cancel', event => event.preventDefault());
   document.body.append(storyPicker);
   const chooseStartingLevel = (selected: Mode, start: (levelIndex: number) => void) => {
-    const checkpoint = selected === 'story' ? getStoryCheckpoint() : 0;
+    if (!isStoryMode(selected)) {
+      start(0);
+      return;
+    }
+    const checkpoint = getStoryCheckpoint(selected);
     if (checkpoint === 0 || checkpoint >= storyLevelCount) {
       start(0);
       return;
     }
     storyPicker.innerHTML = `
       <form method="dialog">
-        <h1 id="story-picker-title">${t('Story mode')}</h1>
+        <h1 id="story-picker-title">${t(selected === 'story-large' ? 'Story mode (12×12)' : 'Story mode')}</h1>
         <button class="mode-option" value="continue">
           <strong>${t('Continue')}</strong>
           <small>${t('Level')} ${checkpoint + 1}</small>
@@ -32,7 +36,7 @@ export function installSettings(game: Game): void {
       </form>`;
     storyPicker.addEventListener('close', () => {
       if (storyPicker.returnValue === 'new') {
-        saveStoryCheckpoint(0);
+        saveStoryCheckpoint(selected, 0);
         start(0);
       } else start(checkpoint);
     }, { once: true });
@@ -74,6 +78,9 @@ export function installSettings(game: Game): void {
         <strong>${t('Story mode')}</strong>
         <small>${t('Clear groups, use buffs, then deliver items to the bottom.')}</small>
       </button>
+      <button class="mode-option" value="story-large">
+        <strong>${t('Story mode (12×12)')}</strong>
+      </button>
       `}
       ${backupControls()}
       <p id="mode-picker-hint">${t('You can change the mode in settings.')}</p>
@@ -84,7 +91,7 @@ export function installSettings(game: Game): void {
   modePicker.addEventListener('cancel', event => event.preventDefault());
   modePicker.addEventListener('close', () => {
     const choice = modePicker.returnValue;
-    if (choice !== 'classic' && choice !== 'falling' && choice !== 'story') return;
+    if (choice !== 'classic' && choice !== 'falling' && !isStoryMode(choice)) return;
     mode = choice;
     savePreferences({ ...getPreferences(), mode,
       language: (modePicker.querySelector<HTMLSelectElement>('[name="startup-language"]')?.value as Language | undefined) ?? getPreferences().language
@@ -133,6 +140,10 @@ export function installSettings(game: Game): void {
         <label class="mode-option">
           <input type="radio" name="mode" value="story">
           <span><strong>${t('Story mode')}</strong><small>${t('Clear groups, use buffs, then deliver items to the bottom.')}</small></span>
+        </label>
+        <label class="mode-option">
+          <input type="radio" name="mode" value="story-large">
+          <span><strong>${t('Story mode (12×12)')}</strong></span>
         </label>
       </fieldset>
       <p>${t('Changing mode ends the current round.')}</p>

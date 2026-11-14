@@ -1,12 +1,14 @@
 import { notifyDataChanged } from './storage';
+import type { StoryMode } from '../game/levels/story';
 export type Language = 'en' | 'ru';
-export type Mode = 'classic' | 'falling' | 'story';
+export type Mode = 'classic' | 'falling' | StoryMode;
+const storyCheckpointKeys = { story: 'storyCheckpoint', 'story-large': 'largeStoryCheckpoint' } as const;
 let mode: Mode | undefined;
 let languageChosen = false;
 export const PREFERENCES_KEY = 'coffee-preferences';
 let language: Language = 'en';
 let vibration = true;
-let pendingStoryCheckpoint: number | undefined;
+const pendingStoryCheckpoints: Partial<Record<StoryMode, number>> = {};
 function readStoredPreferences() {
   const saved = JSON.parse(localStorage.getItem(PREFERENCES_KEY) ?? '{}');
   return saved && typeof saved === 'object' && !Array.isArray(saved) &&
@@ -19,21 +21,27 @@ try {
     languageChosen = true;
   }
   if (saved.mode === 'classic' || saved.mode === 'falling') {
-    mode = saved.mode === 'falling' && saved.storyMode === true ? 'story' : saved.mode;
+    mode = saved.mode === 'falling' && saved.storyMode === true
+      ? saved.largeStoryMode === true ? 'story-large' : 'story'
+      : saved.mode;
   }
   if (typeof saved.vibration === 'boolean') vibration = saved.vibration;
 } catch { /* Preferences are optional when storage is unavailable. */ }
 export function getPreferences() { return { language, vibration }; }
-export function getStartupPreferences() { return { mode: mode === 'story' ? 'falling' : mode, languageChosen }; }
-export function getStoryCheckpoint(): number {
-  if (pendingStoryCheckpoint !== undefined) return pendingStoryCheckpoint;
+export function getStartupPreferences() {
+  return { mode: mode === 'story' || mode === 'story-large' ? 'falling' : mode, languageChosen };
+}
+export function getStoryCheckpoint(storyMode: StoryMode): number {
+  const pending = pendingStoryCheckpoints[storyMode];
+  if (pending !== undefined) return pending;
   try {
-    const saved = readStoredPreferences().storyCheckpoint;
+    const saved = readStoredPreferences()[storyCheckpointKeys[storyMode]];
     return Number.isSafeInteger(saved) && saved > 0 ? saved : 0;
   } catch { return 0; }
 }
-export function saveStoryCheckpoint(levelIndex: number): void {
-  persistPreferences(levelIndex, true);
+export function saveStoryCheckpoint(storyMode: StoryMode, levelIndex: number): void {
+  pendingStoryCheckpoints[storyMode] = levelIndex;
+  persistPreferences(true);
 }
 export function savePreferences(next: { language: Language; vibration: boolean; mode?: Mode }): void {
   if (next.mode) mode = next.mode;
@@ -41,19 +49,25 @@ export function savePreferences(next: { language: Language; vibration: boolean; 
   language = next.language;
   vibration = next.vibration;
   document.documentElement.lang = language;
-  persistPreferences(getStoryCheckpoint());
+  persistPreferences();
   if (!vibration) requestVibration('cancel');
 }
-function persistPreferences(levelIndex: number, preserveStoredPreferences = false): void {
+function persistPreferences(preserveStoredPreferences = false): void {
   // Installed Android wrappers only accept the original mode names in backups.
-  const storedMode = mode === 'story' ? { mode: 'falling', storyMode: true } : { mode };
+  const storedMode = mode === 'story' || mode === 'story-large'
+    ? { mode: 'falling', storyMode: true, largeStoryMode: mode === 'story-large' || undefined }
+    : { mode };
+  const storyCheckpoint = getStoryCheckpoint('story');
+  const largeStoryCheckpoint = getStoryCheckpoint('story-large');
   try {
     const saved = preserveStoredPreferences ? readStoredPreferences() : {};
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify({
-      language, vibration, ...storedMode, version: 1, ...saved, storyCheckpoint: levelIndex || undefined
+      language, vibration, ...storedMode, version: 1, ...saved,
+      storyCheckpoint: storyCheckpoint || undefined, largeStoryCheckpoint: largeStoryCheckpoint || undefined
     }));
-    pendingStoryCheckpoint = undefined;
-  } catch { pendingStoryCheckpoint = levelIndex; }
+    delete pendingStoryCheckpoints.story;
+    delete pendingStoryCheckpoints['story-large'];
+  } catch { /* Pending checkpoints remain available when storage is unavailable. */ }
   notifyDataChanged();
 }
 document.documentElement.lang = language;
@@ -120,6 +134,7 @@ const russian: Record<string, string> = {
   "Choose game mode": "Выберите режим игры",
   "Falling pieces": "Падающие ряды",
   "Story mode": "Режим истории",
+  "Story mode (12×12)": "Режим истории (12×12)",
   "Clear groups, use buffs, then deliver items to the bottom.": "Убирайте группы фишек, используйте бафы, а затем опускайте предметы до нижнего ряда.",
   "Level": "Уровень",
   "Tiles cleared": "Фишек убрано",

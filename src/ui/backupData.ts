@@ -14,6 +14,8 @@ function validateData(key: string, raw: string): void {
       !['ru', 'en'].includes(v.language as string) || typeof v.vibration !== 'boolean' ||
       (v.mode !== undefined && v.mode !== 'classic' && v.mode !== 'falling') ||
       (v.storyCheckpoint !== undefined && !uint(v.storyCheckpoint)) ||
+      (v.largeStoryCheckpoint !== undefined && !uint(v.largeStoryCheckpoint)) ||
+      (v.largeStoryMode !== undefined && (v.largeStoryMode !== true || v.storyMode !== true)) ||
       (v.storyMode !== undefined && (v.storyMode !== true || v.mode !== 'falling'))) throw Error('Invalid preferences');
   } else if (!Array.isArray(v) || !v.every(r => object(r) && uint(r.score) && uint(r.rows) &&
     uint(r.playedAt) && r.playedAt <= 8640000000000000 &&

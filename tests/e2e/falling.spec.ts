@@ -14,7 +14,7 @@ async function startFalling(page: Page) {
 }
 const falling = `(window.__GAME__.scene.getScene('FallingScene'))`;
 
-test('settings pause the timer; the first-launch picker requires a choice', async ({ page }) => {
+test('settings pause the timer; the first-launch picker requires a choice', { tag: '@falling' }, async ({ page }) => {
   await startFalling(page);
   await openSettings(page);
   const frozen = await sceneValue(page, `${falling}.remaining`);
@@ -22,12 +22,12 @@ test('settings pause the timer; the first-launch picker requires a choice', asyn
   expect(await sceneValue(page, `${falling}.remaining`)).toBe(frozen);
   await page.getByRole('radio', { name: /Match three/ }).check();
   await page.getByRole('button', { name: 'Cancel' }).click();
-  expect(await sceneValue(page, `window.__GAME__.scene.isActive('FallingScene')`)).toBe(true);
+  await expect.poll(() => sceneValue(page, `window.__GAME__.scene.isActive('FallingScene')`)).toBe(true);
   await openSettings(page);
   await page.getByRole('radio', { name: /Match three/ }).check();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).not.toBeVisible();
-  expect(await sceneValue(page, `window.__GAME__.scene.isActive('FallingScene')`)).toBe(true);
+  await expect.poll(() => sceneValue(page, `window.__GAME__.scene.isActive('FallingScene')`)).toBe(true);
   await page.evaluate(() => localStorage.removeItem('coffee-preferences'));
   await page.reload();
   const picker = page.getByRole('dialog', { name: 'Choose game mode' });
@@ -46,7 +46,7 @@ test('settings pause the timer; the first-launch picker requires a choice', asyn
   expect(await sceneValue(page, `(window.__GAME__.scene.getScene('GameScene')).state.grid.flat().length`)).toBe(64);
 });
 
-test('group removal locks rapid input for one tenth of the row interval even with reduced motion', async ({ page }) => {
+test('group removal locks rapid input for one tenth of the row interval even with reduced motion', { tag: '@falling' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await startFalling(page);
   const point = await page.evaluate(() => {
@@ -67,7 +67,7 @@ test('group removal locks rapid input for one tenth of the row interval even wit
   expect(await sceneValue(page, `${falling}.state.grid.flat().filter(n=>n>=0).length`)).toBe(6);
 });
 
-test('row waits for resolution, lands from preview, overflows and restarts on mobile', async ({ page }) => {
+test('row waits for resolution, lands from preview, overflows and restarts on mobile', { tag: ['@falling', '@smoke'] }, async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
   await startFalling(page);
   const preview = await sceneValue(page, `${falling}.state.nextRow`);
@@ -101,7 +101,7 @@ test('row waits for resolution, lands from preview, overflows and restarts on mo
 });
 
 
-test('preview builds left to right, survives resize, and early drop releases exactly one row', async ({ page }) => {
+test('preview builds left to right, survives resize, and early drop releases exactly one row', { tag: '@falling' }, async ({ page }) => {
   await startFalling(page);
   const preview = await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
@@ -131,7 +131,7 @@ test('preview builds left to right, survives resize, and early drop releases exa
   expect(await sceneValue(page, `${falling}.remaining`)).toBeGreaterThan(3500);
 });
 
-test('early drop completes the preview and waits for the current spinning removal', async ({ page }) => {
+test('early drop completes the preview and waits for the current spinning removal', { tag: '@falling' }, async ({ page }) => {
   await startFalling(page);
   const points = await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
@@ -160,7 +160,7 @@ test('early drop completes the preview and waits for the current spinning remova
 });
 
 
-test('leaderboard keeps top ten, shows a lower current rank, and persists across games', async ({ page }) => {
+test('leaderboard keeps top ten, shows a lower current rank, and persists across games', { tag: '@falling' }, async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('coffee-falling-records', JSON.stringify(Array.from({ length: 12 }, (_, i) => ({
       score: 1200 - i * 100, rows: 20 - i, playedAt: 1700000000000 + i * 1000
@@ -191,7 +191,7 @@ test('leaderboard keeps top ten, shows a lower current rank, and persists across
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-falling-records')!).length)).toBe(14);
 });
 
-test('buffers only the last tapped tile and follows it as columns move', async ({ page }) => {
+test('buffers only the last tapped tile and follows it as columns move', { tag: '@falling' }, async ({ page }) => {
   await startFalling(page);
   const points = await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
@@ -215,7 +215,7 @@ test('buffers only the last tapped tile and follows it as columns move', async (
 });
 
 
-test('pending outline skips singletons and moves with the last selected group', async ({ page }) => {
+test('pending outline skips singletons and moves with the last selected group', { tag: '@falling' }, async ({ page }) => {
   await startFalling(page);
   const result = await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');

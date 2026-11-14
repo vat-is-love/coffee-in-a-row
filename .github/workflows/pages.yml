@@ -40,10 +40,14 @@ jobs:
           token: ${{ secrets.COFFEE_LEVELS_TOKEN }}
           path: .private-levels
           persist-credentials: false
-          sparse-checkout: publish
+          sparse-checkout: |
+            publish
+            tests
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - name: Test production story
+        run: node --test .private-levels/tests/*.test.mjs
       - name: Set application version for this build
         run: node scripts/set-ci-version.mjs
       - run: npm run build

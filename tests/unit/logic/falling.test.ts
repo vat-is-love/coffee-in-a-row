@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createFalling, clearAt, addFallingRow, fallingLevel, findGroup, rowInterval, BOMB_ITEM, COLUMN_CLEAR_ITEM, ROW_CLEAR_ITEM, STORY_ITEM, turnDuration, type FallingLevel, type FallingState } from '../../../src/game/logic/falling';
+import { createFalling, clearAt, addFallingRow, fallingLevel, findGroup, findRemoval, rowInterval, BOMB_ITEM, COLUMN_CLEAR_ITEM, ROW_CLEAR_ITEM, STORY_ITEM, turnDuration, type FallingLevel, type FallingState } from '../../../src/game/logic/falling';
 
 const testLevel: FallingLevel = {
   ...fallingLevel,
@@ -90,11 +90,12 @@ describe('Falling rows', () => {
 
   it('joins the tiles on either side of a cup delivered directly from the incoming row', () => {
     const state = empty();
-    state.nextRow = [0, 1, 2, STORY_ITEM, 2, 1, 0, 1];
+    state.nextRow = [0, 2, 2, STORY_ITEM, 2, 2, 0, 1];
     const result = addFallingRow(state, testLevel);
     expect(result.deliveries).toEqual([{ from: { row: 7, col: 3 }, to: { row: 7, col: 3 } }]);
     expect(result.state.delivered).toBe(1);
-    expect(result.state.grid[7]).toEqual([0, 1, 2, 2, 1, 0, 1, -1]);
+    expect(result.state.grid[7]).toEqual([0, 2, 2, 2, 2, 0, 1, -1]);
+    expect(findRemoval(result.state.grid, { row: 7, col: 1 })).toHaveLength(4);
     expect(result.motions).toContainEqual({ from: { row: 7, col: 4 }, to: { row: 7, col: 3 } });
   });
 
@@ -105,6 +106,24 @@ describe('Falling rows', () => {
     const drop = addFallingRow(state, level);
     expect(drop.buff).toBeUndefined();
     expect(drop.added.map(({ row, col }) => drop.state.grid[row][col])).toEqual(state.nextRow);
+  });
+
+  it('spawns the configured first buff and accelerates up to the minimum gap', () => {
+    const level: FallingLevel = {
+      ...testLevel,
+      buffs: { types: ['horizontal', 'vertical'], first: 'vertical', schedule: { firstRow: 2, everyRows: 4, minimumEveryRows: 2 } }
+    };
+    let state = createFalling(42, level);
+    const drops = [];
+    for (let row = 1; row <= 16; row++) {
+      state.grid.forEach(cells => cells.fill(-1));
+      state.grid[7][0] = 0;
+      const drop = addFallingRow(state, level);
+      if (drop.buff) drops.push({ row, tile: drop.buff.tile });
+      state = drop.state;
+    }
+    expect(drops[0]).toEqual({ row: 2, tile: COLUMN_CLEAR_ITEM });
+    expect(drops.map(({ row }) => row)).toEqual([2, 6, 9, 11, 13, 15]);
   });
 
   it('clears the entire column, including other special tiles, with vertical lightning', () => {

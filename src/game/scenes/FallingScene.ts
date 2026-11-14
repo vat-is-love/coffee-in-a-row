@@ -3,7 +3,7 @@ import { createHud } from '../render/hud';
 import { getPreferences, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { fallingLevel, createFalling, clearAt, findRemoval, addFallingRow, rowInterval, ROW_CLEAR_ITEM, COLUMN_CLEAR_ITEM, STORY_ITEM, turnDuration, type FallingLevel, type FallingState } from '../logic/falling';
-import { loadStory } from '../levels/story';
+import { isStoryMode, loadStory, stories } from '../levels/story';
 import type { Position } from '../logic/types';
 import { showFallingLeaderboard } from '../../ui/fallingLeaderboard';
 import { showStoryResult } from '../../ui/storyResult';
@@ -57,7 +57,8 @@ export class FallingScene extends Scene {
 
   create({ levelIndex = 0 }: { levelIndex?: number } = {}): void {
     try {
-      this.story = this.registry.get('gameMode') === 'story' ? loadStory() : undefined;
+      const mode: unknown = this.registry.get('gameMode');
+      this.story = isStoryMode(mode) ? loadStory(stories[mode]) : undefined;
       this.levelIndex = levelIndex;
       this.level = this.storyStage?.level ?? fallingLevel;
       this.state = createFalling(undefined, this.level);
@@ -165,7 +166,9 @@ export class FallingScene extends Scene {
   private createHUD(): void {
     this.hudContainer?.destroy();
     const icon = this.gameOver ? 'restart' : this.paused ? 'play' : 'pause';
-    const title = this.story ? `${t('Story mode')} · ${t('Level')} ${this.levelIndex + 1}/${this.story.stages.length}` : t('FALLING ROWS');
+    const title = this.story
+      ? `${t(this.registry.get('gameMode') === 'story-large' ? 'Story mode (12×12)' : 'Story mode')} · ${t('Level')} ${this.levelIndex + 1}/${this.story.stages.length}`
+      : t('FALLING ROWS');
     const hud = createHud(this, title, icon, () => {
       if (this.gameOver) this.scene.restart({ levelIndex: this.levelIndex });
       else this.togglePause();
@@ -401,10 +404,11 @@ export class FallingScene extends Scene {
   }
 
   private finishStoryStage(): boolean {
-    if (!this.story || !this.storyGoalReached) return false;
+    const mode: unknown = this.registry.get('gameMode');
+    if (!this.story || !this.storyGoalReached || !isStoryMode(mode)) return false;
     const next = this.levelIndex + 1;
     const finished = next === this.story.stages.length;
-    saveStoryCheckpoint(finished ? 0 : next);
+    saveStoryCheckpoint(mode, finished ? 0 : next);
     this.gameOver = true;
     this.pendingTile = null;
     this.updateHUD();

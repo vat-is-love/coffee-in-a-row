@@ -1,0 +1,32 @@
+{
+  "board": { "rows": 8, "cols": 8, "filledBottomRows": 3 },
+  "largeBoard": { "rows": 12, "cols": 12, "filledBottomRows": 3 },
+  "rowIntervalMs": 4000,
+  "delivery": { "firstRow": 2, "everyRows": 3 },
+  "buffSchedule": { "firstRow": 2, "everyRows": 3 },
+  "messages": {
+    "en": {
+      "levelComplete": "Stage cleared",
+      "continue": "Next stage",
+      "victory": "Story cleared",
+      "victoryPrompt": "Choose what to play next.",
+      "restart": "Replay story",
+      "modeLabel": "Game mode",
+      "choose": "Choose"
+    },
+    "ru": {
+      "levelComplete": "Этап пройден",
+      "continue": "Следующий этап",
+      "victory": "История пройдена",
+      "victoryPrompt": "Выберите, во что сыграть дальше.",
+      "restart": "Повторить историю",
+      "modeLabel": "Режим игры",
+      "choose": "Выбрать"
+    }
+  },
+  "levels": [
+    { "tileTypes": 4, "targetTiles": 4 },
+    { "tileTypes": 3, "targetTiles": 2, "buffs": { "types": ["horizontal"], "first": "horizontal" } },
+    { "tileTypes": 4, "targetItems": 2 }
+  ]
+}

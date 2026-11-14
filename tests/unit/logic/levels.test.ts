@@ -1,19 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import story from '@game/levels/story.json';
 import { match3Level, startMatch3 } from '../../../src/game/levels/match3';
-import { loadStory } from '../../../src/game/levels/story';
-import { addFallingRow, createFalling, fallingLevel, rowInterval, BUFF_TILES, ROW_CLEAR_ITEM, STORY_ITEM, turnDuration } from '../../../src/game/logic/falling';
+import { loadStory, stories } from '../../../src/game/levels/story';
+import { addFallingRow, createFalling, fallingLevel, rowInterval, ROW_CLEAR_ITEM, STORY_ITEM, turnDuration } from '../../../src/game/logic/falling';
 
 describe('JSON level configuration', () => {
   it('loads configured levels with the game rules', () => {
     startMatch3();
     createFalling();
-    loadStory();
+    Object.values(stories).forEach(config => loadStory(config));
   });
 
   it('keeps the story in JSON order with a fixed pace and the configured palette', () => {
     const { stages } = loadStory({
-      messages: story.messages,
+      messages: {
+        en: { levelComplete: 'Complete', continue: 'Next', victory: 'Victory', victoryPrompt: 'Play again?',
+          restart: 'Again', modeLabel: 'Mode', choose: 'Choose' },
+        ru: { levelComplete: 'Готово', continue: 'Дальше', victory: 'Победа', victoryPrompt: 'Сыграть ещё?',
+          restart: 'Заново', modeLabel: 'Режим', choose: 'Выбрать' }
+      },
       board: { rows: 4, cols: 5, filledBottomRows: 1 },
       rowIntervalMs: 3000,
       delivery: { firstRow: 2, everyRows: 3 },
@@ -43,31 +47,6 @@ describe('JSON level configuration', () => {
         state = drop.state;
       }
       expect(state.delivered).toBe(i === 1 ? 3 : 0);
-    }
-  });
-
-  it('unlocks Story buffs in order and caps the level nine acceleration at four rows', () => {
-    const { stages } = loadStory();
-    expect(stages.slice(3, 6).map(({ target }) => target)).toEqual([250, 200, 150]);
-    for (const [index, { level }] of stages.slice(3).entries()) {
-      let state = createFalling(42, level);
-      const drops = [];
-      for (let row = 1; row <= 80; row++) {
-        state.grid.forEach(cells => cells.fill(-1));
-        state.grid.at(-1)![0] = 0;
-        const drop = addFallingRow(state, level);
-        state = drop.state;
-        if (drop.buff) {
-          drops.push({ row, tile: drop.buff.tile });
-          expect(state.grid.at(-1)![0]).toBe(drop.buff.tile);
-        }
-      }
-      const types = Object.values(BUFF_TILES).slice(0, index + 1);
-      expect(new Set(drops.map(({ tile }) => tile))).toEqual(new Set(types));
-      if (index < 3) expect(drops[0]).toEqual({ row: 7, tile: types.at(-1) });
-      if (index === 5) {
-        expect(drops.map(({ row }) => row)).toEqual([7, 15, 22, 28, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 73, 77]);
-      }
     }
   });
 

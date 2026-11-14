@@ -5,7 +5,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
 test.describe('Coffee Match: Match-3 Demo', () => {
-  test('loads the playable board without errors', async ({ page }) => {
+  test('loads the playable board without errors', { tag: ['@classic', '@smoke'] }, async ({ page }) => {
     const errors: string[] = [];
     page.on('console', message => {
       if (message.type() === 'error' && !/font|preload/.test(message.text())) {
@@ -26,7 +26,7 @@ test.describe('Coffee Match: Match-3 Demo', () => {
     { width: 768, height: 1024 },
     { width: 1280, height: 720 }
   ]) {
-    test(`restores the board and fits a ${viewport.width}×${viewport.height} viewport`, async ({ page }) => {
+    test(`restores the board and fits a ${viewport.width}×${viewport.height} viewport`, { tag: '@classic' }, async ({ page }) => {
       await ready(page);
       await page.setViewportSize(viewport);
       await page.reload();
@@ -37,7 +37,7 @@ test.describe('Coffee Match: Match-3 Demo', () => {
     });
   }
 
-  test('keeps the board below the HUD and maps clicks after resizing', async ({ page }) => {
+  test('keeps the board below the HUD and maps clicks after resizing', { tag: '@classic' }, async ({ page }) => {
     await ready(page);
     for (const viewport of [
       { width: 320, height: 568 },
@@ -129,7 +129,7 @@ async function snapshot(page: Page) {
   });
 }
 
-test('two taps resolve cascades, reject overlapping input, and revert invalid swaps', async ({ page }) => {
+test('two taps resolve cascades, reject overlapping input, and revert invalid swaps', { tag: '@classic' }, async ({ page }) => {
   await ready(page);
   const invalid = await candidate(page, false);
   const before = await snapshot(page);
@@ -157,7 +157,7 @@ test('two taps resolve cascades, reject overlapping input, and revert invalid sw
   }
 });
 
-test('native touch swipe resolves a move after resizing', async ({ page, context }) => {
+test('native touch swipe resolves a move after resizing', { tag: '@classic' }, async ({ page, context }) => {
   const cdp = await context.newCDPSession(page);
   await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true });
   await ready(page);
@@ -172,7 +172,7 @@ test('native touch swipe resolves a move after resizing', async ({ page, context
   expect((await snapshot(page)).state).toEqual(move.expected);
 });
 
-test('endless board remains playable through 40 moves and pause blocks input', async ({ page }) => {
+test('endless board remains playable through 40 moves and pause blocks input', { tag: ['@classic', '@slow'] }, async ({ page }) => {
   test.setTimeout(120000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await ready(page);
@@ -210,7 +210,7 @@ test('endless board remains playable through 40 moves and pause blocks input', a
   expect(cascadeSeen).toBe(true);
 });
 
-test('keyboard swap and resize during animation finish without losing input', async ({ page }) => {
+test('keyboard swap and resize during animation finish without losing input', { tag: '@classic' }, async ({ page }) => {
   await ready(page);
   const move = await candidate(page);
   await page.mouse.click(move.a.x, move.a.y);
@@ -226,7 +226,7 @@ test('keyboard swap and resize during animation finish without losing input', as
   expect((await snapshot(page)).moves).toBe(2);
 });
 
-test('matches clean fixed cells, completion saves once and restart resets progress', async ({ page }) => {
+test('matches clean fixed cells, completion saves once and restart resets progress', { tag: '@classic' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await ready(page);
   const move = await candidate(page);
@@ -257,7 +257,7 @@ test('matches clean fixed cells, completion saves once and restart resets progre
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-classic-records')!).length)).toBe(1);
 });
 
-test('classic timer stops during pause and settings', async ({ page }) => {
+test('classic timer stops during pause and settings', { tag: '@classic' }, async ({ page }) => {
   await ready(page);
   const readElapsed = () => page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').elapsed);
   expect(await readElapsed()).toBe(0);

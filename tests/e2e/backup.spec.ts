@@ -24,7 +24,7 @@ async function bridge(page: import('@playwright/test').Page, candidates: string[
   }, { candidates });
 }
 
-test('setup works on first launch and changes automatically save records and settings', async ({ page }) => {
+test('setup works on first launch and changes automatically save records and settings', { tag: '@backup' }, async ({ page }) => {
   await bridge(page);
   await page.goto('/');
   await page.getByRole('checkbox', { name: 'Save progress after uninstall' }).check();
@@ -40,7 +40,7 @@ test('setup works on first launch and changes automatically save records and set
   await page.waitForFunction(() => (window as any).backupCalls.some((r: any) => r.action === 'write' && JSON.parse(r.data).data['coffee-falling-records']));
 });
 
-test('first launch restores a valid previous generation if main is damaged', async ({ page }) => {
+test('first launch restores a valid previous generation if main is damaged', { tag: '@backup' }, async ({ page }) => {
   const records = [{ score: 123, rows: 2, playedAt: 1000 }];
   await bridge(page, ['broken', JSON.stringify({ format: 'coffee-match-backup', version: 1, savedAt: 1000, data: {
     'coffee-preferences': JSON.stringify({ language: 'ru', vibration: false, mode: 'falling', version: 1 }),
@@ -54,7 +54,7 @@ test('first launch restores a valid previous generation if main is damaged', asy
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-falling-records')!))).toEqual(records);
 });
 
-test('invalid copies do not activate or overwrite backup', async ({ page }) => {
+test('invalid copies do not activate or overwrite backup', { tag: '@backup' }, async ({ page }) => {
   await bridge(page, ['broken']);
   await page.goto('/');
   const checkbox = page.getByRole('checkbox', { name: 'Save progress after uninstall' });

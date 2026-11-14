@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('language and vibration apply without resetting the board and persist on reload', async ({ page }) => {
+test('language and vibration apply without resetting the board and persist on reload', { tag: '@preferences' }, async ({ page }) => {
   await page.addInitScript(() => {
     (window as any).vibrations = [];
     navigator.vibrate = pattern => { (window as any).vibrations.push(pattern); return true; };
@@ -34,7 +34,7 @@ test('language and vibration apply without resetting the board and persist on re
   expect(await page.evaluate(() => (window as any).vibrations)).toEqual([]);
 });
 
-test('first launch language and mode are remembered; settings can change the saved mode', async ({ page }) => {
+test('first launch language and mode are remembered; settings can change the saved mode', { tag: '@preferences' }, async ({ page }) => {
   await page.goto('/');
   await page.getByRole('combobox', { name: 'Language / Язык' }).selectOption('ru');
   await page.getByRole('button', { name: /Falling pieces/ }).click();
@@ -51,7 +51,7 @@ test('first launch language and mode are remembered; settings can change the sav
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('GameScene'));
 });
 
-test('update control is exclusive to APK and handles a failed check', async ({ page }) => {
+test('update control is exclusive to APK and handles a failed check', { tag: '@preferences' }, async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Falling pieces/ }).click();
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
@@ -70,7 +70,7 @@ test('update control is exclusive to APK and handles a failed check', async ({ p
   await expect(page.getByRole('button', { name: 'Update game', exact: true })).toBeEnabled();
 });
 
-test('the Android update button starts both checks even if the web check fails', async ({ page }) => {
+test('the Android update button starts both checks even if the web check fails', { tag: '@preferences' }, async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'userAgent', {
       value: navigator.userAgent + ' CoffeeUpdater/1 CoffeeAPK/1.0.10'

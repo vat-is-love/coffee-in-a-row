@@ -18,8 +18,14 @@ export type StoryConfig = {
 };
 
 export const storyLevelCount = Array.isArray(story?.levels) ? story.levels.length : 0;
+export const stories = { story, 'story-large': { ...story, board: story.largeBoard } };
+export type StoryMode = keyof typeof stories;
 
-export function loadStory({ board, rowIntervalMs, levels, messages, delivery, rowClear, buffSchedule = rowClear }: StoryConfig = story) {
+export function isStoryMode(mode: unknown): mode is StoryMode {
+  return mode === 'story' || mode === 'story-large';
+}
+
+export function loadStory({ board, rowIntervalMs, levels, messages, delivery, rowClear, buffSchedule = rowClear }: StoryConfig) {
   if (!Array.isArray(levels) || !levels.length) throw new RangeError('Story must contain at least one level');
   for (const language of ['en', 'ru'] as const) {
     if (messageKeys.some(key => {

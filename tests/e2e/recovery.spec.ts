@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
 
-test('successful interface hides recovery', async ({ page }) => {
+test('successful interface hides recovery', { tag: '@recovery' }, async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Choose game mode' })).toBeVisible();
   await expect(page.locator('#recovery')).toBeHidden();
 });
 
-test('missing main script exposes independent recovery and clipboard fallback', async ({ page }) => {
+test('missing main script exposes independent recovery and clipboard fallback', { tag: '@recovery' }, async ({ page }) => {
   await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { value: undefined }));
   await page.route('**/src/main.ts', route => route.abort());
   await page.goto('/');
@@ -16,7 +16,7 @@ test('missing main script exposes independent recovery and clipboard fallback', 
   await expect(page.locator('#recovery-text')).toHaveValue(/resource-error/);
 });
 
-test('startup exception and hung startup recover', async ({ page }) => {
+test('startup exception and hung startup recover', { tag: ['@recovery', '@slow'] }, async ({ page }) => {
   await page.route('**/src/main.ts', route => route.fulfill({ contentType: 'text/javascript', body: 'throw new Error("secret-payload")' }));
   await page.goto('/');
   await expect(page.locator('#recovery-actions')).toBeVisible();
@@ -27,7 +27,7 @@ test('startup exception and hung startup recover', async ({ page }) => {
   await expect(page.locator('#recovery-actions')).toBeVisible({ timeout: 25000 });
 });
 
-test('unavailable storage and vibration do not block startup', async ({ page }) => {
+test('unavailable storage and vibration do not block startup', { tag: '@recovery' }, async ({ page }) => {
   await page.addInitScript(() => {
     Storage.prototype.getItem = () => { throw new Error('denied'); };
     Storage.prototype.setItem = () => { throw new Error('denied'); };
@@ -38,19 +38,19 @@ test('unavailable storage and vibration do not block startup', async ({ page }) 
   await expect(page.locator('#recovery')).toBeHidden();
 });
 
-test('syntax error in main module recovers independently', async ({ page }) => {
+test('syntax error in main module recovers independently', { tag: '@recovery' }, async ({ page }) => {
   await page.route('**/src/main.ts', route => route.fulfill({ contentType: 'text/javascript', body: 'const = ;' }));
   await page.goto('/');
   await expect(page.locator('#recovery-actions')).toBeVisible();
 });
 
-test('corrupt preferences fall back without blocking the interface', async ({ page }) => {
+test('corrupt preferences fall back without blocking the interface', { tag: '@recovery' }, async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('coffee-preferences', '{broken'));
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Choose game mode' })).toBeVisible();
 });
 
-test('APK starts with Canvas and remains ready after restoring the selected mode', async ({ page }) => {
+test('APK starts with Canvas and remains ready after restoring the selected mode', { tag: '@recovery' }, async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent + ' CoffeeAPK/1.0.5' });
     const getContext = HTMLCanvasElement.prototype.getContext;
@@ -70,7 +70,7 @@ test('APK starts with Canvas and remains ready after restoring the selected mode
 });
 
 for (const mode of ['classic', 'falling']) {
-  test(`saved ${mode} mode signals readiness without opening the picker`, async ({ page }) => {
+  test(`saved ${mode} mode signals readiness without opening the picker`, { tag: ['@recovery', '@slow'] }, async ({ page }) => {
     await page.addInitScript(selected => {
       localStorage.setItem('coffee-preferences', JSON.stringify({ language: 'en', mode: selected, vibration: false }));
     }, mode);
