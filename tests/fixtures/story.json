@@ -1,6 +1,6 @@
 {
   "board": { "rows": 8, "cols": 8, "filledBottomRows": 3 },
-  "largeBoard": { "rows": 12, "cols": 12, "filledBottomRows": 3 },
+  "largeBoard": { "rows": 10, "cols": 10, "filledBottomRows": 3 },
   "rowIntervalMs": 4000,
   "delivery": { "firstRow": 2, "everyRows": 3 },
   "buffSchedule": { "firstRow": 2, "everyRows": 3 },
@@ -27,6 +27,6 @@
   "levels": [
     { "tileTypes": 4, "targetTiles": 4 },
     { "tileTypes": 3, "targetTiles": 2, "buffs": { "types": ["horizontal"], "first": "horizontal" } },
-    { "tileTypes": 4, "targetItems": 2 }
+    { "tileTypes": 4, "targetItems": 2, "rowIntervalMs": 5000 }
   ]
 }

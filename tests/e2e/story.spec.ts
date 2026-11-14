@@ -64,10 +64,10 @@ test('a larger Story delivers a cup from the preview and joins both groups for o
     }));
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Story mode (12×12)' }).click();
+  await page.getByRole('button', { name: 'Story mode (10×10)' }).click();
   await page.getByRole('button', { name: 'Continue Level 3' }).click();
   await page.waitForFunction(`${scene}?.levelIndex === 2 && ${scene}.dropButton`);
-  expect(await page.evaluate(`[${scene}.state.grid.length, ${scene}.preview.length]`)).toEqual([12, 12]);
+  expect(await page.evaluate(`[${scene}.state.grid.length, ${scene}.preview.length]`)).toEqual([10, 10]);
   await page.evaluate(`${scene}.requestDrop()`);
   await page.waitForFunction(`${scene}.state.rowsAdded === 1 && !${scene}.isProcessing`);
   expect(await page.evaluate(`${scene}.preview.map(tile => tile.texture.key)`)).toContain(`tile-${STORY_ITEM}`);
@@ -76,7 +76,7 @@ test('a larger Story delivers a cup from the preview and joins both groups for o
     const scene = ${scene};
     scene.state.grid.forEach(row => row.fill(-1));
     scene.renderBoard();
-    scene.state.nextRow = [0, 1, 0, 1, 2, 2, ${STORY_ITEM}, 2, 2, 1, 0, 1];
+    scene.state.nextRow = [0, 1, 0, 2, 2, ${STORY_ITEM}, 2, 2, 1, 0];
     scene.remaining = 2000;
     const button = scene.dropButton.getBounds();
     return { x: button.centerX, y: button.centerY };
@@ -85,9 +85,9 @@ test('a larger Story delivers a cup from the preview and joins both groups for o
   await tap(drop);
   const victory = page.getByRole('dialog', { name: 'Story cleared' });
   await expect.poll(() => page.evaluate(`${scene}.scoreText.text`)).toBe('Items delivered: 1 / 2');
-  expect(await page.evaluate(`${scene}.state.grid.at(-1)`)).toEqual([0, 1, 0, 1, 2, 2, 2, 2, 1, 0, 1, -1]);
+  expect(await page.evaluate(`${scene}.state.grid.at(-1)`)).toEqual([0, 1, 0, 2, 2, 2, 2, 1, 0, -1]);
   expect(await page.evaluate(`${scene}.board.at(-1).map(tile => tile?.sprite.x ?? null)`))
-    .toEqual([...Array.from({ length: 11 }, (_, col) => col * 64 + 32), null]);
+    .toEqual([...Array.from({ length: 9 }, (_, col) => col * 64 + 32), null]);
   const bean = await page.evaluate(`(() => {
     const scene = ${scene};
     const board = scene.boardContainer;
@@ -100,7 +100,7 @@ test('a larger Story delivers a cup from the preview and joins both groups for o
 
   await page.evaluate(`${scene}.state.delivered = 2; ${scene}.requestDrop()`);
   await victory.getByRole('button', { name: 'Replay story' }).click();
-  await expect.poll(() => page.evaluate(`[${scene}.levelIndex, ${scene}.level.board.cols]`)).toEqual([0, 12]);
+  await expect.poll(() => page.evaluate(`[${scene}.levelIndex, ${scene}.level.board.cols]`)).toEqual([0, 10]);
   await page.evaluate(`void ${scene}.scene.restart({ levelIndex: 2 })`);
   await page.waitForFunction(`${scene}.levelIndex === 2`);
   await page.evaluate(`${scene}.state.delivered = 2; ${scene}.requestDrop()`);
@@ -110,6 +110,29 @@ test('a larger Story delivers a cup from the preview and joins both groups for o
   await victory.getByRole('button', { name: 'Choose' }).click();
   await expect.poll(() => page.evaluate(`${scene}.scoreText.text`)).toContain('Score:');
 });
+
+for (const mode of ['story', 'story-large']) {
+  test(`${mode} gives the configured stage a longer row countdown at the same fall speed`, { tag: '@story' }, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/');
+    await page.locator(`button[value="${mode}"]`).click();
+    await page.waitForFunction(`${scene}?.state && ${scene}.dropButton`);
+
+    const drop = () => page.evaluate(`(() => {
+      const scene = ${scene};
+      scene.requestDrop();
+      const tile = scene.board.flat().find(tile => tile?.sprite.y === -52);
+      const fall = scene.tweens.getTweensOf(tile.sprite).flatMap(tween => tween.data).find(data => data.key === 'y');
+      return { duration: fall.duration, remaining: scene.remaining };
+    })()`);
+    expect(await drop()).toEqual({ duration: 280, remaining: 4000 });
+
+    // The short Story fixture puts the override on its final stage.
+    await page.evaluate(`void ${scene}.scene.restart({ levelIndex: 2 })`);
+    await page.waitForFunction(`${scene}.levelIndex === 2 && ${scene}.dropButton`);
+    expect(await drop()).toEqual({ duration: 280, remaining: 5000 });
+  });
+}
 
 test('switching modes keeps separate Story checkpoints until the player starts a new game', { tag: ['@story', '@smoke'] }, async ({ page }) => {
   await page.addInitScript(() => {
@@ -129,19 +152,19 @@ test('switching modes keeps separate Story checkpoints until the player starts a
   await level(1, 8);
 
   await selectMode(page, 'story-large');
-  const largePicker = page.getByRole('dialog', { name: 'Story mode (12×12)', exact: true });
+  const largePicker = page.getByRole('dialog', { name: 'Story mode (10×10)', exact: true });
   await largePicker.getByRole('button', { name: 'Continue Level 3' }).click();
-  await level(2, 12);
+  await level(2, 10);
   await page.reload();
   await expect.poll(() => page.evaluate(`${scene}?.scoreText?.text`)).toContain('Score:');
   await selectMode(page, 'story-large');
   await largePicker.getByRole('button', { name: 'New game' }).click();
-  await level(0, 12);
+  await level(0, 10);
   await selectMode(page, 'story');
   await storyPicker.getByRole('button', { name: 'Continue Level 2' }).click();
   await level(1, 8);
   await selectMode(page, 'story-large');
-  await level(0, 12);
+  await level(0, 10);
 });
 
 test('a settled tile flips into lightning during a drop and clears its whole row outward', { tag: '@story' }, async ({ page }) => {

@@ -27,7 +27,7 @@ export function installSettings(game: Game): void {
     }
     storyPicker.innerHTML = `
       <form method="dialog">
-        <h1 id="story-picker-title">${t(selected === 'story-large' ? 'Story mode (12×12)' : 'Story mode')}</h1>
+        <h1 id="story-picker-title">${t(selected === 'story-large' ? 'Story mode (10×10)' : 'Story mode')}</h1>
         <button class="mode-option" value="continue">
           <strong>${t('Continue')}</strong>
           <small>${t('Level')} ${checkpoint + 1}</small>
@@ -79,7 +79,7 @@ export function installSettings(game: Game): void {
         <small>${t('Clear groups, use buffs, then deliver items to the bottom.')}</small>
       </button>
       <button class="mode-option" value="story-large">
-        <strong>${t('Story mode (12×12)')}</strong>
+        <strong>${t('Story mode (10×10)')}</strong>
       </button>
       `}
       ${backupControls()}
@@ -143,7 +143,7 @@ export function installSettings(game: Game): void {
         </label>
         <label class="mode-option">
           <input type="radio" name="mode" value="story-large">
-          <span><strong>${t('Story mode (12×12)')}</strong></span>
+          <span><strong>${t('Story mode (10×10)')}</strong></span>
         </label>
       </fieldset>
       <p>${t('Changing mode ends the current round.')}</p>

@@ -167,7 +167,7 @@ export class FallingScene extends Scene {
     this.hudContainer?.destroy();
     const icon = this.gameOver ? 'restart' : this.paused ? 'play' : 'pause';
     const title = this.story
-      ? `${t(this.registry.get('gameMode') === 'story-large' ? 'Story mode (12×12)' : 'Story mode')} · ${t('Level')} ${this.levelIndex + 1}/${this.story.stages.length}`
+      ? `${t(this.registry.get('gameMode') === 'story-large' ? 'Story mode (10×10)' : 'Story mode')} · ${t('Level')} ${this.levelIndex + 1}/${this.story.stages.length}`
       : t('FALLING ROWS');
     const hud = createHud(this, title, icon, () => {
       if (this.gameOver) this.scene.restart({ levelIndex: this.levelIndex });

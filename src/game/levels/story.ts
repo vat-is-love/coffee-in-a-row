@@ -10,6 +10,7 @@ export type StoryConfig = {
   messages: Record<'en' | 'ru', StoryMessages>;
   levels: {
     tileTypes: number; targetTiles?: number; targetItems?: number; rowClear?: boolean;
+    rowIntervalMs?: number;
     buffs?: Omit<Buffs, 'schedule'> & { schedule?: Buffs['schedule'] };
   }[];
   delivery?: FallingLevel['delivery'];
@@ -34,7 +35,7 @@ export function loadStory({ board, rowIntervalMs, levels, messages, delivery, ro
     })) throw new RangeError(`Missing Story text for ${language}`);
   }
   const { rows, cols, filledBottomRows } = board;
-  const stages = levels.map(({ tileTypes, targetTiles, targetItems, rowClear: usesRowClear, buffs }) => {
+  const stages = levels.map(({ tileTypes, targetTiles, targetItems, rowClear: usesRowClear, buffs, rowIntervalMs: interval = rowIntervalMs }) => {
     const target = targetItems === undefined ? targetTiles : targetItems;
     if (target === undefined || !Number.isSafeInteger(target) || target < 1 ||
         (targetItems !== undefined && (targetTiles !== undefined || !delivery))) {
@@ -52,8 +53,8 @@ export function loadStory({ board, rowIntervalMs, levels, messages, delivery, ro
       random: { seedPolicy: 'fresh_per_game' },
       incomingRows: {
         kind: 'generated', tilesPerRow: cols, previewNextRow: true, allowEarlyDrop: true,
-        initialIntervalMs: rowIntervalMs, minimumIntervalMs: rowIntervalMs, decreaseEveryRows: 1, decreaseByMs: 0,
-        removalDurationFractionOfInterval: 0.1
+        initialIntervalMs: interval, minimumIntervalMs: interval, decreaseEveryRows: 1, decreaseByMs: 0,
+        removalDurationFractionOfInterval: Math.min(1, rowIntervalMs * 0.1 / interval)
       },
       delivery: targetItems === undefined ? undefined : delivery,
       buffs: stageBuffs && schedule ? { ...stageBuffs, schedule } : undefined

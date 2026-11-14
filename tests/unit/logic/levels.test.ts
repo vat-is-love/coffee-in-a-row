@@ -10,7 +10,7 @@ describe('JSON level configuration', () => {
     Object.values(stories).forEach(config => loadStory(config));
   });
 
-  it('keeps the story in JSON order with a fixed pace and the configured palette', () => {
+  it('keeps the story in JSON order with a fixed pace per stage and the configured palette', () => {
     const { stages } = loadStory({
       messages: {
         en: { levelComplete: 'Complete', continue: 'Next', victory: 'Victory', victoryPrompt: 'Play again?',
@@ -22,15 +22,19 @@ describe('JSON level configuration', () => {
       rowIntervalMs: 3000,
       delivery: { firstRow: 2, everyRows: 3 },
       rowClear: { firstRow: 3, everyRows: 2 },
-      levels: [{ tileTypes: 5, targetTiles: 20 }, { tileTypes: 3, targetItems: 3, rowClear: true }]
+      levels: [
+        { tileTypes: 5, targetTiles: 20 },
+        { tileTypes: 3, targetItems: 3, rowClear: true, rowIntervalMs: 4000 }
+      ]
     });
     expect(stages.map(({ level }) => level.board.tileTypes)).toEqual([5, 3]);
     expect(stages.map(({ target }) => target)).toEqual([20, 3]);
     for (const [i, { level }] of stages.entries()) {
       let state = createFalling(42, level);
       expect(state.grid.flat().every(tile => tile < level.board.tileTypes)).toBe(true);
+      const interval = i === 0 ? 3000 : 4000;
       expect([rowInterval(0, level), rowInterval(60, level), turnDuration(60, level)])
-        .toEqual([3000, 3000, 300]);
+        .toEqual([interval, interval, 300]);
       for (let row = 1; row <= 8; row++) {
         const expectedItems = i === 1 && row % 3 === 2 ? [STORY_ITEM] : [];
         expect(state.nextRow).toHaveLength(level.board.cols);

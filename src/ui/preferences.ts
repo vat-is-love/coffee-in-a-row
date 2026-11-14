@@ -134,7 +134,7 @@ const russian: Record<string, string> = {
   "Choose game mode": "Выберите режим игры",
   "Falling pieces": "Падающие ряды",
   "Story mode": "Режим истории",
-  "Story mode (12×12)": "Режим истории (12×12)",
+  "Story mode (10×10)": "Режим истории (10×10)",
   "Clear groups, use buffs, then deliver items to the bottom.": "Убирайте группы фишек, используйте бафы, а затем опускайте предметы до нижнего ряда.",
   "Level": "Уровень",
   "Tiles cleared": "Фишек убрано",
