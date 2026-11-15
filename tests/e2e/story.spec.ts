@@ -13,7 +13,7 @@ async function selectMode(page: Page, value: 'shady-souls' | 'story-large' | 'fa
 test('Story retries after defeat and requires both the tile goal and a buff when configured', { tag: '@story' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Story mode (10×10)' }).click();
+  await page.getByRole('button', { name: /^Story mode/ }).click();
   await page.waitForFunction(`${scene}?.state`);
 
   const completed = page.getByRole('dialog', { name: 'Stage cleared' });
@@ -64,7 +64,7 @@ test('a larger Story delivers a cup from the preview and joins both groups for o
     }));
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Story mode (10×10)' }).click();
+  await page.getByRole('button', { name: /^Story mode/ }).click();
   await page.getByRole('button', { name: 'Continue Level 3' }).click();
   await page.waitForFunction(`${scene}?.levelIndex === 2 && ${scene}.dropButton`);
   expect(await page.evaluate(`[${scene}.state.grid.length, ${scene}.preview.length]`)).toEqual([10, 10]);
@@ -114,7 +114,7 @@ test('a larger Story delivers a cup from the preview and joins both groups for o
 test('Story gives the configured stage a longer row countdown at the same fall speed', { tag: '@story' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Story mode (10×10)' }).click();
+  await page.getByRole('button', { name: /^Story mode/ }).click();
   await page.waitForFunction(`${scene}?.state && ${scene}.dropButton`);
 
   const drop = () => page.evaluate(`(() => {
@@ -150,7 +150,7 @@ test('switching modes keeps separate Story checkpoints until the player starts a
   await level(1, 8);
 
   await selectMode(page, 'story-large');
-  const largePicker = page.getByRole('dialog', { name: 'Story mode (10×10)', exact: true });
+  const largePicker = page.getByRole('dialog', { name: 'Story mode', exact: true });
   await largePicker.getByRole('button', { name: 'Continue Level 3' }).click();
   await level(2, 10);
   await page.reload();
@@ -168,19 +168,25 @@ test('switching modes keeps separate Story checkpoints until the player starts a
   });
 });
 
-test('the mode picker shows the configured Russian story titles', { tag: '@story' }, async ({ page }) => {
+test('the mode picker and settings show Russian story titles and descriptions', { tag: ['@story', '@preferences'] }, async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('coffee-preferences', JSON.stringify({ language: 'ru', vibration: false }));
   });
   await page.goto('/');
-  await expect(page.getByRole('button', { name: 'Режим истории (10×10)', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Неясные души', exact: true })).toBeVisible();
+  const story = /^Режим истории Освойте все механики игры/;
+  const shadySouls = /^Неясные души Нечестно сложные уровни/;
+  await expect(page.getByRole('button', { name: story })).toBeVisible();
+  await expect(page.getByRole('button', { name: shadySouls })).toBeVisible();
+  await page.getByRole('button', { name: /^Падающие ряды/ }).click();
+  await page.waitForFunction(`${scene}?.scene.isActive()`);
+  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  await expect(page.getByRole('radio', { name: story })).toBeVisible();
+  await expect(page.getByRole('radio', { name: shadySouls })).toBeVisible();
 });
 
 test('a settled tile flips into lightning during a drop and clears its whole row outward', { tag: '@story' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
-  await expect(page.getByRole('button', { name: 'Story mode', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Shady Souls' }).click();
   await page.waitForFunction(`${scene}?.state`);
   await expect.poll(() => page.evaluate(`[

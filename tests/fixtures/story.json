@@ -1,7 +1,8 @@
 {
   "messages": {
     "en": {
-      "title": "Story mode (10×10)",
+      "title": "Story mode",
+      "description": "Discover every mechanic as you play.",
       "levelComplete": "Stage cleared",
       "continue": "Next stage",
       "victory": "Story cleared",
@@ -11,7 +12,8 @@
       "choose": "Choose"
     },
     "ru": {
-      "title": "Режим истории (10×10)",
+      "title": "Режим истории",
+      "description": "Освойте все механики игры шаг за шагом.",
       "levelComplete": "Этап пройден",
       "continue": "Следующий этап",
       "victory": "История пройдена",

@@ -50,6 +50,18 @@ test('corrupt preferences fall back without blocking the interface', { tag: '@re
   await expect(page.getByRole('heading', { name: 'Choose game mode' })).toBeVisible();
 });
 
+test('APK opens the mode picker and starts a story without Object.hasOwn', { tag: ['@recovery', '@story'] }, async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent + ' CoffeeAPK/1.0.8' });
+    Reflect.deleteProperty(Object, 'hasOwn');
+  });
+  await page.goto('/');
+  await expect(page.locator('#recovery')).toBeHidden();
+  await page.getByRole('button', { name: /^Shady Souls/ }).click();
+  await expect.poll(() => page.evaluate('window.__GAME__?.scene.getScene("FallingScene")?.scoreText?.text')).toBe('Items delivered: 0 / 5');
+  await expect(page.locator('#recovery')).toBeHidden();
+});
+
 test('APK starts with Canvas and remains ready after restoring the selected mode', { tag: '@recovery' }, async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent + ' CoffeeAPK/1.0.5' });

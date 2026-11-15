@@ -3,7 +3,7 @@ import shadySouls from '@game/levels/shady-souls.json';
 import { createFalling, fallingLevel, type FallingLevel } from '../logic/falling';
 
 const messageKeys = ['title', 'levelComplete', 'continue', 'victory', 'victoryPrompt', 'restart', 'modeLabel', 'choose'] as const;
-export type StoryMessages = Record<typeof messageKeys[number], string>;
+export type StoryMessages = Record<typeof messageKeys[number], string> & { description?: string };
 export type StoryConfig = {
   messages: Record<'en' | 'ru', StoryMessages>;
   levels: {
@@ -22,7 +22,7 @@ export const stories = { 'story-large': story, 'shady-souls': shadySouls };
 export type StoryMode = keyof typeof stories;
 
 export function isStoryMode(mode: unknown): mode is StoryMode {
-  return typeof mode === 'string' && Object.hasOwn(stories, mode);
+  return typeof mode === 'string' && Object.prototype.hasOwnProperty.call(stories, mode);
 }
 
 export function loadStory({ levels, messages }: StoryConfig) {

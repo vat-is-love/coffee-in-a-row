@@ -2,6 +2,7 @@
   "messages": {
     "en": {
       "title": "Shady Souls",
+      "description": "Unfairly hard levels. Even a good move might be your last.",
       "levelComplete": "Stage cleared",
       "continue": "Next stage",
       "victory": "Story cleared",
@@ -12,6 +13,7 @@
     },
     "ru": {
       "title": "Неясные души",
+      "description": "Нечестно сложные уровни. Даже хороший ход может оказаться последним.",
       "levelComplete": "Этап пройден",
       "continue": "Следующий этап",
       "victory": "История пройдена",

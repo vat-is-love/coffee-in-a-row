@@ -99,7 +99,7 @@ export function createFalling(seed?: number, description: FallingLevel = falling
   if (buffs) {
     const { everyRows, minimumEveryRows = everyRows } = buffs.schedule;
     if (!Array.isArray(buffs.types) || !buffs.types.length ||
-        buffs.types.some(type => !Object.hasOwn(BUFF_TILES, type)) ||
+        buffs.types.some(type => !Object.prototype.hasOwnProperty.call(BUFF_TILES, type)) ||
         (buffs.first !== undefined && !buffs.types.includes(buffs.first)) ||
         !Number.isSafeInteger(minimumEveryRows) || minimumEveryRows < 1 || minimumEveryRows > everyRows) {
       throw new RangeError('Invalid Story buff configuration');
