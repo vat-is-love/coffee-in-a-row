@@ -11,8 +11,12 @@ declare module '@game/levels/falling.json' {
 }
 
 declare module '@game/levels/story.json' {
-  type StoryConfig = import('./game/levels/story').StoryConfig;
-  const story: StoryConfig & { largeBoard: StoryConfig['board']; shadySoulsLevels?: StoryConfig['levels'] };
+  const story: import('./game/levels/story').StoryConfig;
+  export default story;
+}
+
+declare module '@game/levels/shady-souls.json' {
+  const story: import('./game/levels/story').StoryConfig;
   export default story;
 }
 

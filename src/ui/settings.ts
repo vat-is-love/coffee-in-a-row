@@ -1,7 +1,7 @@
 import { backupControls, installBackupControls, refreshBackupStatus } from './backup';
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
-import { isStoryMode, stories, storyTitles } from '../game/levels/story';
+import { isStoryMode, stories } from '../game/levels/story';
 import { t, getPreferences, getStartupPreferences, getStoryCheckpoint, savePreferences, saveStoryCheckpoint, type Language, type Mode } from './preferences';
 import type { Game } from 'phaser';
 
@@ -11,7 +11,14 @@ export function installSettings(game: Game): void {
   let mode: Mode = startup.mode ?? 'classic';
   game.registry.set('gameMode', mode);
   const storyPicker = document.createElement('dialog');
-  const storyModes = Object.keys(storyTitles).filter(isStoryMode);
+  const storyModes = Object.keys(stories);
+  const fillStoryTitles = (container: HTMLElement) => {
+    const { language } = getPreferences();
+    for (const label of container.querySelectorAll<HTMLElement>('[data-story-title]')) {
+      const mode = label.dataset.storyTitle;
+      if (isStoryMode(mode)) label.textContent = stories[mode].messages[language].title;
+    }
+  };
   storyPicker.className = 'settings-dialog mode-picker';
   storyPicker.setAttribute('aria-labelledby', 'story-picker-title');
   storyPicker.addEventListener('cancel', event => event.preventDefault());
@@ -28,13 +35,14 @@ export function installSettings(game: Game): void {
     }
     storyPicker.innerHTML = `
       <form method="dialog">
-        <h1 id="story-picker-title">${t(storyTitles[selected])}</h1>
+        <h1 id="story-picker-title" data-story-title="${selected}"></h1>
         <button class="mode-option" value="continue">
           <strong>${t('Continue')}</strong>
           <small>${t('Level')} ${checkpoint + 1}</small>
         </button>
         <button class="mode-option" value="new">${t('New game')}</button>
       </form>`;
+    fillStoryTitles(storyPicker);
     storyPicker.addEventListener('close', () => {
       if (storyPicker.returnValue === 'new') {
         saveStoryCheckpoint(selected, 0);
@@ -76,12 +84,13 @@ export function installSettings(game: Game): void {
         <small>${t("Match lines of 3 to clear every cell's pale background.")}</small>
       </button>
       ${storyModes.map(mode => `<button class="mode-option" value="${mode}">
-        <strong>${t(storyTitles[mode])}</strong>
+        <strong data-story-title="${mode}"></strong>
       </button>`).join('')}
       `}
       ${backupControls()}
       <p id="mode-picker-hint">${t('You can change the mode in settings.')}</p>
     </form>`;
+  fillStoryTitles(modePicker);
   document.body.append(modePicker);
   installBackupControls(modePicker);
   // A mode must be chosen before gameplay starts, including with Escape.
@@ -136,12 +145,14 @@ export function installSettings(game: Game): void {
         </label>
         ${storyModes.map(mode => `<label class="mode-option">
           <input type="radio" name="mode" value="${mode}">
-          <span><strong>${t(storyTitles[mode])}</strong></span>
+          <span><strong data-story-title="${mode}"></strong></span>
         </label>`).join('')}
       </fieldset>
       <p>${t('Changing mode ends the current round.')}</p>
       <div class="settings-actions"><button value="cancel">${t('Cancel')}</button><button value="apply" class="primary">${t('Apply')}</button></div>
-    </form>`; };
+    </form>`;
+    fillStoryTitles(dialog);
+  };
   renderSettings();
   document.body.append(dialog);
   installBackupControls(dialog);

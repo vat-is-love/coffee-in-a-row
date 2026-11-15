@@ -1,11 +1,7 @@
 {
-  "board": { "rows": 8, "cols": 8, "filledBottomRows": 3 },
-  "largeBoard": { "rows": 10, "cols": 10, "filledBottomRows": 3 },
-  "rowIntervalMs": 4000,
-  "delivery": { "firstRow": 2, "everyRows": 3 },
-  "buffSchedule": { "firstRow": 2, "everyRows": 3 },
   "messages": {
     "en": {
+      "title": "Story mode (10×10)",
       "levelComplete": "Stage cleared",
       "continue": "Next stage",
       "victory": "Story cleared",
@@ -15,6 +11,7 @@
       "choose": "Choose"
     },
     "ru": {
+      "title": "Режим истории (10×10)",
       "levelComplete": "Этап пройден",
       "continue": "Следующий этап",
       "victory": "История пройдена",
@@ -25,20 +22,31 @@
     }
   },
   "levels": [
-    { "tileTypes": 4, "targetTiles": 4 },
-    { "tileTypes": 3, "targetTiles": 2, "buffs": { "types": ["horizontal"], "first": "horizontal" } },
-    { "tileTypes": 4, "targetItems": 2, "rowIntervalMs": 5000 }
-  ],
-  "shadySoulsLevels": [
     {
-      "tileTypes": 5,
-      "targetItems": 5,
-      "buffs": { "types": ["horizontal"], "schedule": { "firstRow": 10, "everyRows": 10 } }
+      "board": { "rows": 10, "cols": 10, "filledBottomRows": 3 },
+      "tileTypes": 4,
+      "rowIntervalMs": 4000,
+      "removalDurationMs": 400,
+      "targetTiles": 4
     },
     {
-      "tileTypes": 6,
-      "targetItems": 5,
-      "buffs": { "types": ["horizontal"], "schedule": { "firstRow": 10, "everyRows": 10 } }
+      "board": { "rows": 10, "cols": 10, "filledBottomRows": 3 },
+      "tileTypes": 3,
+      "rowIntervalMs": 4000,
+      "removalDurationMs": 400,
+      "targetTiles": 2,
+      "buffs": {
+        "types": ["horizontal"], "first": "horizontal",
+        "schedule": { "firstRow": 2, "everyRows": 3 }
+      }
+    },
+    {
+      "board": { "rows": 10, "cols": 10, "filledBottomRows": 3 },
+      "tileTypes": 4,
+      "rowIntervalMs": 5000,
+      "removalDurationMs": 400,
+      "targetItems": 2,
+      "delivery": { "firstRow": 2, "everyRows": 3 }
     }
   ]
 }

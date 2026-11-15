@@ -168,6 +168,15 @@ test('switching modes keeps separate Story checkpoints until the player starts a
   });
 });
 
+test('the mode picker shows the configured Russian story titles', { tag: '@story' }, async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('coffee-preferences', JSON.stringify({ language: 'ru', vibration: false }));
+  });
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Режим истории (10×10)', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Неясные души', exact: true })).toBeVisible();
+});
+
 test('a settled tile flips into lightning during a drop and clears its whole row outward', { tag: '@story' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');

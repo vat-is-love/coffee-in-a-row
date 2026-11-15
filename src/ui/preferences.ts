@@ -132,8 +132,6 @@ const russian: Record<string, string> = {
   "FREE PLAY": "СВОБОДНАЯ ИГРА",
   "Choose game mode": "Выберите режим игры",
   "Falling pieces": "Падающие ряды",
-  "Story mode (10×10)": "Режим истории (10×10)",
-  "Shady Souls": "Неясные души",
   "Level": "Уровень",
   "Tiles cleared": "Фишек убрано",
   "Items delivered": "Предметов собрано",

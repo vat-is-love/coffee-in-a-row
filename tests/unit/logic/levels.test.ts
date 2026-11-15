@@ -1,40 +1,46 @@
 import { describe, expect, it } from 'vitest';
 import { match3Level, startMatch3 } from '../../../src/game/levels/match3';
-import { isStoryMode, loadStory, stories } from '../../../src/game/levels/story';
+import { loadStory, stories } from '../../../src/game/levels/story';
 import { addFallingRow, createFalling, fallingLevel, rowInterval, ROW_CLEAR_ITEM, STORY_ITEM, turnDuration } from '../../../src/game/logic/falling';
 
 describe('JSON level configuration', () => {
   it('loads configured levels with the game rules', () => {
     startMatch3();
     createFalling();
-    Object.keys(stories).filter(isStoryMode).forEach(mode => loadStory(stories[mode]));
+    Object.values(stories).forEach(config => loadStory(config));
   });
 
   it('keeps the story in JSON order with a fixed pace per stage and the configured palette', () => {
     const { stages } = loadStory({
       messages: {
-        en: { levelComplete: 'Complete', continue: 'Next', victory: 'Victory', victoryPrompt: 'Play again?',
+        en: { title: 'Story', levelComplete: 'Complete', continue: 'Next', victory: 'Victory', victoryPrompt: 'Play again?',
           restart: 'Again', modeLabel: 'Mode', choose: 'Choose' },
-        ru: { levelComplete: 'Готово', continue: 'Дальше', victory: 'Победа', victoryPrompt: 'Сыграть ещё?',
+        ru: { title: 'История', levelComplete: 'Готово', continue: 'Дальше', victory: 'Победа', victoryPrompt: 'Сыграть ещё?',
           restart: 'Заново', modeLabel: 'Режим', choose: 'Выбрать' }
       },
-      board: { rows: 4, cols: 5, filledBottomRows: 1 },
-      rowIntervalMs: 3000,
-      delivery: { firstRow: 2, everyRows: 3 },
-      rowClear: { firstRow: 3, everyRows: 2 },
       levels: [
-        { tileTypes: 5, targetTiles: 20 },
-        { tileTypes: 3, targetItems: 3, rowClear: true, rowIntervalMs: 4000 }
+        {
+          board: { rows: 4, cols: 5, filledBottomRows: 1 }, tileTypes: 5, targetTiles: 20,
+          rowIntervalMs: 3000, removalDurationMs: 300
+        },
+        {
+          board: { rows: 5, cols: 4, filledBottomRows: 2 }, tileTypes: 3, targetItems: 3,
+          rowIntervalMs: 4000, removalDurationMs: 200,
+          delivery: { firstRow: 2, everyRows: 3 },
+          buffs: { types: ['horizontal'], schedule: { firstRow: 3, everyRows: 2 } }
+        }
       ]
     });
     expect(stages.map(({ level }) => level.board.tileTypes)).toEqual([5, 3]);
     expect(stages.map(({ target }) => target)).toEqual([20, 3]);
+    expect(stages.map(({ level }) => [level.board.rows, level.board.cols])).toEqual([[4, 5], [5, 4]]);
     for (const [i, { level }] of stages.entries()) {
       let state = createFalling(42, level);
       expect(state.grid.flat().every(tile => tile < level.board.tileTypes)).toBe(true);
+      expect(state.grid.filter(row => row.every(tile => tile >= 0))).toHaveLength(i + 1);
       const interval = i === 0 ? 3000 : 4000;
       expect([rowInterval(0, level), rowInterval(60, level), turnDuration(60, level)])
-        .toEqual([interval, interval, 300]);
+        .toEqual([interval, interval, i === 0 ? 300 : 200]);
       for (let row = 1; row <= 8; row++) {
         const expectedItems = i === 1 && row % 3 === 2 ? [STORY_ITEM] : [];
         expect(state.nextRow).toHaveLength(level.board.cols);

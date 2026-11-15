@@ -3,11 +3,12 @@ import { existsSync } from 'node:fs';
 import path from 'path';
 
 const levelsDir = path.resolve(process.env.COFFEE_LEVELS_DIR || '../coffee-levels/publish');
-const levelFiles = ['match3.json', 'falling.json', 'story.json'];
+const storyFiles = ['story.json', 'shady-souls.json'];
+const levelFiles = ['match3.json', 'falling.json', ...storyFiles];
 
 export default defineConfig(({ mode }) => {
   const files = Object.fromEntries(levelFiles.map(file => [file,
-    mode === 'e2e' && file === 'story.json'
+    mode === 'e2e' && storyFiles.includes(file)
       ? path.resolve('tests/fixtures', file)
       : path.join(levelsDir, file)
   ]));

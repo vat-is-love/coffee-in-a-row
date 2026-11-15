@@ -3,7 +3,7 @@ import { createHud } from '../render/hud';
 import { getPreferences, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { fallingLevel, createFalling, clearAt, findRemoval, addFallingRow, rowInterval, ROW_CLEAR_ITEM, COLUMN_CLEAR_ITEM, STORY_ITEM, turnDuration, type FallingLevel, type FallingState } from '../logic/falling';
-import { isStoryMode, loadStory, stories, storyTitles } from '../levels/story';
+import { isStoryMode, loadStory, stories } from '../levels/story';
 import type { Position } from '../logic/types';
 import { showFallingLeaderboard } from '../../ui/fallingLeaderboard';
 import { showStoryResult } from '../../ui/storyResult';
@@ -166,9 +166,8 @@ export class FallingScene extends Scene {
   private createHUD(): void {
     this.hudContainer?.destroy();
     const icon = this.gameOver ? 'restart' : this.paused ? 'play' : 'pause';
-    const mode: unknown = this.registry.get('gameMode');
-    const title = this.story && isStoryMode(mode)
-      ? `${t(storyTitles[mode])} · ${t('Level')} ${this.levelIndex + 1}/${this.story.stages.length}`
+    const title = this.story
+      ? `${this.story.messages[getPreferences().language].title} · ${t('Level')} ${this.levelIndex + 1}/${this.story.stages.length}`
       : t('FALLING ROWS');
     const hud = createHud(this, title, icon, () => {
       if (this.gameOver) this.scene.restart({ levelIndex: this.levelIndex });
