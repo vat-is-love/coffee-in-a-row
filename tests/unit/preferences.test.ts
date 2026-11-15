@@ -25,6 +25,7 @@ test('preferences survive reload, localize text and suppress disabled or hidden 
   prefs = await import('../../src/ui/preferences');
   expect(prefs.getPreferences()).toEqual({ language: 'ru', vibration: false });
   expect(prefs.t('Settings')).toBe('Настройки');
+  expect(prefs.t('Shady Souls')).toBe('Неясные души');
   expect(document.documentElement.lang).toBe('ru');
   prefs.savePreferences({ language: 'en', vibration: true });
   expect(prefs.t('Settings')).toBe('Settings');

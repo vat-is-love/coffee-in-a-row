@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { match3Level, startMatch3 } from '../../../src/game/levels/match3';
-import { loadStory, stories } from '../../../src/game/levels/story';
+import { isStoryMode, loadStory, stories } from '../../../src/game/levels/story';
 import { addFallingRow, createFalling, fallingLevel, rowInterval, ROW_CLEAR_ITEM, STORY_ITEM, turnDuration } from '../../../src/game/logic/falling';
 
 describe('JSON level configuration', () => {
   it('loads configured levels with the game rules', () => {
     startMatch3();
     createFalling();
-    Object.values(stories).forEach(config => loadStory(config));
+    Object.keys(stories).filter(isStoryMode).forEach(mode => loadStory(stories[mode]));
   });
 
   it('keeps the story in JSON order with a fixed pace per stage and the configured palette', () => {

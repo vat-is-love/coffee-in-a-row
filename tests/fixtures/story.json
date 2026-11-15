@@ -28,5 +28,17 @@
     { "tileTypes": 4, "targetTiles": 4 },
     { "tileTypes": 3, "targetTiles": 2, "buffs": { "types": ["horizontal"], "first": "horizontal" } },
     { "tileTypes": 4, "targetItems": 2, "rowIntervalMs": 5000 }
+  ],
+  "shadySoulsLevels": [
+    {
+      "tileTypes": 5,
+      "targetItems": 5,
+      "buffs": { "types": ["horizontal"], "schedule": { "firstRow": 10, "everyRows": 10 } }
+    },
+    {
+      "tileTypes": 6,
+      "targetItems": 5,
+      "buffs": { "types": ["horizontal"], "schedule": { "firstRow": 10, "everyRows": 10 } }
+    }
   ]
 }

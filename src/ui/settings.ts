@@ -1,7 +1,7 @@
 import { backupControls, installBackupControls, refreshBackupStatus } from './backup';
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
-import { isStoryMode, storyLevelCount } from '../game/levels/story';
+import { isStoryMode, stories, storyTitles } from '../game/levels/story';
 import { t, getPreferences, getStartupPreferences, getStoryCheckpoint, savePreferences, saveStoryCheckpoint, type Language, type Mode } from './preferences';
 import type { Game } from 'phaser';
 
@@ -11,6 +11,7 @@ export function installSettings(game: Game): void {
   let mode: Mode = startup.mode ?? 'classic';
   game.registry.set('gameMode', mode);
   const storyPicker = document.createElement('dialog');
+  const storyModes = Object.keys(storyTitles).filter(isStoryMode);
   storyPicker.className = 'settings-dialog mode-picker';
   storyPicker.setAttribute('aria-labelledby', 'story-picker-title');
   storyPicker.addEventListener('cancel', event => event.preventDefault());
@@ -21,13 +22,13 @@ export function installSettings(game: Game): void {
       return;
     }
     const checkpoint = getStoryCheckpoint(selected);
-    if (checkpoint === 0 || checkpoint >= storyLevelCount) {
+    if (checkpoint === 0 || checkpoint >= stories[selected].levels.length) {
       start(0);
       return;
     }
     storyPicker.innerHTML = `
       <form method="dialog">
-        <h1 id="story-picker-title">${t(selected === 'story-large' ? 'Story mode (10×10)' : 'Story mode')}</h1>
+        <h1 id="story-picker-title">${t(storyTitles[selected])}</h1>
         <button class="mode-option" value="continue">
           <strong>${t('Continue')}</strong>
           <small>${t('Level')} ${checkpoint + 1}</small>
@@ -74,13 +75,9 @@ export function installSettings(game: Game): void {
         <strong>${t('Match three')}</strong>
         <small>${t("Match lines of 3 to clear every cell's pale background.")}</small>
       </button>
-      <button class="mode-option" value="story">
-        <strong>${t('Story mode')}</strong>
-        <small>${t('Clear groups, use buffs, then deliver items to the bottom.')}</small>
-      </button>
-      <button class="mode-option" value="story-large">
-        <strong>${t('Story mode (10×10)')}</strong>
-      </button>
+      ${storyModes.map(mode => `<button class="mode-option" value="${mode}">
+        <strong>${t(storyTitles[mode])}</strong>
+      </button>`).join('')}
       `}
       ${backupControls()}
       <p id="mode-picker-hint">${t('You can change the mode in settings.')}</p>
@@ -137,14 +134,10 @@ export function installSettings(game: Game): void {
           <input type="radio" name="mode" value="falling">
           <span><strong>${t('Falling pieces')}</strong><small>${t('Tap connected groups of 2+. Columns gather in the center. Clear space before the next row arrives.')}</small></span>
         </label>
-        <label class="mode-option">
-          <input type="radio" name="mode" value="story">
-          <span><strong>${t('Story mode')}</strong><small>${t('Clear groups, use buffs, then deliver items to the bottom.')}</small></span>
-        </label>
-        <label class="mode-option">
-          <input type="radio" name="mode" value="story-large">
-          <span><strong>${t('Story mode (10×10)')}</strong></span>
-        </label>
+        ${storyModes.map(mode => `<label class="mode-option">
+          <input type="radio" name="mode" value="${mode}">
+          <span><strong>${t(storyTitles[mode])}</strong></span>
+        </label>`).join('')}
       </fieldset>
       <p>${t('Changing mode ends the current round.')}</p>
       <div class="settings-actions"><button value="cancel">${t('Cancel')}</button><button value="apply" class="primary">${t('Apply')}</button></div>

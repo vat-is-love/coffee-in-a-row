@@ -18,12 +18,15 @@ export type StoryConfig = {
   rowClear?: Buffs['schedule'];
 };
 
-export const storyLevelCount = Array.isArray(story?.levels) ? story.levels.length : 0;
-export const stories = { story, 'story-large': { ...story, board: story.largeBoard } };
+export const stories = {
+  'story-large': { ...story, board: story.largeBoard },
+  'shady-souls': { ...story, levels: story.shadySoulsLevels ?? [] }
+};
 export type StoryMode = keyof typeof stories;
+export const storyTitles = { 'story-large': 'Story mode (10×10)', 'shady-souls': 'Shady Souls' } satisfies Record<StoryMode, string>;
 
 export function isStoryMode(mode: unknown): mode is StoryMode {
-  return mode === 'story' || mode === 'story-large';
+  return mode === 'story-large' || (mode === 'shady-souls' && stories[mode].levels.length > 0);
 }
 
 export function loadStory({ board, rowIntervalMs, levels, messages, delivery, rowClear, buffSchedule = rowClear }: StoryConfig) {

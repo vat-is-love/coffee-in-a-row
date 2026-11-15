@@ -4,7 +4,7 @@ const STORY_ITEM = 6;
 const ROW_CLEAR_ITEM = 7;
 const scene = "(window.__GAME__?.scene.getScene('FallingScene'))";
 
-async function selectMode(page: Page, value: 'story' | 'story-large' | 'falling') {
+async function selectMode(page: Page, value: 'shady-souls' | 'story-large' | 'falling') {
   await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
   await page.locator(`dialog[open] input[name="mode"][value="${value}"]`).check();
   await page.getByRole('button', { name: 'Apply' }).click();
@@ -13,7 +13,7 @@ async function selectMode(page: Page, value: 'story' | 'story-large' | 'falling'
 test('Story retries after defeat and requires both the tile goal and a buff when configured', { tag: '@story' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
-  await page.locator('button[value="story"]').click();
+  await page.getByRole('button', { name: 'Story mode (10×10)' }).click();
   await page.waitForFunction(`${scene}?.state`);
 
   const completed = page.getByRole('dialog', { name: 'Stage cleared' });
@@ -111,41 +111,39 @@ test('a larger Story delivers a cup from the preview and joins both groups for o
   await expect.poll(() => page.evaluate(`${scene}.scoreText.text`)).toContain('Score:');
 });
 
-for (const mode of ['story', 'story-large']) {
-  test(`${mode} gives the configured stage a longer row countdown at the same fall speed`, { tag: '@story' }, async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.goto('/');
-    await page.locator(`button[value="${mode}"]`).click();
-    await page.waitForFunction(`${scene}?.state && ${scene}.dropButton`);
+test('Story gives the configured stage a longer row countdown at the same fall speed', { tag: '@story' }, async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Story mode (10×10)' }).click();
+  await page.waitForFunction(`${scene}?.state && ${scene}.dropButton`);
 
-    const drop = () => page.evaluate(`(() => {
-      const scene = ${scene};
-      scene.requestDrop();
-      const tile = scene.board.flat().find(tile => tile?.sprite.y === -52);
-      const fall = scene.tweens.getTweensOf(tile.sprite).flatMap(tween => tween.data).find(data => data.key === 'y');
-      return { duration: fall.duration, remaining: scene.remaining };
-    })()`);
-    expect(await drop()).toEqual({ duration: 280, remaining: 4000 });
+  const drop = () => page.evaluate(`(() => {
+    const scene = ${scene};
+    scene.requestDrop();
+    const tile = scene.board.flat().find(tile => tile?.sprite.y === -52);
+    const fall = scene.tweens.getTweensOf(tile.sprite).flatMap(tween => tween.data).find(data => data.key === 'y');
+    return { duration: fall.duration, remaining: scene.remaining };
+  })()`);
+  expect(await drop()).toEqual({ duration: 280, remaining: 4000 });
 
-    // The short Story fixture puts the override on its final stage.
-    await page.evaluate(`void ${scene}.scene.restart({ levelIndex: 2 })`);
-    await page.waitForFunction(`${scene}.levelIndex === 2 && ${scene}.dropButton`);
-    expect(await drop()).toEqual({ duration: 280, remaining: 5000 });
-  });
-}
+  // The short Story fixture puts the override on its final stage.
+  await page.evaluate(`void ${scene}.scene.restart({ levelIndex: 2 })`);
+  await page.waitForFunction(`${scene}.levelIndex === 2 && ${scene}.dropButton`);
+  expect(await drop()).toEqual({ duration: 280, remaining: 5000 });
+});
 
 test('switching modes keeps separate Story checkpoints until the player starts a new game', { tag: ['@story', '@smoke'] }, async ({ page }) => {
   await page.addInitScript(() => {
     if (localStorage.getItem('coffee-preferences') === null) {
       localStorage.setItem('coffee-preferences', JSON.stringify({
-        language: 'en', vibration: false, mode: 'falling', storyMode: true, storyCheckpoint: 1, largeStoryCheckpoint: 2
+        language: 'en', vibration: false, mode: 'falling', storyMode: true, storyCheckpoint: 8, largeStoryCheckpoint: 2, shadySoulsCheckpoint: 1
       }));
     }
   });
   await page.goto('/');
   await expect.poll(() => page.evaluate(`${scene}?.scoreText?.text`)).toContain('Score:');
-  await selectMode(page, 'story');
-  const storyPicker = page.getByRole('dialog', { name: 'Story mode', exact: true });
+  await selectMode(page, 'shady-souls');
+  const storyPicker = page.getByRole('dialog', { name: 'Shady Souls', exact: true });
   await storyPicker.getByRole('button', { name: 'Continue Level 2' }).click();
   const level = (index: number, size: number) => expect.poll(() =>
     page.evaluate(`[${scene}?.levelIndex, ${scene}?.level?.board.cols]`)).toEqual([index, size]);
@@ -160,27 +158,32 @@ test('switching modes keeps separate Story checkpoints until the player starts a
   await selectMode(page, 'story-large');
   await largePicker.getByRole('button', { name: 'New game' }).click();
   await level(0, 10);
-  await selectMode(page, 'story');
+  await selectMode(page, 'shady-souls');
   await storyPicker.getByRole('button', { name: 'Continue Level 2' }).click();
   await level(1, 8);
   await selectMode(page, 'story-large');
   await level(0, 10);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-preferences')!))).toMatchObject({
+    storyCheckpoint: 8, shadySoulsCheckpoint: 1
+  });
 });
 
 test('a settled tile flips into lightning during a drop and clears its whole row outward', { tag: '@story' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
-  await page.locator('button[value="story"]').click();
+  await expect(page.getByRole('button', { name: 'Story mode', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Shady Souls' }).click();
   await page.waitForFunction(`${scene}?.state`);
-  await page.evaluate(`void ${scene}.scene.restart({ levelIndex: 1 })`);
-  await page.waitForFunction(`${scene}.levelIndex === 1`);
+  await expect.poll(() => page.evaluate(`[
+    ${scene}.level.board.rows, ${scene}.level.board.cols, ${scene}.level.board.tileTypes, ${scene}.scoreText.text
+  ]`)).toEqual([8, 8, 5, 'Items delivered: 0 / 5']);
   await page.evaluate(`(() => {
     const scene = ${scene};
     const settled = scene.board.flat().filter(Boolean);
     const turning = new Set();
     const checks = { flipped: false, duringFall: false };
     window.lightningSpawn = checks;
-    scene.state.rowsAdded = 1;
+    scene.state.rowsAdded = 9;
     scene.events.on('postupdate', () => {
       for (const tile of settled) {
         if (!tile.sprite.active || tile.sprite.scaleX >= 0.9) continue;
@@ -193,7 +196,7 @@ test('a settled tile flips into lightning during a drop and clears its whole row
     });
     scene.requestDrop();
   })()`);
-  await page.waitForFunction(`${scene}.state.rowsAdded === 2 && !${scene}.isProcessing`);
+  await page.waitForFunction(`${scene}.state.rowsAdded === 10 && !${scene}.isProcessing`);
   expect(await page.evaluate('window.lightningSpawn')).toEqual({ flipped: true, duringFall: true });
   expect(await page.evaluate(`${scene}.board.flat().find(tile => tile?.sprite.texture.key === 'tile-${ROW_CLEAR_ITEM}').sprite.scaleX`)).toBe(1);
   const point = await page.evaluate(`(() => {
@@ -219,7 +222,7 @@ test('a settled tile flips into lightning during a drop and clears its whole row
     return { x: board.x + center.x * board.scaleX, y: board.y + center.y * board.scaleY };
   })()`);
   await page.mouse.click(point.x, point.y);
-  await page.waitForFunction(`${scene}.buffUsed && !${scene}.isProcessing`);
+  await page.waitForFunction(`${scene}.state.score > 0 && !${scene}.isProcessing`);
   expect(await page.evaluate('window.lightningChecks')).toEqual({ wave: true, fell: true, fellTooSoon: false });
   expect(await page.evaluate(`${scene}.state.grid[7]`)).toEqual([-1, -1, -1, 2, 2, -1, -1, -1]);
   expect(await page.evaluate(`${scene}.board[7].filter(Boolean).map(tile => tile.sprite.x)`)).toEqual([3 * 64 + 32, 4 * 64 + 32]);

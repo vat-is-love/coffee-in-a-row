@@ -15,6 +15,7 @@ function validateData(key: string, raw: string): void {
       (v.mode !== undefined && v.mode !== 'classic' && v.mode !== 'falling') ||
       (v.storyCheckpoint !== undefined && !uint(v.storyCheckpoint)) ||
       (v.largeStoryCheckpoint !== undefined && !uint(v.largeStoryCheckpoint)) ||
+      (v.shadySoulsCheckpoint !== undefined && !uint(v.shadySoulsCheckpoint)) ||
       (v.largeStoryMode !== undefined && (v.largeStoryMode !== true || v.storyMode !== true)) ||
       (v.storyMode !== undefined && (v.storyMode !== true || v.mode !== 'falling'))) throw Error('Invalid preferences');
   } else if (!Array.isArray(v) || !v.every(r => object(r) && uint(r.score) && uint(r.rows) &&

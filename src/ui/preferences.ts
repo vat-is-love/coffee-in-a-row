@@ -2,7 +2,7 @@ import { notifyDataChanged } from './storage';
 import type { StoryMode } from '../game/levels/story';
 export type Language = 'en' | 'ru';
 export type Mode = 'classic' | 'falling' | StoryMode;
-const storyCheckpointKeys = { story: 'storyCheckpoint', 'story-large': 'largeStoryCheckpoint' } as const;
+const storyCheckpointKeys = { 'story-large': 'largeStoryCheckpoint', 'shady-souls': 'shadySoulsCheckpoint' } as const;
 let mode: Mode | undefined;
 let languageChosen = false;
 export const PREFERENCES_KEY = 'coffee-preferences';
@@ -20,16 +20,12 @@ try {
     language = saved.language;
     languageChosen = true;
   }
-  if (saved.mode === 'classic' || saved.mode === 'falling') {
-    mode = saved.mode === 'falling' && saved.storyMode === true
-      ? saved.largeStoryMode === true ? 'story-large' : 'story'
-      : saved.mode;
-  }
+  if (saved.mode === 'classic' || saved.mode === 'falling') mode = saved.mode;
   if (typeof saved.vibration === 'boolean') vibration = saved.vibration;
 } catch { /* Preferences are optional when storage is unavailable. */ }
 export function getPreferences() { return { language, vibration }; }
 export function getStartupPreferences() {
-  return { mode: mode === 'story' || mode === 'story-large' ? 'falling' : mode, languageChosen };
+  return { mode: mode === 'story-large' || mode === 'shady-souls' ? 'falling' : mode, languageChosen };
 }
 export function getStoryCheckpoint(storyMode: StoryMode): number {
   const pending = pendingStoryCheckpoints[storyMode];
@@ -54,19 +50,22 @@ export function savePreferences(next: { language: Language; vibration: boolean; 
 }
 function persistPreferences(preserveStoredPreferences = false): void {
   // Installed Android wrappers only accept the original mode names in backups.
-  const storedMode = mode === 'story' || mode === 'story-large'
-    ? { mode: 'falling', storyMode: true, largeStoryMode: mode === 'story-large' || undefined }
-    : { mode };
-  const storyCheckpoint = getStoryCheckpoint('story');
+  const storedMode = mode === 'story-large'
+    ? { mode: 'falling', storyMode: true, largeStoryMode: true }
+    : { mode: getStartupPreferences().mode };
   const largeStoryCheckpoint = getStoryCheckpoint('story-large');
+  const shadySoulsCheckpoint = getStoryCheckpoint('shady-souls');
   try {
-    const saved = preserveStoredPreferences ? readStoredPreferences() : {};
+    let saved;
+    try { saved = readStoredPreferences(); } catch { saved = {}; }
+    const storyCheckpoint = Number.isSafeInteger(saved.storyCheckpoint) && saved.storyCheckpoint > 0
+      ? saved.storyCheckpoint : undefined;
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify({
-      language, vibration, ...storedMode, version: 1, ...saved,
-      storyCheckpoint: storyCheckpoint || undefined, largeStoryCheckpoint: largeStoryCheckpoint || undefined
+      language, vibration, ...storedMode, version: 1, ...(preserveStoredPreferences ? saved : {}),
+      storyCheckpoint, largeStoryCheckpoint: largeStoryCheckpoint || undefined, shadySoulsCheckpoint: shadySoulsCheckpoint || undefined
     }));
-    delete pendingStoryCheckpoints.story;
     delete pendingStoryCheckpoints['story-large'];
+    delete pendingStoryCheckpoints['shady-souls'];
   } catch { /* Pending checkpoints remain available when storage is unavailable. */ }
   notifyDataChanged();
 }
@@ -133,9 +132,8 @@ const russian: Record<string, string> = {
   "FREE PLAY": "СВОБОДНАЯ ИГРА",
   "Choose game mode": "Выберите режим игры",
   "Falling pieces": "Падающие ряды",
-  "Story mode": "Режим истории",
   "Story mode (10×10)": "Режим истории (10×10)",
-  "Clear groups, use buffs, then deliver items to the bottom.": "Убирайте группы фишек, используйте бафы, а затем опускайте предметы до нижнего ряда.",
+  "Shady Souls": "Неясные души",
   "Level": "Уровень",
   "Tiles cleared": "Фишек убрано",
   "Items delivered": "Предметов собрано",
