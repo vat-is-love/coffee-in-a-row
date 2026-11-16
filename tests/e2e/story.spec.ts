@@ -145,11 +145,11 @@ test('story maps show separate checkpoints and allow replay without losing acces
   await page.goto('/');
   await openStoryMap(page, /^Shady Souls/);
   await expect(page.getByRole('button', { name: 'Level 1 · Completed' })).toBeEnabled();
-  await expect(page.getByRole('button', { name: 'Level 2', exact: true })).toBeEnabled();
+  await expect(page.locator('.story-map button')).toHaveCount(1);
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: /^Getting to know the game/ }).click();
   const levels = page.locator('.story-map button');
-  await expect(levels).toHaveText(['Level 3', 'Level 2 · Completed', 'Level 1 · Completed']);
+  await expect(levels).toHaveText(['Level 3☆☆☆', 'Level 2 · Completed★★☆', 'Level 1 · Completed★★☆']);
   await levels.last().click();
   await expect.poll(() => page.evaluate(`${scene}?.levelIndex`)).toBe(0);
   await page.evaluate(`${scene}.cleared = 4; ${scene}.requestDrop()`);
@@ -160,6 +160,18 @@ test('story maps show separate checkpoints and allow replay without losing acces
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-preferences')!))).toMatchObject({
     storyCheckpoint: 8, shadySoulsCheckpoint: 1, largeStoryCheckpoint: 2
   });
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: 'Reset progress' }).click();
+  await expect(levels).toHaveText(['Level 3 · Locked 🔒☆☆☆', 'Level 2 · Locked 🔒☆☆☆', 'Level 1☆☆☆']);
+  await expect(levels.first()).toBeDisabled();
+  await expect(levels.last()).toBeEnabled();
+  await page.reload();
+  await openStoryMap(page, /^Getting to know the game/);
+  await expect(page.getByRole('button', { name: 'Level 1', exact: true })).toBeEnabled();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-preferences')!))).toMatchObject({
+    storyCheckpoint: 8, shadySoulsCheckpoint: 1
+  });
+  await expect(page.getByRole('button', { name: 'Reset progress' })).toBeDisabled();
 });
 
 test('story selection shows Russian titles and descriptions', { tag: ['@story', '@preferences'] }, async ({ page }) => {

@@ -272,14 +272,19 @@ test('classic timer stops during pause and settings', { tag: '@classic' }, async
   await settled(page);
   await expect.poll(readElapsed).toBeGreaterThan(0);
 
+  const readTexture = () => page.evaluate(() => (window as any).__GAME__.scene.getScene('GameScene').board[0][0].sprite.texture.key);
+  const originalTexture = await readTexture();
   await page.keyboard.press('Escape');
+  await expect.poll(readTexture).toBe('tile-paused');
   const elapsed = await readElapsed();
   await page.waitForTimeout(200);
   expect(await readElapsed()).toBe(elapsed);
   await page.keyboard.press('Escape');
   await expect.poll(readElapsed).toBeGreaterThan(elapsed);
+  await expect.poll(readTexture).toBe(originalTexture);
 
   await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  await expect.poll(readTexture).toBe('tile-paused');
   const paused = await readElapsed();
   await page.waitForTimeout(200);
   expect(await readElapsed()).toBe(paused);

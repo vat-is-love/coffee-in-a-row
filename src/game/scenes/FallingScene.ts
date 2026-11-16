@@ -1,3 +1,4 @@
+import { installPauseMask } from '../render/pauseMask';
 import { createBoardSurface } from '../render/boardSurface';
 import { createHud } from '../render/hud';
 import { getPreferences, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
@@ -32,6 +33,7 @@ export class FallingScene extends Scene {
   private pendingTile: TileView | null = null;
   private removingTiles = new Set<TileView>();
   private paused = false;
+  private syncPauseMask?: () => void;
   private gameOver = false;
   private reducedMotion = false;
   private elapsed = 0;
@@ -90,13 +92,21 @@ export class FallingScene extends Scene {
     this.renderBoard();
     this.pendingOutline = this.add.graphics();
     this.boardContainer.add(this.pendingOutline);
+    this.syncPauseMask = installPauseMask(this, () => [this.boardContainer, this.previewContainer],
+      () => this.paused, () => this.gameOver || this.failed, this.reducedMotion);
     this.layout();
     this.input.on('pointerup', this.click, this);
     this.input.on('pointermove', this.hover, this);
     this.input.keyboard?.on('keydown', this.keyDown, this);
     this.scale.on('resize', this.layout, this);
     this.game.events.on('language-changed', this.layout, this);
+    const hideGroups = () => {
+      this.showGroup(null);
+      this.pendingOutline.clear();
+    };
+    this.events.on('pause', hideGroups);
     this.events.once('shutdown', () => {
+      this.events.off('pause', hideGroups);
       this.settlingPreview = null;
       this.pendingTile = null;
       this.removingTiles.clear();
@@ -195,6 +205,7 @@ export class FallingScene extends Scene {
       this.previewContainer.add(sprite);
       return sprite;
     });
+    this.syncPauseMask?.();
   }
 
   private updateHUD(): void {
@@ -315,6 +326,7 @@ export class FallingScene extends Scene {
   private togglePause(): void {
     if (this.isProcessing || this.gameOver) return;
     this.paused = !this.paused;
+    this.syncPauseMask?.();
     this.showGroup(null);
     this.createHUD();
   }

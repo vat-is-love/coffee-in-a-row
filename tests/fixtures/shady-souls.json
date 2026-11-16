@@ -35,18 +35,6 @@
         "types": ["horizontal"],
         "schedule": { "firstRow": 10, "everyRows": 10 }
       }
-    },
-    {
-      "board": { "rows": 8, "cols": 8, "filledBottomRows": 3 },
-      "tileTypes": 6,
-      "rowIntervalMs": 4000,
-      "removalDurationMs": 400,
-      "targetItems": 5,
-      "delivery": { "firstRow": 2, "everyRows": 3 },
-      "buffs": {
-        "types": ["horizontal"],
-        "schedule": { "firstRow": 10, "everyRows": 10 }
-      }
     }
   ]
 }

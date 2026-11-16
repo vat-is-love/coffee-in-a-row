@@ -39,6 +39,10 @@ export function saveStoryCheckpoint(storyMode: StoryMode, levelIndex: number): v
   pendingStoryCheckpoints[storyMode] = Math.max(getStoryCheckpoint(storyMode), levelIndex);
   persistPreferences(true);
 }
+export function resetIntroductionProgress(): void {
+  pendingStoryCheckpoints['story-large'] = 0;
+  persistPreferences(true);
+}
 export function savePreferences(next: { language: Language; vibration: boolean; mode?: Mode }): void {
   if (next.mode) mode = next.mode;
   languageChosen = true;
@@ -99,6 +103,10 @@ const russian: Record<string, string> = {
   'Back': 'Назад',
   'Completed': 'Пройден',
   'Locked': 'Закрыт',
+  'Close results': 'Закрыть результаты',
+  'Reset progress': 'Сбросить прогресс',
+  'Reset all progress for Getting to know the game?': 'Сбросить весь прогресс в «Знакомстве с игрой»?',
+  'Stars': 'Звёзды',
   'Close settings': 'Закрыть настройки',
   'Return to main menu?': 'Вернуться в главное меню?',
   'The current round will end.': 'Текущая партия завершится.',

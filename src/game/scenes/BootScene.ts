@@ -78,7 +78,7 @@ export class BootScene extends Scene {
   private generateTileTextures(): void {
     const tileSize = 64;
 
-    const colors = [0xe74c3c, 0xf39c12, 0x27ae60, 0x9b59b6, 0x3498db, 0xe91e63];
+    const colors = [0xe74c3c, 0xf39c12, 0x27ae60, 0x9b59b6, 0x3498db, 0xe91e63, 0xffffff];
     colors.forEach((color, index) => {
       const graphics = this.make.graphics();
       // Draw coffee bean/icon shape in the center
@@ -102,7 +102,7 @@ export class BootScene extends Scene {
       graphics.fillStyle(0xffffff, 0.2);
       graphics.fillEllipse(cx - 4, cy - 4, 8, 8);
 
-      graphics.generateTexture(`tile-${index}`, tileSize, tileSize);
+      graphics.generateTexture(index === 6 ? 'tile-paused' : `tile-${index}`, tileSize, tileSize);
       graphics.destroy();
     });
   }

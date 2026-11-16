@@ -226,6 +226,8 @@ canvas {
 
 .falling-leaderboard { width: min(560px, calc(100vw - 24px)); padding: 20px; }
 .falling-leaderboard[open] { display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+.falling-leaderboard header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.falling-leaderboard .settings-close { flex: 0 0 44px; }
 .falling-leaderboard h1 { font-size: 22px; margin: 0; }
 .falling-leaderboard p { margin: 0; }
 .leaderboard-scroll { overflow: auto; min-height: 0; touch-action: pan-y; }
@@ -236,7 +238,7 @@ canvas {
 .falling-leaderboard .current-result { background: #e8a87c24; color: #ffe0b5; font-weight: bold; }
 .falling-leaderboard .leaderboard-gap td { text-align: center; padding: 2px; }
 .falling-leaderboard .settings-actions { flex-shrink: 0; }
-.falling-leaderboard button { width: 100%; }
+.falling-leaderboard .settings-actions button { width: 100%; }
 @media (max-width: 400px) {
   .falling-leaderboard { padding: 14px; }
   .falling-leaderboard table { font-size: 12px; }
@@ -270,6 +272,7 @@ canvas {
 .menu-panel p { margin: 4px 0 20px; color: var(--color-text-muted); }
 .story-map { max-width: 300px; margin: 0 auto; }
 .story-map .mode-option { text-align: center; }
+.level-stars { margin-inline-start: 10px; color: #ffc766; white-space: nowrap; }
 .settings-close {
   position: sticky;
   top: 0;

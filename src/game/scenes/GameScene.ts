@@ -1,3 +1,4 @@
+import { installPauseMask } from '../render/pauseMask';
 import { createBoardSurface } from '../render/boardSurface';
 import { showClassicLeaderboard, formatDuration } from '../../ui/fallingLeaderboard';
 import { createHud } from '../render/hud';
@@ -33,6 +34,7 @@ export class GameScene extends Scene {
   private gesture: { tile: TileView; x: number; y: number; id: number } | null = null;
   private isProcessing = false;
   private paused = false;
+  private syncPauseMask?: () => void;
   private failed = false;
   private movesPlayed = 0;
   private reducedMotion = false;
@@ -70,6 +72,8 @@ export class GameScene extends Scene {
     }
     this.background = this.add.graphics();
     this.boardContainer = this.add.container(0, 0);
+    this.syncPauseMask = installPauseMask(this, () => [this.boardContainer],
+      () => this.paused, () => this.completed || this.failed, this.reducedMotion);
     this.createBoardSurface();
     this.resizeLayout();
     try {
@@ -117,7 +121,11 @@ export class GameScene extends Scene {
 
   private createHUD(): void {
     this.hudContainer?.destroy();
-    const hud = createHud(this, t('Match three'), this.paused ? 'play' : 'pause', () => this.togglePause());
+    const icon = this.completed ? 'restart' : this.paused ? 'play' : 'pause';
+    const hud = createHud(this, t('Match three'), icon, () => {
+      if (this.completed) this.scene.restart();
+      else this.togglePause();
+    });
     this.hudContainer = hud.container;
     this.scoreText = hud.score;
     this.movesText = hud.progress;
@@ -238,6 +246,7 @@ export class GameScene extends Scene {
   private togglePause(): void {
     if (this.isProcessing || this.failed || this.completed) return;
     this.paused = !this.paused;
+    this.syncPauseMask?.();
     this.cancelGesture();
     this.clearSelection();
     this.createHUD();
@@ -283,6 +292,7 @@ export class GameScene extends Scene {
       if (this.clearedCells.size === match3Level.objective.targetCells) {
         this.completed = true;
         this.clearSelection();
+        this.createHUD();
         const cleanup = showClassicLeaderboard(this.state.score, this.elapsed, () => this.scene.restart());
         this.events.once('shutdown', cleanup);
       }

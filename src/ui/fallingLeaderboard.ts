@@ -53,13 +53,16 @@ function showLeaderboard(score: number, rows: number, restart: () => void, durat
   dialog.className = 'settings-dialog falling-leaderboard';
   dialog.setAttribute('aria-labelledby', 'falling-results-title');
   dialog.innerHTML = `
-    <h1 id="falling-results-title">${t(classic ? 'Board cleared · Top 10' : 'Game over · Top 10')}</h1>
+    <header>
+      <h1 id="falling-results-title">${t(classic ? 'Board cleared · Top 10' : 'Game over · Top 10')}</h1>
+      <button class="settings-close" type="button" aria-label="${t('Close results')}">×</button>
+    </header>
     <p>${t('Best results on this device. Your result is highlighted.')}</p>
     <div class="leaderboard-scroll">
       <table><thead><tr><th scope="col">#</th><th scope="col">${t(classic ? 'Time' : 'Rows')}</th><th scope="col">${t('Score')}</th><th scope="col">${t('Date / time')}</th></tr></thead><tbody></tbody></table>
     </div>
     <p class="leaderboard-save-status"></p>
-    <div class="settings-actions"><button class="primary" type="button">${t('Start again')}</button></div>`;
+    <div class="settings-actions"><button class="primary" type="button" autofocus>${t('Start again')}</button></div>`;
   const body = dialog.querySelector('tbody')!;
   const appendRecord = (record: FallingRecord, index: number) => {
     const row = document.createElement('tr');
@@ -90,10 +93,11 @@ function showLeaderboard(score: number, rows: number, restart: () => void, durat
   const status = dialog.querySelector<HTMLElement>('.leaderboard-save-status')!;
   status.hidden = saved;
   status.textContent = t('This result could not be saved on this device.');
-  dialog.addEventListener('cancel', event => event.preventDefault());
+  dialog.addEventListener('close', () => dialog.remove(), { once: true });
   dialog.addEventListener('keydown', event => event.stopPropagation());
   dialog.addEventListener('keyup', event => event.stopPropagation());
-  dialog.querySelector('button')!.addEventListener('click', () => {
+  dialog.querySelector('.settings-close')!.addEventListener('click', () => dialog.close());
+  dialog.querySelector('.primary')!.addEventListener('click', () => {
     dialog.close();
     dialog.remove();
     restart();

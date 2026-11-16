@@ -2,7 +2,7 @@ import { backupControls, installBackupControls, refreshBackupStatus } from './ba
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
 import { stories, storyTitle, type StoryMode } from '../game/levels/story';
-import { t, getPreferences, getStoryCheckpoint, savePreferences, type Language, type Mode } from './preferences';
+import { t, getPreferences, getStoryCheckpoint, resetIntroductionProgress, savePreferences, type Language, type Mode } from './preferences';
 import type { Game } from 'phaser';
 
 export function installSettings(game: Game): void {
@@ -105,9 +105,21 @@ export function installSettings(game: Game): void {
     for (let index = count - 1; index >= 0; index--) {
       const state = index < completed ? t('Completed') : index > completed ? t('Locked') : '';
       const label = `${t('Level')} ${index + 1}`;
-      addButton(state ? `${label} · ${state}${index > completed ? ' 🔒' : ''}` : label,
+      const button = addButton(state ? `${label} · ${state}${index > completed ? ' 🔒' : ''}` : label,
         index <= completed ? () => startMode(mode, index) : undefined, map);
+      const stars = document.createElement('span');
+      stars.className = 'level-stars';
+      stars.textContent = index < completed ? '★★☆' : '☆☆☆';
+      stars.setAttribute('aria-hidden', 'true');
+      const starCount = index < completed ? 2 : 0;
+      button.setAttribute('aria-description', `${t('Stars')} ${starCount}/3`);
+      button.append(stars);
     }
+    if (mode === 'story-large') addButton(t('Reset progress'), completed ? () => {
+      if (!window.confirm(t('Reset all progress for Getting to know the game?'))) return;
+      resetIntroductionProgress();
+      storyMap(mode);
+    } : undefined);
     map.children[Math.max(0, count - 1 - completed)].scrollIntoView({ block: 'center' });
   }
 

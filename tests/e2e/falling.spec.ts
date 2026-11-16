@@ -22,19 +22,31 @@ test('settings and exit confirmation suspend the round and can resume it', { tag
     if (hasTouch) await page.touchscreen.tap(point.x, point.y);
     else await page.mouse.click(point.x, point.y);
   };
+  const textures = () => sceneValue(page, `[
+    ...${falling}.board.flat().filter(Boolean).map(tile => tile.sprite.texture.key),
+    ...${falling}.preview.map(sprite => sprite.texture.key)
+  ]`) as Promise<string[]>;
+  const originalTextures = await textures();
+  const maskedTextures = originalTextures.map(() => 'tile-paused');
   await action(3);
   const settings = page.getByRole('dialog', { name: 'Settings' });
   await expect(settings).toBeVisible();
   await expect(settings.getByRole('radio')).toHaveCount(0);
+  await expect.poll(textures).toEqual(maskedTextures);
+  await expect.poll(() => sceneValue(page, `${falling}.preview[0].rotation`)).not.toBe(0);
+  await page.setViewportSize({ width: 390, height: 700 });
+  await expect.poll(textures).toEqual(maskedTextures);
   const frozen = await sceneValue(page, `${falling}.remaining`);
   await page.waitForTimeout(300);
   expect(await sceneValue(page, `${falling}.remaining`)).toBe(frozen);
   await settings.getByRole('button', { name: 'Close settings' }).click();
   await expect.poll(() => sceneValue(page, `${falling}.remaining`)).toBeLessThan(Number(frozen));
 
+  await expect.poll(textures).toEqual(originalTextures);
   await action(2);
   const confirm = page.getByRole('dialog', { name: 'Return to main menu?' });
   await expect(confirm).toBeVisible();
+  await expect.poll(textures).toEqual(maskedTextures);
   await confirm.getByRole('button', { name: 'Cancel' }).click();
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
   await action(2);
@@ -94,7 +106,15 @@ test('row waits for resolution, lands from preview, overflows and restarts on mo
   });
   await page.waitForFunction(() => (window as any).__GAME__.scene.getScene('FallingScene').gameOver);
   await expect(page.getByRole('dialog', { name: 'Game over · Top 10' })).toBeVisible();
-  await page.getByRole('button', { name: 'Start again', exact: true }).click();
+  await page.getByRole('button', { name: 'Close results' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  expect(await sceneValue(page, `${falling}.gameOver`)).toBe(true);
+  const restart = await page.evaluate(`(() => {
+    const hud = ${falling}.hudContainer;
+    const button = hud.getAt(5);
+    return { x: hud.x + button.x + 22, y: hud.y + button.y + 22 };
+  })()`);
+  await page.mouse.click(restart.x, restart.y);
   await page.waitForFunction(() => !(window as any).__GAME__.scene.getScene('FallingScene').gameOver);
   expect(await sceneValue(page, `${falling}.state.score`)).toBe(0);
 });
