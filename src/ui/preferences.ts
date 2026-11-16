@@ -3,6 +3,8 @@ import type { StoryMode } from '../game/levels/story';
 export type Language = 'en' | 'ru';
 export type Mode = 'classic' | 'falling' | StoryMode;
 const storyCheckpointKeys = { 'story-large': 'largeStoryCheckpoint', 'shady-souls': 'shadySoulsCheckpoint' } as const;
+const storyStarKeys = { 'story-large': 'largeStoryThirdStars', 'shady-souls': 'shadySoulsThirdStars' } as const;
+const pendingStoryStars: Partial<Record<StoryMode, number[]>> = {};
 let mode: Mode | undefined;
 let languageChosen = false;
 export const PREFERENCES_KEY = 'coffee-preferences';
@@ -35,12 +37,28 @@ export function getStoryCheckpoint(storyMode: StoryMode): number {
     return Number.isSafeInteger(saved) && saved > 0 ? saved : 0;
   } catch { return 0; }
 }
-export function saveStoryCheckpoint(storyMode: StoryMode, levelIndex: number): void {
+function getStoryThirdStars(mode: StoryMode): number[] {
+  const pending = pendingStoryStars[mode];
+  if (pending) return pending;
+  try {
+    const saved = readStoredPreferences()[storyStarKeys[mode]];
+    return Array.isArray(saved) ? saved.filter(index => Number.isSafeInteger(index) && index >= 0) : [];
+  } catch { return []; }
+}
+export function getStoryStars(mode: StoryMode, levelIndex: number): number {
+  if (levelIndex >= getStoryCheckpoint(mode)) return 0;
+  return getStoryThirdStars(mode).includes(levelIndex) ? 3 : 2;
+}
+export function saveStoryCheckpoint(storyMode: StoryMode, levelIndex: number, earnThirdStar = false): void {
+  if (earnThirdStar) {
+    pendingStoryStars[storyMode] = [...new Set([...getStoryThirdStars(storyMode), levelIndex - 1])];
+  }
   pendingStoryCheckpoints[storyMode] = Math.max(getStoryCheckpoint(storyMode), levelIndex);
   persistPreferences(true);
 }
 export function resetIntroductionProgress(): void {
   pendingStoryCheckpoints['story-large'] = 0;
+  pendingStoryStars['story-large'] = [];
   persistPreferences(true);
 }
 export function savePreferences(next: { language: Language; vibration: boolean; mode?: Mode }): void {
@@ -65,12 +83,18 @@ function persistPreferences(preserveStoredPreferences = false): void {
     try { saved = readStoredPreferences(); } catch { saved = {}; }
     const storyCheckpoint = Number.isSafeInteger(saved.storyCheckpoint) && saved.storyCheckpoint > 0
       ? saved.storyCheckpoint : undefined;
+    const largeStoryThirdStars = getStoryThirdStars('story-large');
+    const shadySoulsThirdStars = getStoryThirdStars('shady-souls');
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify({
       language, vibration, ...storedMode, version: 1, ...(preserveStoredPreferences ? saved : {}),
-      storyCheckpoint, largeStoryCheckpoint: largeStoryCheckpoint || undefined, shadySoulsCheckpoint: shadySoulsCheckpoint || undefined
+      storyCheckpoint, largeStoryCheckpoint: largeStoryCheckpoint || undefined, shadySoulsCheckpoint: shadySoulsCheckpoint || undefined,
+      largeStoryThirdStars: largeStoryThirdStars.length ? largeStoryThirdStars : undefined,
+      shadySoulsThirdStars: shadySoulsThirdStars.length ? shadySoulsThirdStars : undefined
     }));
     delete pendingStoryCheckpoints['story-large'];
     delete pendingStoryCheckpoints['shady-souls'];
+    delete pendingStoryStars['story-large'];
+    delete pendingStoryStars['shady-souls'];
   } catch { /* Pending checkpoints remain available when storage is unavailable. */ }
   notifyDataChanged();
 }
@@ -107,6 +131,15 @@ const russian: Record<string, string> = {
   'Reset progress': 'Сбросить прогресс',
   'Reset all progress for Getting to know the game?': 'Сбросить весь прогресс в «Знакомстве с игрой»?',
   'Stars': 'Звёзды',
+  'Next': 'Дальше',
+  'Description': 'Описание',
+  'Victory conditions': 'Условия победы',
+  'Items to deliver': 'Доставьте чашки',
+  'Tiles to clear': 'Уберите фишки',
+  'Use a power-up': 'Примените усилитель',
+  'Third star': 'Третья звезда',
+  'This level has no third-star challenge.': 'На этом уровне нет условия для третьей звезды.',
+  'Third star earned!': 'Третья звезда получена!',
   'Close settings': 'Закрыть настройки',
   'Return to main menu?': 'Вернуться в главное меню?',
   'The current round will end.': 'Текущая партия завершится.',

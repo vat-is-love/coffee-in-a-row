@@ -7,14 +7,17 @@ export function installPauseMask(
   isFinished: () => boolean,
   reducedMotion: boolean
 ): () => void {
-  const masked = new Map<GameObjects.Image, { texture: string; rotation: number }>();
+  const masked = new Map<GameObjects.Image, { texture: string; scaleX: number }>();
   let frame = 0;
   let started = 0;
 
   function rotate(now: number): void {
     const progress = Math.min(1, (now - started) / 360);
+    const width = Math.cos(progress * Math.PI * 2);
     for (const [sprite, original] of masked) {
-      if (sprite.scene) sprite.setRotation(original.rotation + Math.PI * 4 * (1 - (1 - progress) ** 2));
+      if (!sprite.scene) continue;
+      sprite.scaleX = original.scaleX * width;
+      if (progress === 1) sprite.setTexture('tile-paused');
     }
     frame = progress < 1 ? requestAnimationFrame(rotate) : 0;
   }
@@ -23,7 +26,9 @@ export function installPauseMask(
     cancelAnimationFrame(frame);
     frame = 0;
     for (const [sprite, original] of masked) {
-      if (sprite.scene) sprite.setTexture(original.texture).setRotation(original.rotation);
+      if (!sprite.scene) continue;
+      sprite.setTexture(original.texture);
+      sprite.scaleX = original.scaleX;
     }
     masked.clear();
   }
@@ -38,8 +43,8 @@ export function installPauseMask(
     for (const container of containers()) {
       for (const sprite of container?.list ?? []) {
         if (!(sprite instanceof GameObjects.Image) || !sprite.texture.key.startsWith('tile-') || masked.has(sprite)) continue;
-        masked.set(sprite, { texture: sprite.texture.key, rotation: sprite.rotation });
-        sprite.setTexture('tile-paused');
+        masked.set(sprite, { texture: sprite.texture.key, scaleX: sprite.scaleX });
+        if (reducedMotion || (wasMasked && !frame)) sprite.setTexture('tile-paused');
       }
     }
     if (!wasMasked && masked.size && !reducedMotion) {

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { chooseCompetitive, openStoryMap } from './menu';
+import { beginStoryLevel, chooseCompetitive, openStoryMap } from './menu';
 
 test('successful interface hides recovery', { tag: '@recovery' }, async ({ page }) => {
   await page.goto('/');
@@ -60,6 +60,7 @@ test('APK opens the main menu and starts a story without Object.hasOwn', { tag: 
   await expect(page.locator('#recovery')).toBeHidden();
   await openStoryMap(page, /^Shady Souls/);
   await page.getByRole('button', { name: 'Level 1', exact: true }).click();
+  await beginStoryLevel(page, 1);
   await expect.poll(() => page.evaluate('window.__GAME__?.scene.getScene("FallingScene")?.scoreText?.text')).toBe('Items delivered: 0 / 5');
   await expect(page.locator('#recovery')).toBeHidden();
 });

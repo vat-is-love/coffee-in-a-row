@@ -23,8 +23,14 @@
       "choose": "Выбрать"
     }
   },
+  "thirdStar": "emptyTopRow",
   "levels": [
     {
+      "briefing": {
+        "en": "Tap a group of two or more beans of the same colour that touch by an edge to clear the whole group. New rows drop from above.",
+        "ru": "Нажмите на группу из двух или более зёрен одного цвета, которые соприкасаются сторонами. Вся группа исчезнет. Новые ряды падают сверху.",
+        "demo": "group"
+      },
       "board": { "rows": 10, "cols": 10, "filledBottomRows": 3 },
       "tileTypes": 4,
       "rowIntervalMs": 4000,
@@ -32,6 +38,11 @@
       "targetTiles": 4
     },
     {
+      "briefing": {
+        "en": "Horizontal lightning appears. Tap it to clear all the tiles in its row.",
+        "ru": "Появляется горизонтальная молния. Нажмите на неё, чтобы убрать все фишки в её ряду.",
+        "demo": "horizontal"
+      },
       "board": { "rows": 10, "cols": 10, "filledBottomRows": 3 },
       "tileTypes": 3,
       "rowIntervalMs": 4000,
@@ -43,6 +54,11 @@
       }
     },
     {
+      "briefing": {
+        "en": "Cups appear in incoming rows. Clear the beans beneath a cup to bring it to the bottom of the board and deliver it.",
+        "ru": "В новых рядах появляются чашки. Убирайте зёрна под чашкой, пока она не опустится до нижнего края поля.",
+        "demo": "delivery"
+      },
       "board": { "rows": 10, "cols": 10, "filledBottomRows": 3 },
       "tileTypes": 4,
       "rowIntervalMs": 5000,

@@ -2,7 +2,7 @@ import { backupControls, installBackupControls, refreshBackupStatus } from './ba
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
 import { stories, storyTitle, type StoryMode } from '../game/levels/story';
-import { t, getPreferences, getStoryCheckpoint, resetIntroductionProgress, savePreferences, type Language, type Mode } from './preferences';
+import { t, getPreferences, getStoryCheckpoint, getStoryStars, resetIntroductionProgress, savePreferences, type Language, type Mode } from './preferences';
 import type { Game } from 'phaser';
 
 export function installSettings(game: Game): void {
@@ -109,9 +109,9 @@ export function installSettings(game: Game): void {
         index <= completed ? () => startMode(mode, index) : undefined, map);
       const stars = document.createElement('span');
       stars.className = 'level-stars';
-      stars.textContent = index < completed ? '★★☆' : '☆☆☆';
+      const starCount = getStoryStars(mode, index);
+      stars.textContent = '★'.repeat(starCount) + '☆'.repeat(3 - starCount);
       stars.setAttribute('aria-hidden', 'true');
-      const starCount = index < completed ? 2 : 0;
       button.setAttribute('aria-description', `${t('Stars')} ${starCount}/3`);
       button.append(stars);
     }

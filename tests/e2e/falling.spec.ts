@@ -12,6 +12,7 @@ async function startFalling(page: Page) {
 const falling = `(window.__GAME__.scene.getScene('FallingScene'))`;
 
 test('settings and exit confirmation suspend the round and can resume it', { tag: ['@falling', '@smoke'] }, async ({ page, hasTouch }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
   await startFalling(page);
   const action = async (index: number) => {
     const point = await page.evaluate(`(() => {
@@ -28,12 +29,31 @@ test('settings and exit confirmation suspend the round and can resume it', { tag
   ]`) as Promise<string[]>;
   const originalTextures = await textures();
   const maskedTextures = originalTextures.map(() => 'tile-paused');
+  await page.evaluate(`(() => {
+    const sprite = ${falling}.board.flat().find(Boolean).sprite;
+    const original = sprite.texture.key;
+    const widths = [];
+    window.pauseTurn = new Promise(resolve => {
+      function sample() {
+        const sign = Math.sign(sprite.scaleX);
+        if (sign && sign !== widths.at(-1)) widths.push(sign);
+        if (sprite.texture.key === 'tile-paused') {
+          resolve({ widths, scaleX: sprite.scaleX, scaleY: sprite.scaleY, rotation: sprite.rotation });
+        } else if (sprite.texture.key === original) {
+          requestAnimationFrame(sample);
+        }
+      }
+      sample();
+    });
+  })()`);
   await action(3);
   const settings = page.getByRole('dialog', { name: 'Settings' });
   await expect(settings).toBeVisible();
   await expect(settings.getByRole('radio')).toHaveCount(0);
   await expect.poll(textures).toEqual(maskedTextures);
-  await expect.poll(() => sceneValue(page, `${falling}.preview[0].rotation`)).not.toBe(0);
+  expect(await sceneValue(page, 'window.pauseTurn')).toEqual({
+    widths: [1, -1, 1], scaleX: 1, scaleY: 1, rotation: 0
+  });
   await page.setViewportSize({ width: 390, height: 700 });
   await expect.poll(textures).toEqual(maskedTextures);
   const frozen = await sceneValue(page, `${falling}.remaining`);

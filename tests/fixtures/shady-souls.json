@@ -23,8 +23,14 @@
       "choose": "Выбрать"
     }
   },
+  "thirdStar": "emptyTopRow",
   "levels": [
     {
+      "briefing": {
+        "en": "Deliver cups on a smaller board with five bean colours. Clear the beans beneath a cup to bring it to the bottom. Horizontal lightning clears its entire row.",
+        "ru": "Доставляйте чашки на уменьшенном поле с пятью цветами зёрен. Убирайте зёрна под чашкой, чтобы она опустилась до нижнего края. Горизонтальная молния очищает весь свой ряд.",
+        "demo": "delivery"
+      },
       "board": { "rows": 8, "cols": 8, "filledBottomRows": 3 },
       "tileTypes": 5,
       "rowIntervalMs": 4000,

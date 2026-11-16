@@ -1,15 +1,18 @@
 import { installPauseMask } from '../render/pauseMask';
 import { createBoardSurface } from '../render/boardSurface';
 import { createHud } from '../render/hud';
-import { getPreferences, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
+import { getPreferences, getStoryStars, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
-import { fallingLevel, createFalling, clearAt, findRemoval, addFallingRow, rowInterval, ROW_CLEAR_ITEM, COLUMN_CLEAR_ITEM, STORY_ITEM, turnDuration, type FallingLevel, type FallingState } from '../logic/falling';
-import { isStoryMode, loadStory, storyTitle, stories } from '../levels/story';
+import { fallingLevel, createFalling, clearAt, findRemoval, addFallingRow, rowInterval, ROW_CLEAR_ITEM, COLUMN_CLEAR_ITEM, STORY_ITEM, BUFF_TILES, turnDuration, type FallingLevel, type FallingState } from '../logic/falling';
+import { isStoryMode, loadStory, storyTitle, stories, type StoryChallenge, type StoryChallengeEvent } from '../levels/story';
 import type { Position } from '../logic/types';
 import { showFallingLeaderboard } from '../../ui/fallingLeaderboard';
+import { showStoryIntro } from '../../ui/storyIntro';
 import { showStoryResult } from '../../ui/storyResult';
 
 type TileView = Position & { sprite: GameObjects.Image };
+const powerUps = new Map((Object.keys(BUFF_TILES) as (keyof typeof BUFF_TILES)[])
+  .map(name => [BUFF_TILES[name], name] as const));
 
 export class FallingScene extends Scene {
   private state!: FallingState;
@@ -44,6 +47,8 @@ export class FallingScene extends Scene {
   private levelIndex = 0;
   private cleared = 0;
   private buffUsed = false;
+  private challengeProgress = 0;
+  private activeChallenge?: StoryChallenge;
 
   private get storyStage() { return this.story?.stages[this.levelIndex]; }
   private get requiresBuff() { return !!this.level.buffs && !this.level.delivery; }
@@ -58,8 +63,8 @@ export class FallingScene extends Scene {
   constructor() { super({ key: 'FallingScene' }); }
 
   create({ levelIndex = 0 }: { levelIndex?: number } = {}): void {
+    const mode: unknown = this.registry.get('gameMode');
     try {
-      const mode: unknown = this.registry.get('gameMode');
       this.story = isStoryMode(mode) ? loadStory(stories[mode]) : undefined;
       this.levelIndex = levelIndex;
       this.level = this.storyStage?.level ?? fallingLevel;
@@ -78,6 +83,9 @@ export class FallingScene extends Scene {
     this.isProcessing = this.paused = this.gameOver = false;
     this.cleared = 0;
     this.buffUsed = false;
+    this.challengeProgress = 0;
+    this.activeChallenge = isStoryMode(mode) && getStoryStars(mode, levelIndex) < 3
+      ? this.storyStage?.thirdStar : undefined;
     this.elapsed = 0;
     this.pendingTile = null;
     this.settlingPreview = null;
@@ -116,6 +124,25 @@ export class FallingScene extends Scene {
       this.scale.off('resize', this.layout, this);
       this.game.events.off('language-changed', this.layout, this);
     });
+    const stage = this.storyStage;
+    if (stage && isStoryMode(mode)) {
+      this.scene.pause();
+      const objective = `${t(this.level.delivery ? 'Items to deliver' : 'Tiles to clear')}: ${stage.target}`;
+      const goal = this.requiresBuff ? `${objective} · ${t('Use a power-up')}` : objective;
+      const hint = stage.thirdStar?.hint[getPreferences().language];
+      const cleanup = showStoryIntro(
+        `${t('Level')} ${levelIndex + 1}`, stage.briefing, goal, hint,
+        this.state, tile => {
+          const image = this.textures.get(`tile-${tile}`).getSourceImage();
+          return image instanceof HTMLCanvasElement ? image.toDataURL() : (image as HTMLImageElement).src;
+        },
+        () => {
+          this.events.off('shutdown', cleanup);
+          this.scene.resume();
+        }
+      );
+      this.events.once('shutdown', cleanup);
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -216,8 +243,10 @@ export class FallingScene extends Scene {
     this.dropButton?.setAlpha(this.paused || this.gameOver || this.droppingRow || this.remaining <= 0 ? 0.45 : 1);
     const stage = this.storyStage;
     const buffProgress = this.requiresBuff ? ` · ${t('Buffs used')}: ${Number(this.buffUsed)} / 1` : '';
+    const displayedProgress = stage && (!this.requiresBuff || this.buffUsed)
+      ? Math.min(this.storyProgress, stage.target) : this.storyProgress;
     this.scoreText.setText(stage
-      ? `${t(this.level.delivery ? 'Items delivered' : 'Tiles cleared')}: ${Math.min(this.storyProgress, stage.target)} / ${stage.target}${buffProgress}`
+      ? `${t(this.level.delivery ? 'Items delivered' : 'Tiles cleared')}: ${displayedProgress} / ${stage.target}${buffProgress}`
       : `${t('Score')}: ${this.state.score} · ${t('Rows')}: ${this.state.rowsAdded}`);
     this.timerText.setText(stage && this.gameOver ? '' : `${t('Next row')}: ${(this.remaining / 1000).toFixed(1)}s`);
     const [top, second] = this.state.grid;
@@ -356,6 +385,10 @@ export class FallingScene extends Scene {
     return new Promise(resolve => this.time.delayedCall(duration, resolve));
   }
 
+  private advanceChallenge(event: StoryChallengeEvent): void {
+    this.challengeProgress = this.activeChallenge?.advance?.(this.challengeProgress, event) ?? this.challengeProgress;
+  }
+
   private async remove(pos: Position): Promise<void> {
     if (this.isProcessing || this.paused || this.gameOver || this.remaining <= 0) return;
     const result = clearAt(this.state, pos);
@@ -363,7 +396,21 @@ export class FallingScene extends Scene {
     const activated = this.state.grid[pos.row][pos.col];
     const rowClear = activated === ROW_CLEAR_ITEM;
     const columnClear = activated === COLUMN_CLEAR_ITEM;
-    const tilesCleared = result.removed.filter(({ row, col }) => this.state.grid[row][col] < STORY_ITEM).length;
+    const removedTiles = result.removed.map(({ row, col }) => this.state.grid[row][col]);
+    const tilesCleared = removedTiles.filter(tile => tile < STORY_ITEM).length;
+    if (this.activeChallenge?.advance) {
+      this.advanceChallenge({
+        type: 'clear',
+        grid: result.state.grid,
+        count: removedTiles.length,
+        clearedTiles: tilesCleared,
+        color: activated < STORY_ITEM ? activated : undefined,
+        powerUp: powerUps.get(activated),
+        removedPowerUps: removedTiles.flatMap(tile => powerUps.get(tile) ?? []),
+        destroyedItems: removedTiles.filter(tile => tile === STORY_ITEM).length,
+        deliveredItems: result.deliveries.length
+      });
+    }
     vibrate('match');
     this.isProcessing = true;
     this.showGroup(null);
@@ -418,16 +465,22 @@ export class FallingScene extends Scene {
     if (!this.story || !this.storyGoalReached || !isStoryMode(mode)) return false;
     const next = this.levelIndex + 1;
     const finished = next === this.story.stages.length;
-    saveStoryCheckpoint(mode, next);
+    const earnedThirdStar = this.activeChallenge?.qualifies(this.state.grid, this.challengeProgress) === true;
+    saveStoryCheckpoint(mode, next, earnedThirdStar);
     this.gameOver = true;
     this.pendingTile = null;
     this.updateHUD();
     const messages = this.story.messages[getPreferences().language];
+    const details = earnedThirdStar ? document.createElement('p') : undefined;
+    if (details) details.textContent = t('Third star earned!');
     const cleanup = showStoryResult(
       finished ? messages.victory : messages.levelComplete,
       finished ? messages.restart : messages.continue,
       () => this.scene.restart({ levelIndex: finished ? 0 : next }),
-      finished ? { messages, chooseMode: mode => this.game.events.emit('select-mode-after-story', mode) } : undefined
+      {
+        details,
+        victory: finished ? { messages, chooseMode: mode => this.game.events.emit('select-mode-after-story', mode) } : undefined
+      }
     );
     this.events.once('shutdown', cleanup);
     return true;
@@ -455,6 +508,11 @@ export class FallingScene extends Scene {
       return;
     }
     const { nextRow: incoming, grid, delivered } = this.state;
+    this.advanceChallenge({
+      type: 'beforeDrop',
+      hasAvailableMove: () => grid.some((cells, row) =>
+        cells.some((tile, col) => tile >= 0 && findRemoval(grid, { row, col }).length > 0))
+    });
     this.state = { ...result.state, grid: grid.map(row => [...row]), delivered };
     // Start the next interval when the row is released, including its fall time.
     this.remaining = rowInterval(this.state.rowsAdded, this.level);

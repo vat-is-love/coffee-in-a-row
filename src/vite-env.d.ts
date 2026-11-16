@@ -20,4 +20,8 @@ declare module '@game/levels/shady-souls.json' {
   export default story;
 }
 
+declare module '@game/levels/story-challenges.mjs' {
+  export function getThirdStarChallenge(id?: string): import('./game/levels/story').StoryChallenge | undefined;
+}
+
 interface Window { CoffeeRecovery?: { diagnostics(): { webBuild: string; stage: string; ready: boolean; online: boolean; events: unknown[] }; isReady(): boolean; log(kind: string, detail?: string): void; stage(value: string): void; ready(): void; fail(code: string): void }; }

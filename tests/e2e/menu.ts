@@ -9,3 +9,8 @@ export async function openStoryMap(page: Page, story: RegExp) {
   await page.getByRole('button', { name: 'Story mode', exact: true }).click();
   await page.getByRole('button', { name: story }).click();
 }
+
+export async function beginStoryLevel(page: Page, level: number) {
+  await page.getByRole('dialog', { name: `Level ${level}`, exact: true }).getByRole('button', { name: 'Next', exact: true }).click();
+  await page.waitForFunction("window.__GAME__?.scene.isActive('FallingScene')");
+}

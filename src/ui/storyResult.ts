@@ -5,7 +5,10 @@ export function showStoryResult(
   title: string,
   actionLabel: string,
   restartOrContinue: () => void,
-  victory?: { messages: StoryMessages; chooseMode: (mode: Mode) => void }
+  { victory, details }: {
+    victory?: { messages: StoryMessages; chooseMode: (mode: Mode) => void };
+    details?: HTMLElement;
+  } = {}
 ): () => void {
   const dialog = document.createElement('dialog');
   dialog.className = 'settings-dialog';
@@ -26,6 +29,7 @@ export function showStoryResult(
       </div>
     </form>`;
   dialog.querySelector('h1')!.textContent = title;
+  if (details) dialog.querySelector('h1')!.after(details);
   dialog.querySelector('button[value="continue"]')!.textContent = actionLabel;
   if (victory) {
     const { messages } = victory;

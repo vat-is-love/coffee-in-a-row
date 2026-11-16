@@ -7,6 +7,7 @@ export interface Backup {
 }
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const uint = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
+const levelIndices = (v: unknown) => Array.isArray(v) && v.every(uint);
 function validateData(key: string, raw: string): void {
   const v: unknown = JSON.parse(raw);
   if (key === BACKUP_KEYS[0]) {
@@ -16,6 +17,8 @@ function validateData(key: string, raw: string): void {
       (v.storyCheckpoint !== undefined && !uint(v.storyCheckpoint)) ||
       (v.largeStoryCheckpoint !== undefined && !uint(v.largeStoryCheckpoint)) ||
       (v.shadySoulsCheckpoint !== undefined && !uint(v.shadySoulsCheckpoint)) ||
+      (v.largeStoryThirdStars !== undefined && !levelIndices(v.largeStoryThirdStars)) ||
+      (v.shadySoulsThirdStars !== undefined && !levelIndices(v.shadySoulsThirdStars)) ||
       (v.largeStoryMode !== undefined && (v.largeStoryMode !== true || v.storyMode !== true)) ||
       (v.storyMode !== undefined && (v.storyMode !== true || v.mode !== 'falling'))) throw Error('Invalid preferences');
   } else if (!Array.isArray(v) || !v.every(r => object(r) && uint(r.score) && uint(r.rows) &&

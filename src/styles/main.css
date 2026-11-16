@@ -286,3 +286,21 @@ canvas {
   font: 26px var(--font-main);
   cursor: pointer;
 }
+
+.story-intro h2 { font-size: 17px; margin: 12px 0 6px; color: #ffc766; }
+.story-intro section + section { border-top: 1px solid #e4cfad44; }
+.story-demo {
+  position: relative;
+  overflow: hidden;
+  width: min(156px, 100%);
+  aspect-ratio: 1;
+  margin: 0 auto 16px;
+  border: 1px solid #e4cfad44;
+  border-radius: 8px;
+  background:
+    linear-gradient(to right, #e4cfad33 1px, transparent 1px),
+    linear-gradient(to bottom, #e4cfad33 1px, transparent 1px) #10192e;
+  background-size: 20% 20%;
+}
+.story-demo img { position: absolute; width: 20%; height: 20%; }
+.story-demo-target { z-index: 1; border: 2px solid #ffc766; border-radius: 5px; }

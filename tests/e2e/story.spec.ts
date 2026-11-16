@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { openStoryMap } from './menu';
+import { beginStoryLevel, openStoryMap } from './menu';
 
 const STORY_ITEM = 6;
 const ROW_CLEAR_ITEM = 7;
@@ -11,7 +11,15 @@ test('Story retries after defeat and requires both the tile goal and a buff when
   await openStoryMap(page, /^Getting to know the game/);
   await expect(page.getByRole('button', { name: /^Level 2 · Locked/ })).toBeDisabled();
   await page.getByRole('button', { name: 'Level 1', exact: true }).click();
-  await page.waitForFunction(`${scene}?.state`);
+  const briefing = page.getByRole('dialog', { name: 'Level 1', exact: true });
+  await expect(briefing.locator('section h2')).toHaveText(['Description', 'Victory conditions', 'Third star']);
+  await expect(briefing.locator('section').nth(0).locator('.story-demo-target')).toBeVisible();
+  await expect(briefing.locator('section').nth(1)).toContainText('Tiles to clear: 4');
+  await expect(briefing.locator('section').nth(2)).toContainText('Complete the level with the entire top row empty.');
+  expect(await page.evaluate(`[${scene}.remaining, ${scene}.elapsed]`)).toEqual([4000, 0]);
+  await page.keyboard.press('Escape');
+  await expect(briefing).toBeVisible();
+  await beginStoryLevel(page, 1);
 
   const completed = page.getByRole('dialog', { name: 'Stage cleared' });
   const removePair = async () => {
@@ -29,14 +37,21 @@ test('Story retries after defeat and requires both the tile goal and a buff when
   await expect.poll(() => page.evaluate(`${scene}.scoreText.text`)).toBe('Tiles cleared: 2 / 4');
   await removePair();
   await expect(completed).toBeVisible();
+  await expect(completed.getByText('Third star earned!')).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-preferences')!))).toMatchObject({
+    largeStoryCheckpoint: 1, largeStoryThirdStars: [0]
+  });
   await page.keyboard.press('Escape');
   await expect(completed).toBeVisible();
   await completed.getByRole('button', { name: 'Next stage' }).click();
-  await page.waitForFunction(`${scene}.levelIndex === 1`);
+  await expect(page.getByRole('dialog', { name: 'Level 2', exact: true }).locator('section').nth(1))
+    .toContainText('Tiles to clear: 2 · Use a power-up');
+  await beginStoryLevel(page, 2);
 
   await page.evaluate(`${scene}.state.grid[0][0] = 0; ${scene}.remaining = 0`);
   const defeat = page.getByRole('dialog', { name: 'Board full' });
   await defeat.getByRole('button', { name: 'Retry level' }).click();
+  await beginStoryLevel(page, 2);
   await expect.poll(() => page.evaluate(`[${scene}.levelIndex, ${scene}.gameOver, ${scene}.scoreText.text]`))
     .toEqual([1, false, 'Tiles cleared: 0 / 2 · Buffs used: 0 / 1']);
   await removePair();
@@ -50,6 +65,7 @@ test('Story retries after defeat and requires both the tile goal and a buff when
   })()`);
   await page.keyboard.press('Enter');
   await completed.getByRole('button', { name: 'Next stage' }).click();
+  await beginStoryLevel(page, 3);
   await expect.poll(() => page.evaluate(`[${scene}.levelIndex, ${scene}.scoreText.text]`)).toEqual([2, 'Items delivered: 0 / 2']);
 });
 
@@ -63,6 +79,7 @@ test('a larger Story delivers a cup from the preview and joins both groups for o
   await page.goto('/');
   await openStoryMap(page, /^Getting to know the game/);
   await page.getByRole('button', { name: 'Level 3', exact: true }).click();
+  await beginStoryLevel(page, 3);
   await page.waitForFunction(`${scene}?.levelIndex === 2 && ${scene}.dropButton`);
   expect(await page.evaluate(`[${scene}.state.grid.length, ${scene}.preview.length]`)).toEqual([10, 10]);
   await page.evaluate(`${scene}.requestDrop()`);
@@ -97,8 +114,10 @@ test('a larger Story delivers a cup from the preview and joins both groups for o
 
   await page.evaluate(`${scene}.state.delivered = 2; ${scene}.requestDrop()`);
   await victory.getByRole('button', { name: 'Replay story' }).click();
+  await beginStoryLevel(page, 1);
   await expect.poll(() => page.evaluate(`[${scene}.levelIndex, ${scene}.level.board.cols]`)).toEqual([0, 10]);
   await page.evaluate(`void ${scene}.scene.restart({ levelIndex: 2 })`);
+  await beginStoryLevel(page, 3);
   await page.waitForFunction(`${scene}.levelIndex === 2`);
   await page.evaluate(`${scene}.state.delivered = 2; ${scene}.requestDrop()`);
   await victory.getByRole('button', { name: 'Choose' }).click();
@@ -117,6 +136,7 @@ test('Story gives the configured stage a longer row countdown at the same fall s
   await page.goto('/');
   await openStoryMap(page, /^Getting to know the game/);
   await page.getByRole('button', { name: 'Level 1', exact: true }).click();
+  await beginStoryLevel(page, 1);
   await page.waitForFunction(`${scene}?.state && ${scene}.dropButton`);
 
   const drop = () => page.evaluate(`(() => {
@@ -130,6 +150,7 @@ test('Story gives the configured stage a longer row countdown at the same fall s
 
   // The short Story fixture puts the override on its final stage.
   await page.evaluate(`void ${scene}.scene.restart({ levelIndex: 2 })`);
+  await beginStoryLevel(page, 3);
   await page.waitForFunction(`${scene}.levelIndex === 2 && ${scene}.dropButton`);
   expect(await drop()).toEqual({ duration: 280, remaining: 5000 });
 });
@@ -138,25 +159,33 @@ test('story maps show separate checkpoints and allow replay without losing acces
   await page.addInitScript(() => {
     if (localStorage.getItem('coffee-preferences') === null) {
       localStorage.setItem('coffee-preferences', JSON.stringify({
-        language: 'en', vibration: false, storyCheckpoint: 8, largeStoryCheckpoint: 2, shadySoulsCheckpoint: 1
+        language: 'en', vibration: false, storyCheckpoint: 8, largeStoryCheckpoint: 2, shadySoulsCheckpoint: 1,
+        shadySoulsThirdStars: [0]
       }));
     }
   });
   await page.goto('/');
   await openStoryMap(page, /^Shady Souls/);
-  await expect(page.getByRole('button', { name: 'Level 1 · Completed' })).toBeEnabled();
+  const shadyLevel = page.getByRole('button', { name: 'Level 1 · Completed' });
+  await expect(shadyLevel).toBeEnabled();
+  await expect(shadyLevel).toHaveAccessibleDescription('Stars 3/3');
   await expect(page.locator('.story-map button')).toHaveCount(1);
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: /^Getting to know the game/ }).click();
   const levels = page.locator('.story-map button');
   await expect(levels).toHaveText(['Level 3☆☆☆', 'Level 2 · Completed★★☆', 'Level 1 · Completed★★☆']);
   await levels.last().click();
+  const briefing = page.getByRole('dialog', { name: 'Level 1', exact: true });
+  await expect(briefing.getByRole('heading', { name: 'Third star' })).toBeVisible();
+  await expect(briefing.getByText('Complete the level with the entire top row empty.')).toBeVisible();
+  await beginStoryLevel(page, 1);
   await expect.poll(() => page.evaluate(`${scene}?.levelIndex`)).toBe(0);
   await page.evaluate(`${scene}.cleared = 4; ${scene}.requestDrop()`);
-  await expect(page.getByRole('dialog', { name: 'Stage cleared' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Stage cleared' }).getByText('Third star earned!')).toBeVisible();
   await page.reload();
   await openStoryMap(page, /^Getting to know the game/);
   await expect(page.getByRole('button', { name: 'Level 3', exact: true })).toBeEnabled();
+  await expect(levels.last()).toHaveAccessibleDescription('Stars 3/3');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-preferences')!))).toMatchObject({
     storyCheckpoint: 8, shadySoulsCheckpoint: 1, largeStoryCheckpoint: 2
   });
@@ -169,9 +198,12 @@ test('story maps show separate checkpoints and allow replay without losing acces
   await openStoryMap(page, /^Getting to know the game/);
   await expect(page.getByRole('button', { name: 'Level 1', exact: true })).toBeEnabled();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-preferences')!))).toMatchObject({
-    storyCheckpoint: 8, shadySoulsCheckpoint: 1
+    storyCheckpoint: 8, shadySoulsCheckpoint: 1, shadySoulsThirdStars: [0]
   });
   await expect(page.getByRole('button', { name: 'Reset progress' })).toBeDisabled();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-preferences')!).largeStoryThirdStars)).toBeUndefined();
+  await page.getByRole('button', { name: 'Level 1', exact: true }).click();
+  await expect(briefing.getByText('Complete the level with the entire top row empty.')).toBeVisible();
 });
 
 test('story selection shows Russian titles and descriptions', { tag: ['@story', '@preferences'] }, async ({ page }) => {
@@ -182,6 +214,12 @@ test('story selection shows Russian titles and descriptions', { tag: ['@story', 
   await page.getByRole('button', { name: 'Режим истории', exact: true }).click();
   await expect(page.getByRole('button', { name: /^Знакомство с игрой Освойте все механики игры/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Неясные души Нечестно сложные уровни/ })).toBeVisible();
+  await page.getByRole('button', { name: /^Знакомство с игрой/ }).click();
+  await page.getByRole('button', { name: 'Уровень 1', exact: true }).click();
+  const briefing = page.getByRole('dialog', { name: 'Уровень 1', exact: true });
+  await expect(briefing.locator('section h2')).toHaveText(['Описание', 'Условия победы', 'Третья звезда']);
+  await expect(briefing.getByText('Завершите уровень с полностью пустым верхним рядом.')).toBeVisible();
+  await expect(briefing.getByRole('button', { name: 'Дальше' })).toBeVisible();
 });
 
 test('a settled tile flips into lightning during a drop and clears its whole row outward', { tag: '@story' }, async ({ page }) => {
@@ -189,6 +227,32 @@ test('a settled tile flips into lightning during a drop and clears its whole row
   await page.goto('/');
   await openStoryMap(page, /^Shady Souls/);
   await page.getByRole('button', { name: 'Level 1', exact: true }).click();
+  const demo = page.locator('.story-demo');
+  await expect(demo).toBeVisible();
+  await expect(page.getByText('Items to deliver: 5', { exact: true })).toBeVisible();
+  const deliveryFrames = await demo.evaluate(board => {
+    const sprites = Array.from(board.querySelectorAll('img'));
+    const cup = sprites.find(sprite => sprite.style.top === '40%' && sprite.style.left === '40%')!;
+    const bean = sprites.find(sprite => sprite.style.top === '80%' && sprite.style.left === '60%')!;
+    const animations = board.getAnimations({ subtree: true });
+    return [0, 0.62, 0.7, 0.84].map(progress => {
+      for (const animation of animations) {
+        animation.pause();
+        animation.currentTime = Number(animation.effect!.getTiming().duration) * progress;
+      }
+      return {
+        cupY: cup.getBoundingClientRect().y,
+        opacity: Number(getComputedStyle(cup).opacity),
+        beanX: bean.getBoundingClientRect().x
+      };
+    });
+  });
+  const [start, landed, delivered, settled] = deliveryFrames;
+  expect(landed.cupY).toBeGreaterThan(start.cupY);
+  expect(landed.opacity).toBe(1);
+  expect(delivered).toEqual({ cupY: landed.cupY, opacity: 0, beanX: start.beanX });
+  expect(settled.beanX).toBeLessThan(delivered.beanX);
+  await beginStoryLevel(page, 1);
   await page.waitForFunction(`${scene}?.state`);
   await expect.poll(() => page.evaluate(`[
     ${scene}.level.board.rows, ${scene}.level.board.cols, ${scene}.level.board.tileTypes, ${scene}.scoreText.text

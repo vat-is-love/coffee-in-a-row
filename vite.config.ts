@@ -4,7 +4,7 @@ import path from 'path';
 
 const levelsDir = path.resolve(process.env.COFFEE_LEVELS_DIR || '../coffee-levels/publish');
 const storyFiles = ['story.json', 'shady-souls.json'];
-const levelFiles = ['match3.json', 'falling.json', ...storyFiles];
+const levelFiles = ['match3.json', 'falling.json', 'story-challenges.mjs', ...storyFiles];
 
 export default defineConfig(({ mode }) => {
   const files = Object.fromEntries(levelFiles.map(file => [file,
