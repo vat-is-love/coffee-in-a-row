@@ -1,7 +1,7 @@
 import { installPauseMask } from '../render/pauseMask';
 import { createBoardSurface } from '../render/boardSurface';
 import { showClassicLeaderboard, formatDuration } from '../../ui/fallingLeaderboard';
-import { createHud } from '../render/hud';
+import { createHud, openGameMenu } from '../render/hud';
 import { t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { startMatch3, match3Level } from '../levels/match3';
@@ -33,8 +33,6 @@ export class GameScene extends Scene {
   private highlight: GameObjects.Image | null = null;
   private gesture: { tile: TileView; x: number; y: number; id: number } | null = null;
   private isProcessing = false;
-  private paused = false;
-  private syncPauseMask?: () => void;
   private failed = false;
   private movesPlayed = 0;
   private reducedMotion = false;
@@ -54,7 +52,6 @@ export class GameScene extends Scene {
     this.clearedCells = new Set();
     this.board = [];
     this.isProcessing = false;
-    this.paused = false;
     this.failed = false;
     this.movesPlayed = 0;
     this.selectedTile = null;
@@ -72,8 +69,8 @@ export class GameScene extends Scene {
     }
     this.background = this.add.graphics();
     this.boardContainer = this.add.container(0, 0);
-    this.syncPauseMask = installPauseMask(this, () => [this.boardContainer],
-      () => this.paused, () => this.completed || this.failed, this.reducedMotion);
+    installPauseMask(this, () => [this.boardContainer],
+      () => this.sys.isPaused(), () => this.completed || this.failed, this.reducedMotion);
     this.createBoardSurface();
     this.resizeLayout();
     try {
@@ -87,7 +84,13 @@ export class GameScene extends Scene {
     this.input.keyboard?.on('keydown', this.keyDown, this);
     this.scale.on('resize', this.resizeLayout, this);
     this.game.events.on('language-changed', this.resizeLayout, this);
+    const hideSelection = () => {
+      this.cancelGesture();
+      this.clearSelection();
+    };
+    this.events.on('pause', hideSelection);
     this.events.once('shutdown', () => {
+      this.events.off('pause', hideSelection);
       this.scale.off('resize', this.resizeLayout, this);
       this.game.events.off('language-changed', this.resizeLayout, this);
       this.input.off('pointerdown', this.pointerDown, this);
@@ -114,18 +117,14 @@ export class GameScene extends Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (!this.timerStarted || this.paused || this.failed || this.completed || document.hidden) return;
+    if (!this.timerStarted || this.failed || this.completed || document.hidden) return;
     this.elapsed += delta;
     this.updateProgress();
   }
 
   private createHUD(): void {
     this.hudContainer?.destroy();
-    const icon = this.completed ? 'restart' : this.paused ? 'play' : 'pause';
-    const hud = createHud(this, t('Match three'), icon, () => {
-      if (this.completed) this.scene.restart();
-      else this.togglePause();
-    });
+    const hud = createHud(this, t('Match three'), this.completed ? () => this.scene.restart() : undefined);
     this.hudContainer = hud.container;
     this.scoreText = hud.score;
     this.movesText = hud.progress;
@@ -152,7 +151,7 @@ export class GameScene extends Scene {
   private updateHUD(message = t('Swipe or tap two tiles · Arrows + Space')): void {
     this.updateProgress();
     this.scoreText.setText(`${t('Score')}: ${this.state.score}`);
-    this.statusText.setText(this.failed ? t('Board error. Reload to try again.') : this.paused ? t('Paused · Resume or press Escape') : message);
+    this.statusText.setText(this.failed ? t('Board error. Reload to try again.') : message);
   }
 
   private updateProgress(): void {
@@ -178,7 +177,7 @@ export class GameScene extends Scene {
   }
 
   private pointerDown(pointer: Input.Pointer): void {
-    if (this.isProcessing || this.paused || this.failed || this.completed || this.gesture) return;
+    if (this.isProcessing || this.failed || this.completed || this.gesture) return;
     const tile = this.tileAt(pointer.x, pointer.y);
     if (tile) this.gesture = { tile, x: pointer.x, y: pointer.y, id: pointer.id };
     else this.clearSelection();
@@ -188,7 +187,7 @@ export class GameScene extends Scene {
     const start = this.gesture;
     if (!start || start.id !== pointer.id) return;
     this.gesture = null;
-    if (this.isProcessing || this.paused || this.failed || this.completed) return;
+    if (this.isProcessing || this.failed || this.completed) return;
     const dx = pointer.x - start.x;
     const dy = pointer.y - start.y;
     const threshold = Math.max(8, 64 * this.boardContainer.scaleX * 0.25);
@@ -224,8 +223,8 @@ export class GameScene extends Scene {
   }
 
   private keyDown(event: KeyboardEvent): void {
-    if (event.key === 'Escape') { this.togglePause(); return; }
-    if (this.isProcessing || this.paused || this.failed || this.completed) return;
+    if (event.key === 'Escape') { event.preventDefault(); openGameMenu(); return; }
+    if (this.isProcessing || this.failed || this.completed) return;
     const directions: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
     const delta = directions[event.key];
     if (delta) {
@@ -243,15 +242,6 @@ export class GameScene extends Scene {
     }
   }
 
-  private togglePause(): void {
-    if (this.isProcessing || this.failed || this.completed) return;
-    this.paused = !this.paused;
-    this.syncPauseMask?.();
-    this.cancelGesture();
-    this.clearSelection();
-    this.createHUD();
-  }
-
   private animate(targets: GameObjects.Image | GameObjects.Image[], values: object, duration: number): Promise<void> {
     return new Promise(resolve => {
       this.tweens.add({ targets, ...values, duration: this.reducedMotion ? 1 : duration, ease: 'Cubic.easeOut', onComplete: () => resolve() });
@@ -259,7 +249,7 @@ export class GameScene extends Scene {
   }
 
   private async attemptSwap(a: TileView, b: TileView): Promise<void> {
-    if (this.isProcessing || this.paused || this.failed || this.completed) return;
+    if (this.isProcessing || this.failed || this.completed) return;
     this.timerStarted = true;
     this.isProcessing = true;
     this.clearSelection();

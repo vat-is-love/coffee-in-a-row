@@ -1,7 +1,7 @@
 import { backupControls, installBackupControls, refreshBackupStatus } from './backup';
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
-import { stories, storyTitle, type StoryMode } from '../game/levels/story';
+import { isStoryMode, stories, storyTitle, type StoryMode } from '../game/levels/story';
 import { t, getPreferences, getStoryCheckpoint, getStoryStars, resetIntroductionProgress, savePreferences, type Language, type Mode } from './preferences';
 import type { Game } from 'phaser';
 
@@ -19,12 +19,12 @@ export function installSettings(game: Game): void {
   dialog.setAttribute('aria-labelledby', 'settings-title');
   const settings = document.createElement('form');
   installBackupControls(settings);
-  const confirmExit = document.createElement('dialog');
-  confirmExit.className = 'settings-dialog';
-  confirmExit.setAttribute('aria-labelledby', 'exit-title');
-  document.body.append(screen, dialog, confirmExit);
+  const gameMenu = document.createElement('dialog');
+  gameMenu.className = 'settings-dialog';
+  gameMenu.setAttribute('aria-labelledby', 'game-menu-title');
+  document.body.append(screen, dialog, gameMenu);
 
-  for (const modal of [dialog, confirmExit]) {
+  for (const modal of [dialog, gameMenu]) {
     modal.addEventListener('keydown', event => event.stopPropagation());
     modal.addEventListener('keyup', event => event.stopPropagation());
   }
@@ -187,51 +187,51 @@ export function installSettings(game: Game): void {
   });
 
   let suspended: string | undefined;
-  function suspend(): boolean {
-    if (suspended) return false;
-    suspended = ['GameScene', 'FallingScene'].find(scene => game.scene.isActive(scene));
-    if (!suspended) return false;
-    game.scene.pause(suspended);
-    return true;
-  }
 
   function openSettings(): void {
-    if (updating || !suspend()) return;
     dialog.append(settings);
     renderSettings(true);
     dialog.showModal();
   }
 
-  function openExit(): void {
-    if (!suspend()) return;
-    confirmExit.innerHTML = `
-      <form method="dialog">
-        <h1 id="exit-title">${t('Return to main menu?')}</h1>
-        <p>${t('The current round will end.')}</p>
-        <div class="settings-actions">
-          <button value="cancel" autofocus>${t('Cancel')}</button>
-          <button value="exit" class="primary">${t('Main menu')}</button>
-        </div>
-      </form>`;
-    confirmExit.returnValue = '';
-    confirmExit.showModal();
+  function leaveGame(destination: () => void): void {
+    if (suspended) game.scene.stop(suspended);
+    suspended = undefined;
+    gameMenu.close();
+    destination();
   }
 
-  function resume(): void {
-    if (suspended) game.scene.resume(suspended);
-    suspended = undefined;
+  function renderGameMenu(): HTMLButtonElement {
+    gameMenu.innerHTML = `
+      <h1 id="game-menu-title">${t('Game menu')}</h1>
+      <p>${t('Leaving the game ends the current round.')}</p>
+      <div class="settings-actions game-menu-actions"></div>`;
+    const actions = gameMenu.querySelector<HTMLDivElement>('.game-menu-actions')!;
+    const mode: unknown = game.registry.get('gameMode');
+    addButton(t('Main menu'), () => leaveGame(mainMenu), actions, '');
+    if (isStoryMode(mode)) addButton(t('Choose level'), () => leaveGame(() => storyMap(mode)), actions, '');
+    const settingsButton = addButton(t('Settings'), openSettings, actions, '');
+    const resumeButton = addButton(t('Resume game'), () => gameMenu.close(), actions, 'primary');
+    resumeButton.autofocus = true;
+    return settingsButton;
+  }
+
+  function openGameMenu(): void {
+    if (suspended) return;
+    suspended = ['GameScene', 'FallingScene'].find(scene => game.scene.isActive(scene));
+    if (!suspended) return;
+    game.scene.pause(suspended);
+    renderGameMenu();
+    gameMenu.showModal();
   }
 
   dialog.addEventListener('cancel', event => { if (updating) event.preventDefault(); });
-  dialog.addEventListener('close', resume);
-  confirmExit.addEventListener('close', () => {
-    if (confirmExit.returnValue !== 'exit') {
-      resume();
-      return;
-    }
-    if (suspended) game.scene.stop(suspended);
+  dialog.addEventListener('close', () => {
+    if (gameMenu.open) renderGameMenu().focus();
+  });
+  gameMenu.addEventListener('close', () => {
+    if (suspended) game.scene.resume(suspended);
     suspended = undefined;
-    mainMenu();
   });
 
   game.events.once('show-main-menu', () => {
@@ -240,14 +240,12 @@ export function installSettings(game: Game): void {
   });
   const selectAfterStory = (mode: Mode) => startMode(mode);
   game.events.on('select-mode-after-story', selectAfterStory);
-  window.addEventListener('game-settings', openSettings);
-  window.addEventListener('game-exit', openExit);
+  window.addEventListener('game-menu', openGameMenu);
   game.events.once('destroy', () => {
-    window.removeEventListener('game-settings', openSettings);
-    window.removeEventListener('game-exit', openExit);
+    window.removeEventListener('game-menu', openGameMenu);
     game.events.off('select-mode-after-story', selectAfterStory);
     screen.remove();
     dialog.remove();
-    confirmExit.remove();
+    gameMenu.remove();
   });
 }

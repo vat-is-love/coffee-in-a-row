@@ -11,13 +11,13 @@ async function startFalling(page: Page) {
 }
 const falling = `(window.__GAME__.scene.getScene('FallingScene'))`;
 
-test('settings and exit confirmation suspend the round and can resume it', { tag: ['@falling', '@smoke'] }, async ({ page, hasTouch }) => {
+test('game menu and settings suspend the round and can resume it', { tag: ['@falling', '@smoke'] }, async ({ page, hasTouch }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await startFalling(page);
-  const action = async (index: number) => {
+  const openMenu = async () => {
     const point = await page.evaluate(`(() => {
       const hud = ${falling}.hudContainer;
-      const button = hud.getAt(${index});
+      const button = hud.getByName('game-menu');
       return { x: hud.x + button.x + 22, y: hud.y + button.y + 22 };
     })()`);
     if (hasTouch) await page.touchscreen.tap(point.x, point.y);
@@ -29,48 +29,64 @@ test('settings and exit confirmation suspend the round and can resume it', { tag
   ]`) as Promise<string[]>;
   const originalTextures = await textures();
   const maskedTextures = originalTextures.map(() => 'tile-paused');
-  await page.evaluate(`(() => {
+  const watchTurn = (texture: string) => page.evaluate(`(() => {
     const sprite = ${falling}.board.flat().find(Boolean).sprite;
-    const original = sprite.texture.key;
-    const widths = [];
+    let previous = sprite.scaleX;
+    const directions = [];
+    let minWidth = previous;
     window.pauseTurn = new Promise(resolve => {
       function sample() {
-        const sign = Math.sign(sprite.scaleX);
-        if (sign && sign !== widths.at(-1)) widths.push(sign);
-        if (sprite.texture.key === 'tile-paused') {
-          resolve({ widths, scaleX: sprite.scaleX, scaleY: sprite.scaleY, rotation: sprite.rotation });
-        } else if (sprite.texture.key === original) {
+        const width = sprite.scaleX;
+        const direction = Math.sign(width - previous);
+        if (direction && direction !== directions.at(-1)) directions.push(direction);
+        minWidth = Math.min(minWidth, width);
+        previous = width;
+        if (sprite.texture.key === ${JSON.stringify(texture)} && width === 1) {
+          resolve({ directions, minWidth, scaleY: sprite.scaleY, rotation: sprite.rotation });
+        } else {
           requestAnimationFrame(sample);
         }
       }
       sample();
     });
   })()`);
-  await action(3);
+  const expectOneTurn = async () => {
+    const { minWidth, ...turn } = await sceneValue(page, 'window.pauseTurn');
+    expect(turn).toEqual({ directions: [-1, 1], scaleY: 1, rotation: 0 });
+    expect(minWidth).toBeGreaterThanOrEqual(0);
+    expect(minWidth).toBeLessThan(0.5);
+  };
+  await watchTurn('tile-paused');
+  await openMenu();
+  const menu = page.getByRole('dialog', { name: 'Game menu' });
+  await expect(menu.getByRole('button')).toHaveText(['Main menu', 'Settings', 'Resume game']);
+  await menu.getByRole('button', { name: 'Settings' }).click();
   const settings = page.getByRole('dialog', { name: 'Settings' });
   await expect(settings).toBeVisible();
   await expect(settings.getByRole('radio')).toHaveCount(0);
   await expect.poll(textures).toEqual(maskedTextures);
-  expect(await sceneValue(page, 'window.pauseTurn')).toEqual({
-    widths: [1, -1, 1], scaleX: 1, scaleY: 1, rotation: 0
-  });
+  await expectOneTurn();
   await page.setViewportSize({ width: 390, height: 700 });
   await expect.poll(textures).toEqual(maskedTextures);
   const frozen = await sceneValue(page, `${falling}.remaining`);
   await page.waitForTimeout(300);
   expect(await sceneValue(page, `${falling}.remaining`)).toBe(frozen);
   await settings.getByRole('button', { name: 'Close settings' }).click();
+  await expect(menu).toBeVisible();
+  expect(await sceneValue(page, `${falling}.remaining`)).toBe(frozen);
+  await watchTurn(originalTextures[0]);
+  await menu.getByRole('button', { name: 'Resume game' }).click();
   await expect.poll(() => sceneValue(page, `${falling}.remaining`)).toBeLessThan(Number(frozen));
 
   await expect.poll(textures).toEqual(originalTextures);
-  await action(2);
-  const confirm = page.getByRole('dialog', { name: 'Return to main menu?' });
-  await expect(confirm).toBeVisible();
+  await expectOneTurn();
+  await openMenu();
+  await expect(menu).toBeVisible();
   await expect.poll(textures).toEqual(maskedTextures);
-  await confirm.getByRole('button', { name: 'Cancel' }).click();
+  await page.keyboard.press('Escape');
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
-  await action(2);
-  await confirm.getByRole('button', { name: 'Main menu' }).click();
+  await openMenu();
+  await menu.getByRole('button', { name: 'Main menu' }).click();
   await expect(page.getByRole('heading', { name: 'Coffee Match' })).toBeVisible();
   await expect.poll(() => sceneValue(page, "window.__GAME__.scene.isActive('FallingScene')")).toBe(false);
   await chooseCompetitive(page, /Match three/);
@@ -131,7 +147,7 @@ test('row waits for resolution, lands from preview, overflows and restarts on mo
   expect(await sceneValue(page, `${falling}.gameOver`)).toBe(true);
   const restart = await page.evaluate(`(() => {
     const hud = ${falling}.hudContainer;
-    const button = hud.getAt(5);
+    const button = hud.getByName('restart');
     return { x: hud.x + button.x + 22, y: hud.y + button.y + 22 };
   })()`);
   await page.mouse.click(restart.x, restart.y);
@@ -140,11 +156,32 @@ test('row waits for resolution, lands from preview, overflows and restarts on mo
 });
 
 
+test('the complete preview stays visible for 150 ms before automatic drop', { tag: '@falling' }, async ({ page }) => {
+  await startFalling(page);
+  const samples = await page.evaluate(() => {
+    const scene = (window as any).__GAME__.scene.getScene('FallingScene');
+    const sample = () => [scene.remaining, scene.preview.at(-1).alpha, scene.state.rowsAdded];
+    scene.remaining = 166;
+    scene.updateHUD();
+    const revealing = sample();
+    scene.update(0, 17);
+    const revealed = sample();
+    scene.update(0, 149);
+    const waiting = sample();
+    scene.update(0, 1);
+    return { revealing, revealed, waiting, dropped: scene.state.rowsAdded };
+  });
+  expect(samples.revealing[1]).toBeLessThan(1);
+  expect(samples.revealed).toEqual([150, 1, 0]);
+  expect(samples.waiting).toEqual([1, 1, 0]);
+  expect(samples.dropped).toBe(1);
+});
+
 test('preview builds left to right, survives resize, and early drop releases exactly one row', { tag: '@falling' }, async ({ page }) => {
   await startFalling(page);
   const preview = await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
-    scene.remaining = 3750;
+    scene.remaining = 3900;
     scene.updateHUD();
     return { colors: scene.state.nextRow, alphas: scene.preview.map((s: any) => s.alpha) };
   });

@@ -56,7 +56,7 @@ function makeDemo(demo: string, state: FallingState, tileImage: (tile: number) =
 }
 
 export function showStoryIntro(
-  title: string, briefing: StoryBriefing | undefined, goal: string, challengeHint: string | undefined,
+  title: string, briefing: StoryBriefing | undefined, goal: string, challengeHint: string | undefined | null,
   state: FallingState, tileImage: (tile: number) => string, start: () => void
 ): () => void {
   const details = document.createElement('div');
@@ -77,6 +77,8 @@ export function showStoryIntro(
     if (demo) description.append(demo);
   }
   addSection(t('Victory conditions'), goal);
-  addSection(t('Third star'), challengeHint ?? t('This level has no third-star challenge.'));
-  return showStoryResult(title, t('Next'), start, { details });
+  if (challengeHint !== null) {
+    addSection(t('Third star'), challengeHint ?? t('This level has no third-star challenge.'));
+  }
+  return showStoryResult(title, t('Next'), start, { details, className: 'story-briefing' });
 }

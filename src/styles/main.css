@@ -196,6 +196,7 @@ canvas {
   box-shadow: 0 16px 60px #0008;
 }
 .settings-dialog::backdrop { background: #0d0d1acc; }
+.story-briefing::backdrop { background: transparent; }
 .settings-dialog h1 { font-size: 24px; margin-bottom: 18px; }
 .settings-dialog fieldset { border: 0; }
 .settings-dialog legend { margin-bottom: 10px; color: #e8a87c; }
@@ -206,6 +207,7 @@ canvas {
 .mode-option small { color: #c7bcb0; margin-top: 4px; line-height: 1.45; }
 .settings-dialog p { font-size: 13px; color: #c7bcb0; margin: 4px 0 20px; }
 .settings-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.game-menu-actions { flex-direction: column; }
 .settings-actions button { font: inherit; padding: 10px 18px; border: 1px solid #e4cfad66; border-radius: 8px; background: transparent; color: #f5f0e8; cursor: pointer; }
 .settings-actions .primary { background: #e8a87c; color: #1a1a2e; border-color: #e8a87c; }
 

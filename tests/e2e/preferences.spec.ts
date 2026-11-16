@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { chooseCompetitive } from './menu';
+import { chooseCompetitive, openGameSettings } from './menu';
 
 test('language and vibration apply without resetting the board and persist on reload', { tag: '@preferences' }, async ({ page }) => {
   await page.addInitScript(() => {
@@ -12,13 +12,15 @@ test('language and vibration apply without resetting the board and persist on re
   await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
     scene.state.score = 123;
-    window.dispatchEvent(new Event('game-settings'));
   });
+  await openGameSettings(page);
   await page.getByRole('combobox', { name: 'Language' }).selectOption('ru');
   await page.getByRole('checkbox', { name: /Vibration/ }).uncheck();
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   expect(await page.evaluate(() => (window as any).__GAME__.scene.getScene('FallingScene').state.score)).toBe(123);
-  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  const menu = page.getByRole('dialog', { name: 'Меню игры' });
+  await expect(menu).toBeVisible();
+  await menu.getByRole('button', { name: 'Настройки' }).click();
   await expect(page.getByRole('heading', { name: 'Настройки' })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /Вибрация/ })).not.toBeChecked();
   await page.getByRole('combobox', { name: 'Язык' }).selectOption('en');
@@ -56,7 +58,7 @@ test('update control is exclusive to APK and handles a failed check', { tag: '@p
   await page.goto('/');
   await chooseCompetitive(page, /Falling pieces/);
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
-  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  await openGameSettings(page);
   await expect(page.locator('[data-update-game]')).toHaveCount(0);
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.addInitScript(() => {
@@ -66,7 +68,7 @@ test('update control is exclusive to APK and handles a failed check', { tag: '@p
   await page.reload();
   await chooseCompetitive(page, /Falling pieces/);
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
-  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  await openGameSettings(page);
   await page.getByRole('button', { name: 'Update game', exact: true }).click();
   await expect(page.locator('[data-update-status]')).toHaveText('Update failed. Check your connection and try again.');
   await expect(page.getByRole('button', { name: 'Update game', exact: true })).toBeEnabled();
@@ -86,7 +88,7 @@ test('the Android update button starts both checks even if the web check fails',
   await page.goto('/');
   await chooseCompetitive(page, /Falling pieces/);
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
-  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
+  await openGameSettings(page);
   const button = page.getByRole('button', { name: 'Check for updates', exact: true });
   await button.click();
   await expect(page.locator('html')).toHaveAttribute('data-update-request', 'coffee-apk-update:en');

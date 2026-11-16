@@ -14,3 +14,8 @@ export async function beginStoryLevel(page: Page, level: number) {
   await page.getByRole('dialog', { name: `Level ${level}`, exact: true }).getByRole('button', { name: 'Next', exact: true }).click();
   await page.waitForFunction("window.__GAME__?.scene.isActive('FallingScene')");
 }
+
+export async function openGameSettings(page: Page) {
+  await page.keyboard.press('Escape');
+  await page.getByRole('dialog', { name: 'Game menu' }).getByRole('button', { name: 'Settings' }).click();
+}

@@ -1,54 +1,69 @@
 import { GameObjects, type Scene } from 'phaser';
 
+const turnDuration = 360;
+
 export function installPauseMask(
   scene: Scene,
   containers: () => (GameObjects.Container | undefined)[],
-  isManuallyPaused: () => boolean,
+  isPaused: () => boolean,
   isFinished: () => boolean,
   reducedMotion: boolean
 ): () => void {
-  const masked = new Map<GameObjects.Image, { texture: string; scaleX: number }>();
+  const masked = new Map<GameObjects.Image, { texture: string; scaleX: number; displayedScaleX: number }>();
   let frame = 0;
-  let started = 0;
+  let progress = 0;
+  let target = 0;
+  let lastFrame = 0;
+
+  function paint(): void {
+    const width = Math.abs(Math.cos(progress * Math.PI));
+    for (const [sprite, original] of masked) {
+      if (!sprite.scene) {
+        masked.delete(sprite);
+        continue;
+      }
+      // Gameplay tweens can resume while the tiles are turning back.
+      if (sprite.scaleX !== original.displayedScaleX) original.scaleX = sprite.scaleX;
+      if (sprite.texture.key !== 'tile-paused') original.texture = sprite.texture.key;
+      const texture = progress >= 0.5 ? 'tile-paused' : original.texture;
+      if (sprite.texture.key !== texture) sprite.setTexture(texture);
+      sprite.scaleX = original.displayedScaleX = original.scaleX * width;
+    }
+    if (progress === 0 && target === 0) masked.clear();
+  }
 
   function rotate(now: number): void {
-    const progress = Math.min(1, (now - started) / 360);
-    const width = Math.cos(progress * Math.PI * 2);
-    for (const [sprite, original] of masked) {
-      if (!sprite.scene) continue;
-      sprite.scaleX = original.scaleX * width;
-      if (progress === 1) sprite.setTexture('tile-paused');
-    }
-    frame = progress < 1 ? requestAnimationFrame(rotate) : 0;
+    const step = Math.max(0, now - lastFrame) / turnDuration;
+    lastFrame = Math.max(lastFrame, now);
+    progress = target === 1 ? Math.min(1, progress + step) : Math.max(0, progress - step);
+    paint();
+    frame = progress !== target ? requestAnimationFrame(rotate) : 0;
   }
 
   function restore(): void {
     cancelAnimationFrame(frame);
-    frame = 0;
-    for (const [sprite, original] of masked) {
-      if (!sprite.scene) continue;
-      sprite.setTexture(original.texture);
-      sprite.scaleX = original.scaleX;
-    }
-    masked.clear();
+    frame = progress = target = 0;
+    paint();
   }
 
   function sync(): void {
-    if (isFinished() || !(isManuallyPaused() || scene.sys.isPaused())) {
+    if (isFinished()) {
       restore();
       return;
     }
-    const wasMasked = masked.size > 0;
-    for (const [sprite] of masked) if (!sprite.scene) masked.delete(sprite);
-    for (const container of containers()) {
-      for (const sprite of container?.list ?? []) {
-        if (!(sprite instanceof GameObjects.Image) || !sprite.texture.key.startsWith('tile-') || masked.has(sprite)) continue;
-        masked.set(sprite, { texture: sprite.texture.key, scaleX: sprite.scaleX });
-        if (reducedMotion || (wasMasked && !frame)) sprite.setTexture('tile-paused');
+    target = Number(isPaused());
+    if (target === 1) {
+      for (const container of containers()) {
+        for (const sprite of container?.list ?? []) {
+          if (!(sprite instanceof GameObjects.Image) || !sprite.texture.key.startsWith('tile-') || masked.has(sprite)) continue;
+          masked.set(sprite, { texture: sprite.texture.key, scaleX: sprite.scaleX, displayedScaleX: sprite.scaleX });
+        }
       }
     }
-    if (!wasMasked && masked.size && !reducedMotion) {
-      started = performance.now();
+    if (reducedMotion) progress = target;
+    paint();
+    if (!frame && masked.size && progress !== target) {
+      lastFrame = performance.now();
       frame = requestAnimationFrame(rotate);
     }
   }

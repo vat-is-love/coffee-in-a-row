@@ -5,13 +5,15 @@ export function showStoryResult(
   title: string,
   actionLabel: string,
   restartOrContinue: () => void,
-  { victory, details }: {
+  { victory, details, className }: {
     victory?: { messages: StoryMessages; chooseMode: (mode: Mode) => void };
     details?: HTMLElement;
+    className?: string;
   } = {}
 ): () => void {
   const dialog = document.createElement('dialog');
   dialog.className = 'settings-dialog';
+  if (className) dialog.classList.add(className);
   dialog.setAttribute('aria-labelledby', 'story-result-title');
   dialog.innerHTML = `
     <form method="dialog">

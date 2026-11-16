@@ -1,7 +1,7 @@
 import { installPauseMask } from '../render/pauseMask';
 import { createBoardSurface } from '../render/boardSurface';
-import { createHud } from '../render/hud';
-import { getPreferences, getStoryStars, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
+import { createHud, openGameMenu } from '../render/hud';
+import { getPreferences, getStoryCheckpoint, getStoryStars, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { fallingLevel, createFalling, clearAt, findRemoval, addFallingRow, rowInterval, ROW_CLEAR_ITEM, COLUMN_CLEAR_ITEM, STORY_ITEM, BUFF_TILES, turnDuration, type FallingLevel, type FallingState } from '../logic/falling';
 import { isStoryMode, loadStory, storyTitle, stories, type StoryChallenge, type StoryChallengeEvent } from '../levels/story';
@@ -11,6 +11,7 @@ import { showStoryIntro } from '../../ui/storyIntro';
 import { showStoryResult } from '../../ui/storyResult';
 
 type TileView = Position & { sprite: GameObjects.Image };
+const previewHoldMs = 150;
 const powerUps = new Map((Object.keys(BUFF_TILES) as (keyof typeof BUFF_TILES)[])
   .map(name => [BUFF_TILES[name], name] as const));
 
@@ -35,7 +36,7 @@ export class FallingScene extends Scene {
   private settlingPreview: { grid: number[][]; board: (TileView | null)[][] } | null = null;
   private pendingTile: TileView | null = null;
   private removingTiles = new Set<TileView>();
-  private paused = false;
+  private briefingOpen = false;
   private syncPauseMask?: () => void;
   private gameOver = false;
   private reducedMotion = false;
@@ -57,6 +58,7 @@ export class FallingScene extends Scene {
     const stage = this.storyStage;
     return !!stage && this.storyProgress >= stage.target && (!this.requiresBuff || this.buffUsed);
   }
+  private get previewHold() { return this.level.incomingRows.previewNextRow ? previewHoldMs : 0; }
   private get boardWidth() { return this.level.board.cols * 64; }
   private get boardHeight() { return this.level.board.rows * 64; }
 
@@ -76,11 +78,11 @@ export class FallingScene extends Scene {
       window.CoffeeRecovery?.fail('invalid-falling-level');
       return;
     }
-    this.remaining = rowInterval(0, this.level);
+    this.remaining = rowInterval(0, this.level) + this.previewHold;
     this.previewRow = [...this.state.nextRow];
     this.droppingRow = false;
     this.selected = { row: this.level.board.rows - 1, col: 0 };
-    this.isProcessing = this.paused = this.gameOver = false;
+    this.isProcessing = this.briefingOpen = this.gameOver = false;
     this.cleared = 0;
     this.buffUsed = false;
     this.challengeProgress = 0;
@@ -101,7 +103,8 @@ export class FallingScene extends Scene {
     this.pendingOutline = this.add.graphics();
     this.boardContainer.add(this.pendingOutline);
     this.syncPauseMask = installPauseMask(this, () => [this.boardContainer, this.previewContainer],
-      () => this.paused, () => this.gameOver || this.failed, this.reducedMotion);
+      () => !this.briefingOpen && this.sys.isPaused(),
+      () => this.gameOver || this.failed, this.reducedMotion);
     this.layout();
     this.input.on('pointerup', this.click, this);
     this.input.on('pointermove', this.hover, this);
@@ -126,10 +129,12 @@ export class FallingScene extends Scene {
     });
     const stage = this.storyStage;
     if (stage && isStoryMode(mode)) {
+      this.briefingOpen = true;
       this.scene.pause();
       const objective = `${t(this.level.delivery ? 'Items to deliver' : 'Tiles to clear')}: ${stage.target}`;
       const goal = this.requiresBuff ? `${objective} · ${t('Use a power-up')}` : objective;
-      const hint = stage.thirdStar?.hint[getPreferences().language];
+      const hint = levelIndex < getStoryCheckpoint(mode)
+        ? stage.thirdStar?.hint[getPreferences().language] : null;
       const cleanup = showStoryIntro(
         `${t('Level')} ${levelIndex + 1}`, stage.briefing, goal, hint,
         this.state, tile => {
@@ -138,6 +143,7 @@ export class FallingScene extends Scene {
         },
         () => {
           this.events.off('shutdown', cleanup);
+          this.briefingOpen = false;
           this.scene.resume();
         }
       );
@@ -148,9 +154,11 @@ export class FallingScene extends Scene {
   update(_time: number, delta: number): void {
     if (this.failed) return;
     this.drawPendingOutline();
-    if (this.paused || this.gameOver || document.hidden) return;
+    if (this.gameOver || document.hidden) return;
     this.elapsed += delta;
-    this.remaining = Math.max(0, this.remaining - delta);
+    // Start the hold on the frame that first shows the complete preview.
+    const floor = this.remaining > this.previewHold ? this.previewHold : 0;
+    this.remaining = Math.max(floor, this.remaining - delta);
     this.updateHUD();
     if (this.remaining === 0 && !this.isProcessing) void this.dropRow();
   }
@@ -190,7 +198,7 @@ export class FallingScene extends Scene {
   }
 
   private requestDrop(): void {
-    if (this.paused || this.gameOver || this.droppingRow || this.remaining <= 0) return;
+    if (this.gameOver || this.droppingRow || this.remaining <= 0) return;
     this.remaining = 0;
     this.updateHUD();
     // A request during removal is fulfilled once the board has settled.
@@ -199,15 +207,11 @@ export class FallingScene extends Scene {
 
   private createHUD(): void {
     this.hudContainer?.destroy();
-    const icon = this.gameOver ? 'restart' : this.paused ? 'play' : 'pause';
     const mode: unknown = this.registry.get('gameMode');
     const title = this.story && isStoryMode(mode)
       ? `${storyTitle(mode, getPreferences().language)} · ${t('Level')} ${this.levelIndex + 1}/${this.story.stages.length}`
       : t('FALLING ROWS');
-    const hud = createHud(this, title, icon, () => {
-      if (this.gameOver) this.scene.restart({ levelIndex: this.levelIndex });
-      else this.togglePause();
-    });
+    const hud = createHud(this, title, this.gameOver ? () => this.scene.restart({ levelIndex: this.levelIndex }) : undefined);
     this.hudContainer = hud.container;
     this.scoreText = hud.score;
     this.timerText = hud.progress;
@@ -237,10 +241,10 @@ export class FallingScene extends Scene {
 
   private updateHUD(): void {
     const { cols } = this.level.board;
-    const progress = this.droppingRow ? 1 : Math.max(0, Math.min(1, 1 - this.remaining / rowInterval(this.state.rowsAdded, this.level)));
+    const progress = this.droppingRow ? 1 : Math.max(0, Math.min(1, 1 - (this.remaining - this.previewHold) / rowInterval(this.state.rowsAdded, this.level)));
     // Each tile materializes during its own slice of the countdown, left to right.
     this.preview.forEach((sprite, col) => sprite.setAlpha(Math.max(0, Math.min(1, progress * cols - col))));
-    this.dropButton?.setAlpha(this.paused || this.gameOver || this.droppingRow || this.remaining <= 0 ? 0.45 : 1);
+    this.dropButton?.setAlpha(this.gameOver || this.droppingRow || this.remaining <= 0 ? 0.45 : 1);
     const stage = this.storyStage;
     const buffProgress = this.requiresBuff ? ` · ${t('Buffs used')}: ${Number(this.buffUsed)} / 1` : '';
     const displayedProgress = stage && (!this.requiresBuff || this.buffUsed)
@@ -259,7 +263,7 @@ export class FallingScene extends Scene {
       buffs?.includes('bomb') ? 'Lightning clears lines · Bombs clear nearby tiles' :
       buffs?.includes('vertical') ? 'Tap lightning to clear its row or column' :
       buffs ? 'Tap the lightning tile to clear its row' : 'Tap groups of 2+ · Empty columns move to center';
-    this.statusText.setText(this.storyGoalReached ? '' : this.gameOver ? t('Board full · Restart to try again') : this.paused ? t('Paused · Resume or press Escape') : this.isProcessing ? t('Settling…') : danger ? t('Nearly full! Clear space for the next row') : t(hint));
+    this.statusText.setText(this.storyGoalReached ? '' : this.gameOver ? t('Board full · Restart to try again') : this.isProcessing ? t('Settling…') : danger ? t('Nearly full! Clear space for the next row') : t(hint));
   }
 
   private position(pointer: Input.Pointer): Position | null {
@@ -271,7 +275,7 @@ export class FallingScene extends Scene {
 
   private click(pointer: Input.Pointer): void {
     const pos = this.position(pointer);
-    if (!pos || this.paused || this.gameOver) return;
+    if (!pos || this.gameOver) return;
     if (this.isProcessing) {
       // Follow the visible tile through gravity and column centering, not its old cell.
       const x = (pointer.x - this.boardContainer.x) / this.boardContainer.scaleX;
@@ -287,7 +291,7 @@ export class FallingScene extends Scene {
 
   private drawPendingOutline(): void {
     this.pendingOutline.clear();
-    if (!this.pendingTile || this.paused || this.gameOver) return;
+    if (!this.pendingTile || this.gameOver) return;
     const board = this.settlingPreview?.board ?? this.board;
     const grid = this.settlingPreview?.grid ?? this.state.grid;
     let position: Position | null = null;
@@ -307,7 +311,7 @@ export class FallingScene extends Scene {
   }
 
   private processPending(): void {
-    if (this.isProcessing || this.paused || this.gameOver) return;
+    if (this.isProcessing || this.gameOver) return;
     // An expired timer always releases its row before another removal.
     if (this.remaining <= 0) {
       void this.dropRow();
@@ -328,7 +332,7 @@ export class FallingScene extends Scene {
   private showGroup(pos: Position | null): void {
     this.highlights.forEach(sprite => sprite.destroy());
     this.highlights = [];
-    if (!pos || this.isProcessing || this.paused || this.gameOver) return;
+    if (!pos || this.isProcessing || this.gameOver) return;
     this.highlights = findRemoval(this.state.grid, pos).map(p => {
       const sprite = this.add.image(p.col * 64 + 32, p.row * 64 + 32, 'selection-highlight').setAlpha(0.75);
       this.boardContainer.add(sprite);
@@ -337,8 +341,8 @@ export class FallingScene extends Scene {
   }
 
   private keyDown(event: KeyboardEvent): void {
-    if (event.key === 'Escape') { this.togglePause(); return; }
-    if (this.isProcessing || this.paused || this.gameOver) return;
+    if (event.key === 'Escape') { event.preventDefault(); openGameMenu(); return; }
+    if (this.isProcessing || this.gameOver) return;
     const directions: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
     const delta = directions[event.key];
     if (delta) {
@@ -350,14 +354,6 @@ export class FallingScene extends Scene {
       event.preventDefault();
       void this.remove(this.selected);
     }
-  }
-
-  private togglePause(): void {
-    if (this.isProcessing || this.gameOver) return;
-    this.paused = !this.paused;
-    this.syncPauseMask?.();
-    this.showGroup(null);
-    this.createHUD();
   }
 
   private animate(targets: GameObjects.Image[], values: object, duration: number): Promise<void> {
@@ -390,7 +386,7 @@ export class FallingScene extends Scene {
   }
 
   private async remove(pos: Position): Promise<void> {
-    if (this.isProcessing || this.paused || this.gameOver || this.remaining <= 0) return;
+    if (this.isProcessing || this.gameOver || this.remaining <= 0) return;
     const result = clearAt(this.state, pos);
     if (!result.removed.length) return;
     const activated = this.state.grid[pos.row][pos.col];
@@ -487,7 +483,7 @@ export class FallingScene extends Scene {
   }
 
   private async dropRow(): Promise<void> {
-    if (this.isProcessing || this.paused || this.gameOver) return;
+    if (this.isProcessing || this.gameOver) return;
     this.isProcessing = true;
     this.droppingRow = true;
     this.updateHUD();
@@ -515,7 +511,7 @@ export class FallingScene extends Scene {
     });
     this.state = { ...result.state, grid: grid.map(row => [...row]), delivered };
     // Start the next interval when the row is released, including its fall time.
-    this.remaining = rowInterval(this.state.rowsAdded, this.level);
+    this.remaining = rowInterval(this.state.rowsAdded, this.level) + this.previewHold;
     const tiles = result.added.map(pos => {
       const tile = this.makeTile(pos.row, pos.col, incoming[pos.col], -52);
       this.state.grid[pos.row][pos.col] = incoming[pos.col];
