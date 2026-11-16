@@ -21,6 +21,11 @@ export type StoryConfig = {
 export const stories = { 'story-large': story, 'shady-souls': shadySouls };
 export type StoryMode = keyof typeof stories;
 
+export function storyTitle(mode: StoryMode, language: 'en' | 'ru'): string {
+  const introductionTitles = { en: 'Getting to know the game', ru: 'Знакомство с игрой' };
+  return mode === 'story-large' ? introductionTitles[language] : stories[mode].messages[language].title;
+}
+
 export function isStoryMode(mode: unknown): mode is StoryMode {
   return typeof mode === 'string' && Object.prototype.hasOwnProperty.call(stories, mode);
 }

@@ -1,19 +1,16 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { openStoryMap } from './menu';
 
 const STORY_ITEM = 6;
 const ROW_CLEAR_ITEM = 7;
 const scene = "(window.__GAME__?.scene.getScene('FallingScene'))";
 
-async function selectMode(page: Page, value: 'shady-souls' | 'story-large' | 'falling') {
-  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
-  await page.locator(`dialog[open] input[name="mode"][value="${value}"]`).check();
-  await page.getByRole('button', { name: 'Apply' }).click();
-}
-
 test('Story retries after defeat and requires both the tile goal and a buff when configured', { tag: '@story' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
-  await page.getByRole('button', { name: /^Story mode/ }).click();
+  await openStoryMap(page, /^Getting to know the game/);
+  await expect(page.getByRole('button', { name: /^Level 2 · Locked/ })).toBeDisabled();
+  await page.getByRole('button', { name: 'Level 1', exact: true }).click();
   await page.waitForFunction(`${scene}?.state`);
 
   const completed = page.getByRole('dialog', { name: 'Stage cleared' });
@@ -64,8 +61,8 @@ test('a larger Story delivers a cup from the preview and joins both groups for o
     }));
   });
   await page.goto('/');
-  await page.getByRole('button', { name: /^Story mode/ }).click();
-  await page.getByRole('button', { name: 'Continue Level 3' }).click();
+  await openStoryMap(page, /^Getting to know the game/);
+  await page.getByRole('button', { name: 'Level 3', exact: true }).click();
   await page.waitForFunction(`${scene}?.levelIndex === 2 && ${scene}.dropButton`);
   expect(await page.evaluate(`[${scene}.state.grid.length, ${scene}.preview.length]`)).toEqual([10, 10]);
   await page.evaluate(`${scene}.requestDrop()`);
@@ -109,12 +106,17 @@ test('a larger Story delivers a cup from the preview and joins both groups for o
   await victory.getByRole('radio', { name: 'Falling pieces' }).check();
   await victory.getByRole('button', { name: 'Choose' }).click();
   await expect.poll(() => page.evaluate(`${scene}.scoreText.text`)).toContain('Score:');
+  await page.evaluate(() => window.dispatchEvent(new Event('game-exit')));
+  await page.getByRole('button', { name: 'Main menu' }).click();
+  await openStoryMap(page, /^Getting to know the game/);
+  await expect(page.getByRole('button', { name: 'Level 3 · Completed' })).toBeEnabled();
 });
 
 test('Story gives the configured stage a longer row countdown at the same fall speed', { tag: '@story' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
-  await page.getByRole('button', { name: /^Story mode/ }).click();
+  await openStoryMap(page, /^Getting to know the game/);
+  await page.getByRole('button', { name: 'Level 1', exact: true }).click();
   await page.waitForFunction(`${scene}?.state && ${scene}.dropButton`);
 
   const drop = () => page.evaluate(`(() => {
@@ -132,62 +134,49 @@ test('Story gives the configured stage a longer row countdown at the same fall s
   expect(await drop()).toEqual({ duration: 280, remaining: 5000 });
 });
 
-test('switching modes keeps separate Story checkpoints until the player starts a new game', { tag: ['@story', '@smoke'] }, async ({ page }) => {
+test('story maps show separate checkpoints and allow replay without losing access', { tag: ['@story', '@smoke'] }, async ({ page }) => {
   await page.addInitScript(() => {
     if (localStorage.getItem('coffee-preferences') === null) {
       localStorage.setItem('coffee-preferences', JSON.stringify({
-        language: 'en', vibration: false, mode: 'falling', storyMode: true, storyCheckpoint: 8, largeStoryCheckpoint: 2, shadySoulsCheckpoint: 1
+        language: 'en', vibration: false, storyCheckpoint: 8, largeStoryCheckpoint: 2, shadySoulsCheckpoint: 1
       }));
     }
   });
   await page.goto('/');
-  await expect.poll(() => page.evaluate(`${scene}?.scoreText?.text`)).toContain('Score:');
-  await selectMode(page, 'shady-souls');
-  const storyPicker = page.getByRole('dialog', { name: 'Shady Souls', exact: true });
-  await storyPicker.getByRole('button', { name: 'Continue Level 2' }).click();
-  const level = (index: number, size: number) => expect.poll(() =>
-    page.evaluate(`[${scene}?.levelIndex, ${scene}?.level?.board.cols]`)).toEqual([index, size]);
-  await level(1, 8);
-
-  await selectMode(page, 'story-large');
-  const largePicker = page.getByRole('dialog', { name: 'Story mode', exact: true });
-  await largePicker.getByRole('button', { name: 'Continue Level 3' }).click();
-  await level(2, 10);
+  await openStoryMap(page, /^Shady Souls/);
+  await expect(page.getByRole('button', { name: 'Level 1 · Completed' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Level 2', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: /^Getting to know the game/ }).click();
+  const levels = page.locator('.story-map button');
+  await expect(levels).toHaveText(['Level 3', 'Level 2 · Completed', 'Level 1 · Completed']);
+  await levels.last().click();
+  await expect.poll(() => page.evaluate(`${scene}?.levelIndex`)).toBe(0);
+  await page.evaluate(`${scene}.cleared = 4; ${scene}.requestDrop()`);
+  await expect(page.getByRole('dialog', { name: 'Stage cleared' })).toBeVisible();
   await page.reload();
-  await expect.poll(() => page.evaluate(`${scene}?.scoreText?.text`)).toContain('Score:');
-  await selectMode(page, 'story-large');
-  await largePicker.getByRole('button', { name: 'New game' }).click();
-  await level(0, 10);
-  await selectMode(page, 'shady-souls');
-  await storyPicker.getByRole('button', { name: 'Continue Level 2' }).click();
-  await level(1, 8);
-  await selectMode(page, 'story-large');
-  await level(0, 10);
+  await openStoryMap(page, /^Getting to know the game/);
+  await expect(page.getByRole('button', { name: 'Level 3', exact: true })).toBeEnabled();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-preferences')!))).toMatchObject({
-    storyCheckpoint: 8, shadySoulsCheckpoint: 1
+    storyCheckpoint: 8, shadySoulsCheckpoint: 1, largeStoryCheckpoint: 2
   });
 });
 
-test('the mode picker and settings show Russian story titles and descriptions', { tag: ['@story', '@preferences'] }, async ({ page }) => {
+test('story selection shows Russian titles and descriptions', { tag: ['@story', '@preferences'] }, async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('coffee-preferences', JSON.stringify({ language: 'ru', vibration: false }));
   });
   await page.goto('/');
-  const story = /^Режим истории Освойте все механики игры/;
-  const shadySouls = /^Неясные души Нечестно сложные уровни/;
-  await expect(page.getByRole('button', { name: story })).toBeVisible();
-  await expect(page.getByRole('button', { name: shadySouls })).toBeVisible();
-  await page.getByRole('button', { name: /^Падающие ряды/ }).click();
-  await page.waitForFunction(`${scene}?.scene.isActive()`);
-  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
-  await expect(page.getByRole('radio', { name: story })).toBeVisible();
-  await expect(page.getByRole('radio', { name: shadySouls })).toBeVisible();
+  await page.getByRole('button', { name: 'Режим истории', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Знакомство с игрой Освойте все механики игры/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Неясные души Нечестно сложные уровни/ })).toBeVisible();
 });
 
 test('a settled tile flips into lightning during a drop and clears its whole row outward', { tag: '@story' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Shady Souls' }).click();
+  await openStoryMap(page, /^Shady Souls/);
+  await page.getByRole('button', { name: 'Level 1', exact: true }).click();
   await page.waitForFunction(`${scene}?.state`);
   await expect.poll(() => page.evaluate(`[
     ${scene}.level.board.rows, ${scene}.level.board.cols, ${scene}.level.board.tileTypes, ${scene}.scoreText.text

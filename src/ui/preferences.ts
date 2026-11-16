@@ -36,17 +36,18 @@ export function getStoryCheckpoint(storyMode: StoryMode): number {
   } catch { return 0; }
 }
 export function saveStoryCheckpoint(storyMode: StoryMode, levelIndex: number): void {
-  pendingStoryCheckpoints[storyMode] = levelIndex;
+  pendingStoryCheckpoints[storyMode] = Math.max(getStoryCheckpoint(storyMode), levelIndex);
   persistPreferences(true);
 }
 export function savePreferences(next: { language: Language; vibration: boolean; mode?: Mode }): void {
   if (next.mode) mode = next.mode;
   languageChosen = true;
   language = next.language;
+  const cancelVibration = vibration && !next.vibration;
   vibration = next.vibration;
   document.documentElement.lang = language;
   persistPreferences();
-  if (!vibration) requestVibration('cancel');
+  if (cancelVibration) requestVibration('cancel');
 }
 function persistPreferences(preserveStoredPreferences = false): void {
   // Installed Android wrappers only accept the original mode names in backups.
@@ -90,6 +91,18 @@ export function vibrate(event: 'match' | 'loss'): void {
   requestVibration(event);
 }
 const russian: Record<string, string> = {
+  'Competitive mode': 'Соревновательный режим',
+  'Story mode': 'Режим истории',
+  'Achievements': 'Достижения',
+  'About the authors': 'Об авторах',
+  'Exit': 'Выход',
+  'Back': 'Назад',
+  'Completed': 'Пройден',
+  'Locked': 'Закрыт',
+  'Close settings': 'Закрыть настройки',
+  'Return to main menu?': 'Вернуться в главное меню?',
+  'The current round will end.': 'Текущая партия завершится.',
+  'Main menu': 'Главное меню',
   "Data restored, but backup setup failed. Choose the folder again in settings.": "Данные восстановлены, но настроить копирование не удалось. Выберите папку заново в настройках.",
   "Save progress after uninstall": "Сохранять прогресс после удаления",
   "Allow storage access when Android asks. Records and settings are saved automatically. After reinstalling, enable this option to restore. The current board is not saved.": "Разрешите доступ к файлам, когда Android попросит. Рекорды и настройки сохраняются автоматически. После переустановки включите эту галочку для восстановления. Текущее игровое поле не сохраняется.",

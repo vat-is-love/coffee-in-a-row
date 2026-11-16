@@ -3,6 +3,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test';
+import { chooseCompetitive } from './menu';
 
 test.describe('Coffee Match: Match-3 Demo', () => {
   test('loads the playable board without errors', { tag: ['@classic', '@smoke'] }, async ({ page }) => {
@@ -26,10 +27,11 @@ test.describe('Coffee Match: Match-3 Demo', () => {
     { width: 768, height: 1024 },
     { width: 1280, height: 720 }
   ]) {
-    test(`restores the board and fits a ${viewport.width}×${viewport.height} viewport`, { tag: '@classic' }, async ({ page }) => {
+    test(`starts a board after reload and fits a ${viewport.width}×${viewport.height} viewport`, { tag: '@classic' }, async ({ page }) => {
       await ready(page);
       await page.setViewportSize(viewport);
       await page.reload();
+      await chooseCompetitive(page, /Match three/);
       await waitForBoard(page);
       const canvas = page.locator('canvas');
       await expect(canvas).toBeVisible();
@@ -87,7 +89,7 @@ test.describe('Coffee Match: Match-3 Demo', () => {
 });
 async function ready(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: /Match three/ }).click();
+  await chooseCompetitive(page, /Match three/);
   await waitForBoard(page);
 }
 

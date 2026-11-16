@@ -3,7 +3,7 @@ import { createHud } from '../render/hud';
 import { getPreferences, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { fallingLevel, createFalling, clearAt, findRemoval, addFallingRow, rowInterval, ROW_CLEAR_ITEM, COLUMN_CLEAR_ITEM, STORY_ITEM, turnDuration, type FallingLevel, type FallingState } from '../logic/falling';
-import { isStoryMode, loadStory, stories } from '../levels/story';
+import { isStoryMode, loadStory, storyTitle, stories } from '../levels/story';
 import type { Position } from '../logic/types';
 import { showFallingLeaderboard } from '../../ui/fallingLeaderboard';
 import { showStoryResult } from '../../ui/storyResult';
@@ -96,9 +96,6 @@ export class FallingScene extends Scene {
     this.input.keyboard?.on('keydown', this.keyDown, this);
     this.scale.on('resize', this.layout, this);
     this.game.events.on('language-changed', this.layout, this);
-    // Readiness belongs to the playable interface, including when the saved
-    // mode bypasses the first-launch picker. Wait until its first frame renders.
-    this.game.events.once('postrender', () => window.CoffeeRecovery?.ready());
     this.events.once('shutdown', () => {
       this.settlingPreview = null;
       this.pendingTile = null;
@@ -166,8 +163,9 @@ export class FallingScene extends Scene {
   private createHUD(): void {
     this.hudContainer?.destroy();
     const icon = this.gameOver ? 'restart' : this.paused ? 'play' : 'pause';
-    const title = this.story
-      ? `${this.story.messages[getPreferences().language].title} · ${t('Level')} ${this.levelIndex + 1}/${this.story.stages.length}`
+    const mode: unknown = this.registry.get('gameMode');
+    const title = this.story && isStoryMode(mode)
+      ? `${storyTitle(mode, getPreferences().language)} · ${t('Level')} ${this.levelIndex + 1}/${this.story.stages.length}`
       : t('FALLING ROWS');
     const hud = createHud(this, title, icon, () => {
       if (this.gameOver) this.scene.restart({ levelIndex: this.levelIndex });
@@ -408,7 +406,7 @@ export class FallingScene extends Scene {
     if (!this.story || !this.storyGoalReached || !isStoryMode(mode)) return false;
     const next = this.levelIndex + 1;
     const finished = next === this.story.stages.length;
-    saveStoryCheckpoint(mode, finished ? 0 : next);
+    saveStoryCheckpoint(mode, next);
     this.gameOver = true;
     this.pendingTile = null;
     this.updateHUD();

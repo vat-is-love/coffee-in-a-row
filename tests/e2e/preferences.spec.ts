@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { chooseCompetitive } from './menu';
 
 test('language and vibration apply without resetting the board and persist on reload', { tag: '@preferences' }, async ({ page }) => {
   await page.addInitScript(() => {
@@ -6,7 +7,7 @@ test('language and vibration apply without resetting the board and persist on re
     navigator.vibrate = pattern => { (window as any).vibrations.push(pattern); return true; };
   });
   await page.goto('/');
-  await page.getByRole('button', { name: /Falling pieces/ }).click();
+  await chooseCompetitive(page, /Falling pieces/);
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
   await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
@@ -23,7 +24,7 @@ test('language and vibration apply without resetting the board and persist on re
   await page.getByRole('combobox', { name: 'Язык' }).selectOption('en');
   await page.getByRole('button', { name: 'Отмена', exact: true }).click();
   await page.reload();
-  await expect(page.getByRole('dialog', { name: 'Выберите режим игры' })).not.toBeVisible();
+  await chooseCompetitive(page, /Падающие ряды/);
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
   await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
@@ -34,26 +35,26 @@ test('language and vibration apply without resetting the board and persist on re
   expect(await page.evaluate(() => (window as any).vibrations)).toEqual([]);
 });
 
-test('first launch language and mode are remembered; settings can change the saved mode', { tag: '@preferences' }, async ({ page }) => {
+test('main menu settings apply on a separate screen and persist after reload', { tag: ['@preferences', '@smoke'] }, async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('combobox', { name: 'Language / Язык' }).selectOption('ru');
-  await page.getByRole('button', { name: /Falling pieces/ }).click();
-  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('radio')).toHaveCount(0);
+  await page.getByRole('combobox', { name: 'Language' }).selectOption('ru');
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByRole('button', { name: 'Настройки' })).toBeVisible();
   await page.reload();
-  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
-  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Настройки' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
-  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
-  await page.locator('input[name="mode"][value="classic"]').check();
-  await page.getByRole('button', { name: 'Применить', exact: true }).click();
-  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('GameScene'));
-  await page.reload();
-  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('GameScene'));
+  await page.getByRole('button', { name: 'Настройки' }).click();
+  await page.getByRole('button', { name: 'Назад' }).click();
+  await expect(page.getByRole('heading', { name: 'Coffee Match' })).toBeVisible();
 });
 
 test('update control is exclusive to APK and handles a failed check', { tag: '@preferences' }, async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Falling pieces/ }).click();
+  await chooseCompetitive(page, /Falling pieces/);
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
   await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
   await expect(page.locator('[data-update-game]')).toHaveCount(0);
@@ -63,6 +64,7 @@ test('update control is exclusive to APK and handles a failed check', { tag: '@p
     Object.defineProperty(navigator, 'onLine', { value: false });
   });
   await page.reload();
+  await chooseCompetitive(page, /Falling pieces/);
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
   await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
   await page.getByRole('button', { name: 'Update game', exact: true }).click();
@@ -82,7 +84,7 @@ test('the Android update button starts both checks even if the web check fails',
     };
   });
   await page.goto('/');
-  await page.getByRole('button', { name: /Falling pieces/ }).click();
+  await chooseCompetitive(page, /Falling pieces/);
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
   await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
   const button = page.getByRole('button', { name: 'Check for updates', exact: true });
@@ -90,4 +92,20 @@ test('the Android update button starts both checks even if the web check fails',
   await expect(page.locator('html')).toHaveAttribute('data-update-request', 'coffee-apk-update:en');
   await expect(page.locator('[data-update-status]')).toHaveText('Could not update the game. Check your connection and try again.');
   await expect(button).toBeEnabled();
+});
+
+test('the main menu exit uses the Android wrapper when it advertises support', { tag: ['@preferences', '@smoke'] }, async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Coffee Match' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Exit', exact: true })).toHaveCount(0);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent + ' CoffeeExit/1 CoffeeAPK/1.0.11' });
+    window.prompt = message => {
+      document.documentElement.dataset.nativeRequest = message;
+      return 'accepted';
+    };
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Exit', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-native-request', 'coffee-exit');
 });

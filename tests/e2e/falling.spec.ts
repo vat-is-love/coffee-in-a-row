@@ -1,49 +1,48 @@
 import { test, expect, type Page } from '@playwright/test';
+import { chooseCompetitive } from './menu';
 
 async function sceneValue(page: Page, expression: string) {
   return page.evaluate(expression);
 }
-async function openSettings(page: Page) {
-  await page.evaluate(() => window.dispatchEvent(new Event('game-settings')));
-  await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
-}
 async function startFalling(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: /Falling pieces/ }).click();
+  await chooseCompetitive(page, /Falling pieces/);
   await page.waitForFunction(() => (window as any).__GAME__?.scene.isActive('FallingScene'));
 }
 const falling = `(window.__GAME__.scene.getScene('FallingScene'))`;
 
-test('settings pause the timer; the first-launch picker requires a choice', { tag: '@falling' }, async ({ page }) => {
+test('settings and exit confirmation suspend the round and can resume it', { tag: ['@falling', '@smoke'] }, async ({ page, hasTouch }) => {
   await startFalling(page);
-  await openSettings(page);
+  const action = async (index: number) => {
+    const point = await page.evaluate(`(() => {
+      const hud = ${falling}.hudContainer;
+      const button = hud.getAt(${index});
+      return { x: hud.x + button.x + 22, y: hud.y + button.y + 22 };
+    })()`);
+    if (hasTouch) await page.touchscreen.tap(point.x, point.y);
+    else await page.mouse.click(point.x, point.y);
+  };
+  await action(3);
+  const settings = page.getByRole('dialog', { name: 'Settings' });
+  await expect(settings).toBeVisible();
+  await expect(settings.getByRole('radio')).toHaveCount(0);
   const frozen = await sceneValue(page, `${falling}.remaining`);
   await page.waitForTimeout(300);
   expect(await sceneValue(page, `${falling}.remaining`)).toBe(frozen);
-  await page.getByRole('radio', { name: /Match three/ }).check();
-  await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect.poll(() => sceneValue(page, `window.__GAME__.scene.isActive('FallingScene')`)).toBe(true);
-  await openSettings(page);
-  await page.getByRole('radio', { name: /Match three/ }).check();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog')).not.toBeVisible();
-  await expect.poll(() => sceneValue(page, `window.__GAME__.scene.isActive('FallingScene')`)).toBe(true);
-  await page.evaluate(() => localStorage.removeItem('coffee-preferences'));
-  await page.reload();
-  const picker = page.getByRole('dialog', { name: 'Choose game mode' });
-  await expect(picker).toBeVisible();
-  await expect(picker.getByText('You can change the mode in settings.')).toBeVisible();
-  expect(await sceneValue(page, `window.__GAME__.scene.isActive('FallingScene')`)).toBe(false);
-  expect(await sceneValue(page, `window.__GAME__.scene.isActive('GameScene')`)).toBe(false);
-  await page.keyboard.press('Escape');
-  await expect(picker).toBeVisible();
-  await picker.getByRole('button', { name: /Falling pieces/ }).click();
-  await page.waitForFunction(() => (window as any).__GAME__?.scene.isActive('FallingScene'));
-  await openSettings(page);
-  await page.getByRole('radio', { name: /Match three/ }).check();
-  await page.getByRole('button', { name: 'Apply' }).click();
-  await page.waitForFunction(() => (window as any).__GAME__?.scene.isActive('GameScene'));
-  expect(await sceneValue(page, `(window.__GAME__.scene.getScene('GameScene')).state.grid.flat().length`)).toBe(64);
+  await settings.getByRole('button', { name: 'Close settings' }).click();
+  await expect.poll(() => sceneValue(page, `${falling}.remaining`)).toBeLessThan(Number(frozen));
+
+  await action(2);
+  const confirm = page.getByRole('dialog', { name: 'Return to main menu?' });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole('button', { name: 'Cancel' }).click();
+  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
+  await action(2);
+  await confirm.getByRole('button', { name: 'Main menu' }).click();
+  await expect(page.getByRole('heading', { name: 'Coffee Match' })).toBeVisible();
+  await expect.poll(() => sceneValue(page, "window.__GAME__.scene.isActive('FallingScene')")).toBe(false);
+  await chooseCompetitive(page, /Match three/);
+  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('GameScene'));
 });
 
 test('group removal locks rapid input for one tenth of the row interval even with reduced motion', { tag: '@falling' }, async ({ page }) => {

@@ -1,7 +1,7 @@
 import { Scene } from 'phaser';
 
 /** Vector icons stay sharp and do not depend on fonts available on the phone. */
-export function iconButton(scene: Scene, x: number, y: number, icon: 'settings' | 'pause' | 'play' | 'restart', action: () => void) {
+export function iconButton(scene: Scene, x: number, y: number, icon: 'settings' | 'menu' | 'pause' | 'play' | 'restart', action: () => void) {
   const button = scene.add.container(x, y);
   const background = scene.add.rectangle(22, 22, 44, 44, 0x6f4e37)
     .setStrokeStyle(1, 0xe8a87c, 0.6).setInteractive({ useHandCursor: true });
@@ -13,6 +13,8 @@ export function iconButton(scene: Scene, x: number, y: number, icon: 'settings' 
       const a = i * Math.PI / 4;
       drawing.lineBetween(22 + Math.cos(a) * 9, 22 + Math.sin(a) * 9, 22 + Math.cos(a) * 14, 22 + Math.sin(a) * 14);
     }
+  } else if (icon === 'menu') {
+    drawing.lineBetween(12, 15, 32, 15).lineBetween(12, 22, 32, 22).lineBetween(12, 29, 32, 29);
   } else if (icon === 'pause') {
     drawing.fillRect(14, 12, 5, 20).fillRect(25, 12, 5, 20);
   } else if (icon === 'play') {

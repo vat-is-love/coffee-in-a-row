@@ -147,10 +147,8 @@ export class BootScene extends Scene {
     window.CoffeeRecovery?.stage('boot-assets-ready');
     this.loadingText.setText(t('Ready!'));
     this.time.delayedCall(300, () => {
-      this.game.events.once('game-mode-selected', (levelIndex: number) => {
-        this.scene.start(this.registry.get('gameMode') === 'classic' ? 'GameScene' : 'FallingScene', { levelIndex });
-      });
-      this.game.events.emit('choose-game-mode');
+      this.scene.stop();
+      this.game.events.emit('show-main-menu');
     });
   }
 }

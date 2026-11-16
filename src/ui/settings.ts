@@ -1,133 +1,120 @@
 import { backupControls, installBackupControls, refreshBackupStatus } from './backup';
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
-import { isStoryMode, stories } from '../game/levels/story';
-import { t, getPreferences, getStartupPreferences, getStoryCheckpoint, savePreferences, saveStoryCheckpoint, type Language, type Mode } from './preferences';
+import { stories, storyTitle, type StoryMode } from '../game/levels/story';
+import { t, getPreferences, getStoryCheckpoint, savePreferences, type Language, type Mode } from './preferences';
 import type { Game } from 'phaser';
 
-/** Native controls keep settings usable with touch, keyboard, and screen readers. */
 export function installSettings(game: Game): void {
-  const startup = getStartupPreferences();
-  let mode: Mode = startup.mode ?? 'classic';
-  game.registry.set('gameMode', mode);
-  const storyPicker = document.createElement('dialog');
-  const storyModes = Object.keys(stories);
-  const storyOptionText = (mode: string) => `<strong data-story-title="${mode}"></strong><small data-story-description="${mode}"></small>`;
-  const fillStoryText = (container: HTMLElement) => {
-    const { language } = getPreferences();
-    for (const label of container.querySelectorAll<HTMLElement>('[data-story-title], [data-story-description]')) {
-      const { storyTitle, storyDescription } = label.dataset;
-      const mode = storyTitle ?? storyDescription;
-      if (!isStoryMode(mode)) continue;
-      const { title, description } = stories[mode].messages[language];
-      label.textContent = storyTitle ? title : description ?? '';
-    }
-  };
-  storyPicker.className = 'settings-dialog mode-picker';
-  storyPicker.setAttribute('aria-labelledby', 'story-picker-title');
-  storyPicker.addEventListener('cancel', event => event.preventDefault());
-  document.body.append(storyPicker);
-  const chooseStartingLevel = (selected: Mode, start: (levelIndex: number) => void) => {
-    if (!isStoryMode(selected)) {
-      start(0);
-      return;
-    }
-    const checkpoint = getStoryCheckpoint(selected);
-    if (checkpoint === 0 || checkpoint >= stories[selected].levels.length) {
-      start(0);
-      return;
-    }
-    storyPicker.innerHTML = `
-      <form method="dialog">
-        <h1 id="story-picker-title" data-story-title="${selected}"></h1>
-        <button class="mode-option" value="continue">
-          <strong>${t('Continue')}</strong>
-          <small>${t('Level')} ${checkpoint + 1}</small>
-        </button>
-        <button class="mode-option" value="new">${t('New game')}</button>
-      </form>`;
-    fillStoryText(storyPicker);
-    storyPicker.addEventListener('close', () => {
-      if (storyPicker.returnValue === 'new') {
-        saveStoryCheckpoint(selected, 0);
-        start(0);
-      } else start(checkpoint);
-    }, { once: true });
-    storyPicker.showModal();
-    requestAnimationFrame(() => window.CoffeeRecovery?.ready());
-  };
-  const startMode = (selected: Mode, currentScene: string) => chooseStartingLevel(selected, levelIndex => {
-    mode = selected;
-    game.registry.set('gameMode', mode);
-    game.scene.stop(currentScene);
-    game.scene.start(mode === 'classic' ? 'GameScene' : 'FallingScene', { levelIndex });
-  });
-  const startFromBoot = () => chooseStartingLevel(mode, levelIndex => game.events.emit('game-mode-selected', levelIndex));
-  const selectAfterStory = (selected: Mode) => {
-    savePreferences({ ...getPreferences(), mode: selected });
-    startMode(selected, 'FallingScene');
-  };
-  game.events.on('select-mode-after-story', selectAfterStory);
-  const modePicker = document.createElement('dialog');
-  modePicker.className = 'settings-dialog mode-picker';
-  modePicker.setAttribute('aria-labelledby', 'mode-picker-title');
-  modePicker.setAttribute('aria-describedby', 'mode-picker-hint');
-  modePicker.innerHTML = `
-    <form method="dialog">
-      <h1 id="mode-picker-title">${t('Choose game mode')}</h1>
-      ${!startup.languageChosen ? `<label class="preference-option">Language / Язык
-        <select name="startup-language"><option value="en">English</option><option value="ru">Русский</option></select>
-      </label>` : ''}
-      ${startup.mode ? `<button class="mode-option" value="${startup.mode}">${t('Continue')}</button>` : `
-      <button class="mode-option" value="falling">
-        <strong>${t('Falling pieces')}</strong>
-        <small>${t('Tap connected groups of 2+ before the next row arrives.')}</small>
-      </button>
-      <button class="mode-option" value="classic">
-        <strong>${t('Match three')}</strong>
-        <small>${t("Match lines of 3 to clear every cell's pale background.")}</small>
-      </button>
-      ${storyModes.map(mode => `<button class="mode-option" value="${mode}">
-        ${storyOptionText(mode)}
-      </button>`).join('')}
-      `}
-      ${backupControls()}
-      <p id="mode-picker-hint">${t('You can change the mode in settings.')}</p>
-    </form>`;
-  fillStoryText(modePicker);
-  document.body.append(modePicker);
-  installBackupControls(modePicker);
-  // A mode must be chosen before gameplay starts, including with Escape.
-  modePicker.addEventListener('cancel', event => event.preventDefault());
-  modePicker.addEventListener('close', () => {
-    const choice = modePicker.returnValue;
-    if (choice !== 'classic' && choice !== 'falling' && !isStoryMode(choice)) return;
-    mode = choice;
-    savePreferences({ ...getPreferences(), mode,
-      language: (modePicker.querySelector<HTMLSelectElement>('[name="startup-language"]')?.value as Language | undefined) ?? getPreferences().language
-    });
-    game.registry.set('gameMode', mode);
-    startFromBoot();
-  });
-  const chooseMode = () => {
-    window.CoffeeRecovery?.stage('choose-game-mode');
-    if (startup.mode && startup.languageChosen) {
-      startFromBoot();
-      return;
-    }
-    modePicker.returnValue = '';
-    modePicker.showModal();
-    void refreshBackupStatus();
-    requestAnimationFrame(() => window.CoffeeRecovery?.ready());
-  };
-  game.events.once('choose-game-mode', chooseMode);
+  const host = document.getElementById('game-container')!;
+  const screen = document.createElement('main');
+  screen.className = 'menu-screen settings-actions';
+  screen.hidden = true;
+  const panel = document.createElement('div');
+  panel.className = 'menu-panel mode-picker';
+  screen.append(panel);
 
   const dialog = document.createElement('dialog');
   dialog.className = 'settings-dialog';
   dialog.setAttribute('aria-labelledby', 'settings-title');
-  const renderSettings = () => { dialog.innerHTML = `
-    <form method="dialog">
-      <h1 id="settings-title">${t('Settings')}</h1>
+  const settings = document.createElement('form');
+  installBackupControls(settings);
+  const confirmExit = document.createElement('dialog');
+  confirmExit.className = 'settings-dialog';
+  confirmExit.setAttribute('aria-labelledby', 'exit-title');
+  document.body.append(screen, dialog, confirmExit);
+
+  for (const modal of [dialog, confirmExit]) {
+    modal.addEventListener('keydown', event => event.stopPropagation());
+    modal.addEventListener('keyup', event => event.stopPropagation());
+  }
+
+  function startMode(mode: Mode, levelIndex = 0): void {
+    savePreferences({ ...getPreferences(), mode });
+    game.registry.set('gameMode', mode);
+    screen.hidden = true;
+    host.inert = false;
+    game.scene.stop('GameScene');
+    game.scene.stop('FallingScene');
+    game.scene.start(mode === 'classic' ? 'GameScene' : 'FallingScene', { levelIndex });
+  }
+
+  function showScreen(title: string, back?: () => void): void {
+    screen.hidden = false;
+    host.inert = true;
+    screen.scrollTop = 0;
+    panel.replaceChildren();
+    if (back) addButton(t('Back'), back, panel, 'menu-back');
+    const heading = document.createElement('h1');
+    heading.textContent = title;
+    heading.tabIndex = -1;
+    panel.append(heading);
+    heading.focus();
+  }
+
+  function addButton(label: string, action?: () => void, parent = panel, className = 'mode-option'): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.textContent = label;
+    button.disabled = !action;
+    if (action) button.addEventListener('click', action);
+    parent.append(button);
+    return button;
+  }
+
+  function mainMenu(): void {
+    showScreen('Coffee Match');
+    addButton(t('Competitive mode'), competitiveMenu);
+    addButton(t('Story mode'), storyMenu);
+    addButton(t('Settings'), () => {
+      showScreen(t('Settings'), mainMenu);
+      panel.append(settings);
+      renderSettings(false);
+    });
+    addButton(t('Achievements'));
+    addButton(t('About the authors'));
+    if (/\bCoffeeExit\/1\b/.test(navigator.userAgent)) {
+      addButton(t('Exit'), () => window.prompt('coffee-exit'));
+    }
+  }
+
+  function competitiveMenu(): void {
+    showScreen(t('Competitive mode'), mainMenu);
+    addButton(`${t('Match three')} · 8 × 8`, () => startMode('classic'));
+    addButton(`${t('Falling pieces')} · 8 × 8`, () => startMode('falling'));
+  }
+
+  function storyMenu(): void {
+    showScreen(t('Story mode'), mainMenu);
+    for (const mode of ['shady-souls', 'story-large'] as const) {
+      const button = addButton(storyTitle(mode, getPreferences().language), () => storyMap(mode));
+      const description = document.createElement('small');
+      description.textContent = stories[mode].messages[getPreferences().language].description ?? '';
+      button.append(description);
+    }
+  }
+
+  function storyMap(mode: StoryMode): void {
+    showScreen(storyTitle(mode, getPreferences().language), storyMenu);
+    const count = stories[mode].levels.length;
+    const completed = getStoryCheckpoint(mode);
+    const map = document.createElement('div');
+    map.className = 'story-map';
+    panel.append(map);
+    for (let index = count - 1; index >= 0; index--) {
+      const state = index < completed ? t('Completed') : index > completed ? t('Locked') : '';
+      const label = `${t('Level')} ${index + 1}`;
+      addButton(state ? `${label} · ${state}${index > completed ? ' 🔒' : ''}` : label,
+        index <= completed ? () => startMode(mode, index) : undefined, map);
+    }
+    map.children[Math.max(0, count - 1 - completed)].scrollIntoView({ block: 'center' });
+  }
+
+  function renderSettings(inGame: boolean): void {
+    settings.innerHTML = `
+      ${inGame ? `<button class="settings-close" type="submit" value="cancel" aria-label="${t('Close settings')}">×</button>
+      <h1 id="settings-title">${t('Settings')}</h1>` : ''}
       <p data-app-version>${t('Version')}: ${appVersion.endsWith('.0-local') ? `${appVersion.slice(0, -8)} (${t('local build')})` : appVersion}</p>
       <label class="preference-option">${t('Language')}
         <select name="language"><option value="en">English</option><option value="ru">Русский</option></select>
@@ -137,37 +124,24 @@ export function installSettings(game: Game): void {
       <small>${t(supportsApkUpdates() ? 'Check for game and Android app updates. A game update restarts the current round.' : 'Download the latest version from GitHub Pages. The game will restart; scores and settings are kept.')}</small>
       <p data-update-status role="status"></p>` : ''}
       ${backupControls()}
-      <fieldset>
-        <legend>${t('Game mode')}</legend>
-        <label class="mode-option">
-          <input type="radio" name="mode" value="classic">
-          <span><strong>${t('Match three')}</strong><small>${t("Match lines of 3 to clear every cell's pale background.")}</small></span>
-        </label>
-        <label class="mode-option">
-          <input type="radio" name="mode" value="falling">
-          <span><strong>${t('Falling pieces')}</strong><small>${t('Tap connected groups of 2+. Columns gather in the center. Clear space before the next row arrives.')}</small></span>
-        </label>
-        ${storyModes.map(mode => `<label class="mode-option">
-          <input type="radio" name="mode" value="${mode}">
-          <span>${storyOptionText(mode)}</span>
-        </label>`).join('')}
-      </fieldset>
-      <p>${t('Changing mode ends the current round.')}</p>
-      <div class="settings-actions"><button value="cancel">${t('Cancel')}</button><button value="apply" class="primary">${t('Apply')}</button></div>
-    </form>`;
-    fillStoryText(dialog);
-  };
-  renderSettings();
-  document.body.append(dialog);
-  installBackupControls(dialog);
+      <div class="settings-actions">
+        ${inGame ? `<button type="submit" value="cancel">${t('Cancel')}</button>` : ''}
+        <button type="submit" value="apply" class="primary">${t('Apply')}</button>
+      </div>`;
+    const preferences = getPreferences();
+    settings.querySelector<HTMLSelectElement>('[name="language"]')!.value = preferences.language;
+    settings.querySelector<HTMLInputElement>('[name="vibration"]')!.checked = preferences.vibration;
+    void refreshBackupStatus();
+  }
+
   let updating = false;
-  dialog.addEventListener('cancel', event => { if (updating) event.preventDefault(); });
-  dialog.addEventListener('click', async event => {
+  settings.addEventListener('click', async event => {
     if (!(event.target instanceof Element) || !event.target.closest('[data-update-game]') || updating) return;
     updating = true;
-    const controls = [...dialog.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>('button, input, select')];
+    const container = dialog.open ? dialog : panel;
+    const controls = [...container.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>('button, input, select')];
     controls.forEach(control => { control.disabled = true; });
-    const status = dialog.querySelector('[data-update-status]')!;
+    const status = settings.querySelector('[data-update-status]')!;
     status.textContent = t('Checking and downloading update…');
     const apkUpdates = supportsApkUpdates();
     const apkStatus = apkUpdates && !checkApkUpdate(getPreferences().language)
@@ -186,49 +160,82 @@ export function installSettings(game: Game): void {
     }
     status.textContent = [webStatus, apkStatus].filter(Boolean).join(' ');
   });
-  let suspended: string | null = null;
-  const open = () => {
-    if (dialog.open || storyPicker.open) return;
-    suspended = game.scene.isActive('FallingScene') ? 'FallingScene' : game.scene.isActive('GameScene') ? 'GameScene' : null;
-    if (!suspended) return;
-    renderSettings();
-    const preferences = getPreferences();
-    dialog.querySelector<HTMLSelectElement>('select[name="language"]')!.value = preferences.language;
-    dialog.querySelector<HTMLInputElement>('input[name="vibration"]')!.checked = preferences.vibration;
-    (dialog.querySelector(`input[value="${mode}"]`) as HTMLInputElement).checked = true;
-    game.scene.pause(suspended);
-    dialog.returnValue = '';
-    dialog.showModal();
-    void refreshBackupStatus();
-  };
-  // Keep dialog keyboard events out of Phaser's global keyboard handler.
-  const stopKey = (event: KeyboardEvent) => event.stopPropagation();
-  for (const modal of [modePicker, storyPicker, dialog]) {
-    modal.addEventListener('keydown', stopKey);
-    modal.addEventListener('keyup', stopKey);
-  }
-  dialog.addEventListener('close', () => {
-    const selected = (dialog.querySelector('input[name="mode"]:checked') as HTMLInputElement).value as Mode;
-    if (dialog.returnValue === 'apply') {
+  settings.addEventListener('submit', event => {
+    event.preventDefault();
+    if (updating) return;
+    if (event.submitter?.getAttribute('value') === 'apply') {
       savePreferences({
-        language: dialog.querySelector<HTMLSelectElement>('select[name="language"]')!.value as Language,
-        vibration: dialog.querySelector<HTMLInputElement>('input[name="vibration"]')!.checked,
-        mode: selected
+        language: settings.querySelector<HTMLSelectElement>('[name="language"]')!.value as Language,
+        vibration: settings.querySelector<HTMLInputElement>('[name="vibration"]')!.checked
       });
       game.events.emit('language-changed');
     }
-    if (dialog.returnValue === 'apply' && selected !== mode && suspended) {
-      startMode(selected, suspended);
-    } else if (suspended) game.scene.resume(suspended);
-    suspended = null;
+    if (dialog.open) dialog.close();
+    else mainMenu();
   });
-  window.addEventListener('game-settings', open);
+
+  let suspended: string | undefined;
+  function suspend(): boolean {
+    if (suspended) return false;
+    suspended = ['GameScene', 'FallingScene'].find(scene => game.scene.isActive(scene));
+    if (!suspended) return false;
+    game.scene.pause(suspended);
+    return true;
+  }
+
+  function openSettings(): void {
+    if (updating || !suspend()) return;
+    dialog.append(settings);
+    renderSettings(true);
+    dialog.showModal();
+  }
+
+  function openExit(): void {
+    if (!suspend()) return;
+    confirmExit.innerHTML = `
+      <form method="dialog">
+        <h1 id="exit-title">${t('Return to main menu?')}</h1>
+        <p>${t('The current round will end.')}</p>
+        <div class="settings-actions">
+          <button value="cancel" autofocus>${t('Cancel')}</button>
+          <button value="exit" class="primary">${t('Main menu')}</button>
+        </div>
+      </form>`;
+    confirmExit.returnValue = '';
+    confirmExit.showModal();
+  }
+
+  function resume(): void {
+    if (suspended) game.scene.resume(suspended);
+    suspended = undefined;
+  }
+
+  dialog.addEventListener('cancel', event => { if (updating) event.preventDefault(); });
+  dialog.addEventListener('close', resume);
+  confirmExit.addEventListener('close', () => {
+    if (confirmExit.returnValue !== 'exit') {
+      resume();
+      return;
+    }
+    if (suspended) game.scene.stop(suspended);
+    suspended = undefined;
+    mainMenu();
+  });
+
+  game.events.once('show-main-menu', () => {
+    mainMenu();
+    requestAnimationFrame(() => window.CoffeeRecovery?.ready());
+  });
+  const selectAfterStory = (mode: Mode) => startMode(mode);
+  game.events.on('select-mode-after-story', selectAfterStory);
+  window.addEventListener('game-settings', openSettings);
+  window.addEventListener('game-exit', openExit);
   game.events.once('destroy', () => {
-    window.removeEventListener('game-settings', open);
-    game.events.off('choose-game-mode', chooseMode);
+    window.removeEventListener('game-settings', openSettings);
+    window.removeEventListener('game-exit', openExit);
     game.events.off('select-mode-after-story', selectAfterStory);
-    modePicker.remove();
-    storyPicker.remove();
+    screen.remove();
     dialog.remove();
+    confirmExit.remove();
   });
 }

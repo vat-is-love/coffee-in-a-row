@@ -91,7 +91,7 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(Color.rgb(26, 26, 46));
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
-        settings.setUserAgentString(settings.getUserAgentString() + " CoffeeBackup/2 CoffeeHaptics/1 CoffeeUpdater/1 CoffeeAPK/" + BuildConfig.VERSION_NAME + "." + BuildConfig.VERSION_CODE);
+        settings.setUserAgentString(settings.getUserAgentString() + " CoffeeBackup/2 CoffeeHaptics/1 CoffeeUpdater/1 CoffeeExit/1 CoffeeAPK/" + BuildConfig.VERSION_NAME + "." + BuildConfig.VERSION_CODE);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
@@ -100,9 +100,15 @@ public class MainActivity extends Activity {
             @Override public boolean onJsPrompt(WebView view, String url, String message, String value,
                     android.webkit.JsPromptResult result) {
                 if (!"coffee-haptics".equals(message) && !"coffee-backup".equals(message)
-                        && !"coffee-apk-update".equals(message)) { result.cancel(); return true; }
+                        && !"coffee-apk-update".equals(message) && !"coffee-exit".equals(message)) { result.cancel(); return true; }
                 if (!isGameUrl(url) || !hasWindowFocus()) {
                     result.confirm("rejected"); return true;
+                }
+                if ("coffee-exit".equals(message)) {
+                    if (!isGameUrl(view.getUrl())) { result.confirm("rejected"); return true; }
+                    result.confirm("accepted");
+                    finish();
+                    return true;
                 }
                 if ("coffee-apk-update".equals(message)) {
                     if (!isGameUrl(view.getUrl())) { result.confirm("rejected"); return true; }

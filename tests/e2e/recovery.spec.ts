@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { chooseCompetitive, openStoryMap } from './menu';
 
 test('successful interface hides recovery', { tag: '@recovery' }, async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Choose game mode' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Coffee Match' })).toBeVisible();
   await expect(page.locator('#recovery')).toBeHidden();
 });
 
@@ -34,7 +35,7 @@ test('unavailable storage and vibration do not block startup', { tag: '@recovery
     navigator.vibrate = () => { throw new Error('denied'); };
   });
   await page.goto('/');
-  await page.getByRole('button', { name: /Falling pieces/ }).click();
+  await chooseCompetitive(page, /Falling pieces/);
   await expect(page.locator('#recovery')).toBeHidden();
 });
 
@@ -47,22 +48,23 @@ test('syntax error in main module recovers independently', { tag: '@recovery' },
 test('corrupt preferences fall back without blocking the interface', { tag: '@recovery' }, async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('coffee-preferences', '{broken'));
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Choose game mode' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Coffee Match' })).toBeVisible();
 });
 
-test('APK opens the mode picker and starts a story without Object.hasOwn', { tag: ['@recovery', '@story'] }, async ({ page }) => {
+test('APK opens the main menu and starts a story without Object.hasOwn', { tag: ['@recovery', '@story'] }, async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent + ' CoffeeAPK/1.0.8' });
     Reflect.deleteProperty(Object, 'hasOwn');
   });
   await page.goto('/');
   await expect(page.locator('#recovery')).toBeHidden();
-  await page.getByRole('button', { name: /^Shady Souls/ }).click();
+  await openStoryMap(page, /^Shady Souls/);
+  await page.getByRole('button', { name: 'Level 1', exact: true }).click();
   await expect.poll(() => page.evaluate('window.__GAME__?.scene.getScene("FallingScene")?.scoreText?.text')).toBe('Items delivered: 0 / 5');
   await expect(page.locator('#recovery')).toBeHidden();
 });
 
-test('APK starts with Canvas and remains ready after restoring the selected mode', { tag: '@recovery' }, async ({ page }) => {
+test('APK starts with Canvas and remains ready after reload', { tag: '@recovery' }, async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent + ' CoffeeAPK/1.0.5' });
     const getContext = HTMLCanvasElement.prototype.getContext;
@@ -72,8 +74,8 @@ test('APK starts with Canvas and remains ready after restoring the selected mode
     } as typeof getContext;
   });
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Choose game mode' })).toBeVisible();
-  await page.getByRole('button', { name: /Falling pieces/ }).click();
+  await expect(page.getByRole('heading', { name: 'Coffee Match' })).toBeVisible();
+  await chooseCompetitive(page, /Falling pieces/);
   await expect.poll(() => page.evaluate(() => window.CoffeeRecovery?.isReady())).toBe(true);
   await page.reload();
   await expect(page.locator('#recovery')).toBeHidden();
@@ -82,7 +84,7 @@ test('APK starts with Canvas and remains ready after restoring the selected mode
 });
 
 for (const mode of ['classic', 'falling']) {
-  test(`saved ${mode} mode signals readiness without opening the picker`, { tag: ['@recovery', '@slow'] }, async ({ page }) => {
+  test(`saved ${mode} mode signals readiness at the main menu`, { tag: ['@recovery', '@slow'] }, async ({ page }) => {
     await page.addInitScript(selected => {
       localStorage.setItem('coffee-preferences', JSON.stringify({ language: 'en', mode: selected, vibration: false }));
     }, mode);

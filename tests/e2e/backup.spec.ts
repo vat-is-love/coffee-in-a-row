@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { chooseCompetitive } from './menu';
 
 // Emulates only the native protocol; SAF/grants/file durability need a real Android device.
 async function bridge(page: import('@playwright/test').Page, candidates: string[] = []) {
@@ -27,9 +28,11 @@ async function bridge(page: import('@playwright/test').Page, candidates: string[
 test('setup works on first launch and changes automatically save records and settings', { tag: '@backup' }, async ({ page }) => {
   await bridge(page);
   await page.goto('/');
+  await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('checkbox', { name: 'Save progress after uninstall' }).check();
-  await expect(page.locator('.mode-picker [data-backup-status]')).toContainText('Last backup');
-  await page.getByRole('button', { name: /Falling pieces/ }).click();
+  await expect(page.locator('.menu-screen [data-backup-status]')).toContainText('Last backup');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await chooseCompetitive(page, /Falling pieces/);
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
   await page.waitForFunction(() => (window as any).backupCalls.some((r: any) => r.action === 'write' && JSON.parse(r.data).data['coffee-preferences']));
   await page.evaluate(() => {
@@ -48,8 +51,9 @@ test('first launch restores a valid previous generation if main is damaged', { t
   } })]);
   page.on('dialog', dialog => dialog.accept());
   await page.goto('/');
+  await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('checkbox', { name: 'Save progress after uninstall' }).check();
-  await page.waitForFunction(() => (window as any).__GAME__?.scene.isActive('FallingScene'));
+  await expect(page.getByRole('button', { name: 'Соревновательный режим' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-falling-records')!))).toEqual(records);
 });
@@ -57,8 +61,9 @@ test('first launch restores a valid previous generation if main is damaged', { t
 test('invalid copies do not activate or overwrite backup', { tag: '@backup' }, async ({ page }) => {
   await bridge(page, ['broken']);
   await page.goto('/');
+  await page.getByRole('button', { name: 'Settings' }).click();
   const checkbox = page.getByRole('checkbox', { name: 'Save progress after uninstall' });
-  const status = page.locator('.mode-picker [data-backup-status]');
+  const status = page.locator('.menu-screen [data-backup-status]');
   await expect(status).toHaveText('Backup is not configured.');
   await checkbox.click();
   await expect(status).toContainText('Could not enable');
