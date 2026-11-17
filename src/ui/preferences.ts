@@ -133,7 +133,6 @@ const russian: Record<string, string> = {
   'Stars': 'Звёзды',
   'Next': 'Дальше',
   'Start level': 'Начать уровень',
-  'Close level description': 'Закрыть описание уровня',
   'Description': 'Описание',
   'Victory conditions': 'Условия победы',
   'Items to deliver': 'Доставьте чашки',

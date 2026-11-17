@@ -133,7 +133,7 @@ export function installSettings(game: Game): void {
       window.CoffeeRecovery?.fail('invalid-falling-level');
       return;
     }
-    showStoryIntro(mode, index, story.stages[index], game.textures, () => startMode(mode, index), screen);
+    showStoryIntro(mode, index, story.stages[index], game.textures, () => startMode(mode, index), { mapScreen: screen });
   }
 
   function renderSettings(inGame: boolean): void {
@@ -260,11 +260,17 @@ export function installSettings(game: Game): void {
     requestAnimationFrame(() => window.CoffeeRecovery?.ready());
   });
   const selectAfterStory = (mode: Mode) => startMode(mode);
+  const returnToStoryMap = (mode: StoryMode) => {
+    game.scene.stop('FallingScene');
+    storyMap(mode);
+  };
   game.events.on('select-mode-after-story', selectAfterStory);
+  game.events.on('return-to-story-map', returnToStoryMap);
   window.addEventListener('game-menu', openGameMenu);
   game.events.once('destroy', () => {
     window.removeEventListener('game-menu', openGameMenu);
     game.events.off('select-mode-after-story', selectAfterStory);
+    game.events.off('return-to-story-map', returnToStoryMap);
     screen.remove();
     dialog.remove();
     gameMenu.remove();

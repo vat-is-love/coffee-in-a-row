@@ -14,6 +14,7 @@ const falling = `(window.__GAME__.scene.getScene('FallingScene'))`;
 test('game menu and settings suspend the round and can resume it', { tag: ['@falling', '@smoke'] }, async ({ page, hasTouch }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await startFalling(page);
+  expect(await sceneValue(page, `${falling}.hearts.length`)).toBe(0);
   const openMenu = async () => {
     const point = await page.evaluate(`(() => {
       const hud = ${falling}.hudContainer;

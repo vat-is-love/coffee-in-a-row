@@ -19,11 +19,11 @@ test('Story retries after defeat and requires both the tile goal and a buff when
   await expect(briefing.getByText('Clear this level to reveal the hint.')).toBeVisible();
   const hiddenHint = briefing.locator('p[inert]');
   await expect(hiddenHint).toHaveText('Complete the level with the entire top row empty.');
-  await expect(hiddenHint).toHaveCSS('filter', 'blur(12px)');
+  await expect(hiddenHint).toHaveCSS('filter', 'blur(8px)');
   await expect(page.locator('.menu-screen .story-map')).toBeVisible();
   await expect(briefing.locator('xpath=..')).toHaveClass(/menu-screen/);
   expect(await page.evaluate(`Boolean(${scene}.state)`)).toBe(false);
-  await briefing.getByRole('button', { name: 'Close level description' }).click();
+  await briefing.getByRole('button', { name: 'Choose level' }).click();
   await expect(briefing).toBeHidden();
   await expect(level).toBeFocused();
   await level.click();
@@ -56,12 +56,18 @@ test('Story retries after defeat and requires both the tile goal and a buff when
   await expect(completed).toBeVisible();
   await completed.getByRole('button', { name: 'Next stage' }).click();
   const nextBriefing = page.getByRole('dialog', { name: 'Level 2', exact: true });
-  await expect(nextBriefing.locator('section h2')).toHaveText(['Description', 'Victory conditions']);
+  await expect(nextBriefing.locator('section h2')).toHaveText(['Description', 'Victory conditions', 'Third star']);
   await expect(nextBriefing.locator('section').nth(1))
     .toContainText('Tiles to clear: 2 · Use a power-up');
+  await expect(nextBriefing.locator('p[inert]')).toHaveCSS('filter', 'blur(8px)');
+  await nextBriefing.getByRole('button', { name: 'Choose level' }).click();
+  await expect(nextBriefing).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Getting to know the game' })).toBeVisible();
+  await expect.poll(() => page.evaluate("window.__GAME__?.scene.isPaused('FallingScene')")).toBe(false);
+  await page.getByRole('button', { name: 'Level 2', exact: true }).click();
   await beginStoryLevel(page, 2);
 
-  await page.evaluate(`${scene}.state.grid[0][0] = 0; ${scene}.remaining = 0`);
+  await page.evaluate(`${scene}.lifeCharge = 0; ${scene}.state.grid[0][0] = 0; ${scene}.remaining = 0`);
   const defeat = page.getByRole('dialog', { name: 'Board full' });
   await defeat.getByRole('button', { name: 'Retry level' }).click();
   await beginStoryLevel(page, 2);
@@ -93,6 +99,42 @@ test('Story retries after defeat and requires both the tile goal and a buff when
   await expect(page.getByRole('button', { name: 'Level 2 · Completed' })).toBeEnabled();
   await page.getByRole('button', { name: 'Level 3', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Level 3', exact: true })).toBeVisible();
+});
+
+test('Story spends hearts on overflow and restores one after twenty landed rows', { tag: '@story' }, async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+    localStorage.setItem('coffee-preferences', JSON.stringify({
+      language: 'en', vibration: false, largeStoryCheckpoint: 2
+    }));
+  });
+  await page.goto('/');
+  await openStoryMap(page, /^Getting to know the game/);
+  await page.getByRole('button', { name: 'Level 3', exact: true }).click();
+  await beginStoryLevel(page, 3);
+  const tryDrop = (overflow: boolean, withCup = false) => page.evaluate(`(async () => {
+    const scene = ${scene};
+    scene.state.grid.forEach((row, index) => {
+      row.fill(-1);
+      if (${overflow}) row[0] = ${withCup} && index === 1 ? ${STORY_ITEM} : 0;
+    });
+    scene.state.nextRow = scene.state.nextRow.map(() => 0);
+    scene.renderBoard();
+    await scene.dropRow();
+    return [scene.lifeCharge, scene.state.rowsAdded, scene.state.delivered];
+  })()`);
+  expect(await page.evaluate(`${scene}.hearts.map(heart => heart.visible)`)).toEqual([true, true, true]);
+  expect(await tryDrop(true, true)).toEqual([40, 0, 1]);
+  await expect.poll(() => page.evaluate(`${scene}.hearts.map(heart => heart.visible)`)).toEqual([true, true, false]);
+  for (let row = 1; row <= 20; row++) {
+    expect(await tryDrop(false)).toEqual([40 + row, row, 1]);
+    if (row === 1) {
+      await expect.poll(() => page.evaluate(`${scene}.hearts[2].visible`)).toBe(true);
+    }
+  }
+  for (const charge of [40, 20, 0]) expect(await tryDrop(true)).toEqual([charge, 20, 1]);
+  await tryDrop(true);
+  await expect(page.getByRole('dialog', { name: 'Board full' })).toBeVisible();
 });
 
 test('a larger Story delivers a cup from the preview and joins both groups for one tap', { tag: '@story' }, async ({ page, hasTouch }) => {

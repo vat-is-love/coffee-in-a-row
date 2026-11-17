@@ -19,5 +19,5 @@ export function createHud(scene: Scene, titleText: string, restart?: () => void)
   const status = scene.add.text(12, 84, '', { ...style, fontSize: '11px', color: '#e4cfad' });
   container.add([background, title, menu, score, progress, status]);
   if (restart) container.add(iconButton(scene, width - 104, 8, 'restart', restart).setName('restart'));
-  return { container, score, progress, status };
+  return { container, score, progress, status, width };
 }

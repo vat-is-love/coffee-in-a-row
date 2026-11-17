@@ -59,7 +59,8 @@ function makeDemo(demo: string, textures: Textures.TextureManager): HTMLElement 
 
 export function showStoryIntro(
   mode: StoryMode, levelIndex: number, stage: ReturnType<typeof loadStory>['stages'][number],
-  textures: Textures.TextureManager, start: () => void, mapScreen?: HTMLElement
+  textures: Textures.TextureManager, start: () => void,
+  { mapScreen, returnToMap }: { mapScreen?: HTMLElement; returnToMap?: () => void }
 ): () => void {
   const { briefing, level, thirdStar, target } = stage;
   const { language } = getPreferences();
@@ -83,7 +84,7 @@ export function showStoryIntro(
   const objective = `${t(level.delivery ? 'Items to deliver' : 'Tiles to clear')}: ${target}`;
   addSection(t('Victory conditions'), level.buffs && !level.delivery ? `${objective} · ${t('Use a power-up')}` : objective);
   const completed = levelIndex < getStoryCheckpoint(mode);
-  if (completed || (mapScreen && thirdStar)) {
+  if (completed || thirdStar) {
     const section = addSection(t('Third star'), thirdStar?.hint[language] ?? t('This level has no third-star challenge.'));
     if (!completed) {
       const hint = section.querySelector('p')!;
@@ -99,7 +100,8 @@ export function showStoryIntro(
   return showStoryResult(`${t('Level')} ${levelIndex + 1}`, t(mapScreen ? 'Start level' : 'Next'), start, {
     details,
     className: mapScreen ? undefined : 'story-briefing',
-    closeLabel: mapScreen ? t('Close level description') : undefined,
+    closeLabel: t('Choose level'),
+    onClose: returnToMap,
     parent: mapScreen
   });
 }

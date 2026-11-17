@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createFalling, clearAt, addFallingRow, fallingLevel, findGroup, findRemoval, rowInterval, BOMB_ITEM, COLUMN_CLEAR_ITEM, ROW_CLEAR_ITEM, STORY_ITEM, turnDuration, type FallingLevel, type FallingState } from '../../../src/game/logic/falling';
+import { createFalling, clearAt, addFallingRow, recoverOverflow, fallingLevel, findGroup, findRemoval, rowInterval, BOMB_ITEM, COLUMN_CLEAR_ITEM, ROW_CLEAR_ITEM, STORY_ITEM, turnDuration, type FallingLevel, type FallingState } from '../../../src/game/logic/falling';
 
 const testLevel: FallingLevel = {
   ...fallingLevel,
@@ -17,6 +17,25 @@ function empty(): FallingState {
 const count = (state: FallingState) => state.grid.flat().filter(n => n >= 0).length;
 
 describe('Falling rows', () => {
+  it('lowers the columns in the top two rows, delivering their cups and preserving the preview', () => {
+    const state = empty();
+    state.grid.forEach((row, index) => {
+      row[0] = index % 4;
+      if (index >= 1) row[1] = 1;
+      if (index >= 2) row[2] = 2;
+    });
+    state.grid[1][0] = STORY_ITEM;
+    state.grid[7][1] = STORY_ITEM;
+    const { state: recovered, motions } = recoverOverflow(state);
+    expect(recovered.grid.map(row => row.slice(0, 3))).toEqual([
+      [-1, -1, -1], [-1, -1, -1], [-1, -1, 2], [-1, -1, 2],
+      [0, 1, 2], [2, 1, 2], [3, 1, 2], [0, 1, 2]
+    ]);
+    expect(motions).toContainEqual({ from: { row: 1, col: 1 }, to: { row: 4, col: 1 } });
+    expect(recovered).toMatchObject({ delivered: 2, rowsAdded: 0, nextRow: state.nextRow });
+    expect(state.grid[0][0]).toBe(0);
+  });
+
   it('starts with three rows, four colors and a reproducible preview', () => {
     const state = createFalling(42, testLevel);
     expect(state).toEqual(createFalling(42, testLevel));

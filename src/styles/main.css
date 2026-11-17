@@ -294,7 +294,7 @@ canvas {
 .story-intro section + section { border-top: 1px solid #e4cfad44; }
 .story-hint-locked { display: grid; overflow: hidden; }
 .story-hint-locked p { grid-area: 1 / 1; align-self: center; }
-.story-hint-locked p[inert] { filter: blur(12px); }
+.story-hint-locked p[inert] { filter: blur(8px); }
 .story-hint-locked p:last-child { z-index: 1; color: var(--color-text); text-align: center; }
 .story-demo {
   position: relative;
