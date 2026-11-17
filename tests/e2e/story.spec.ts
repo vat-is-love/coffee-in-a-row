@@ -29,8 +29,13 @@ test('Story retries after defeat and requires both the tile goal and a buff when
   await level.click();
   await page.keyboard.press('Escape');
   await expect(briefing).toBeHidden();
-  await level.click();
-  await beginStoryLevel(page, 1);
+  await page.keyboard.press('Enter');
+  await expect(briefing.getByRole('button', { name: 'Start level' })).toBeFocused();
+  await page.keyboard.press('ArrowUp');
+  await expect(briefing.getByRole('button', { name: 'Choose level' })).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect.poll(() => page.evaluate(`${scene}.cursor?.visible`)).toBe(true);
 
   const completed = page.getByRole('dialog', { name: 'Stage cleared' });
   const removePair = async () => {

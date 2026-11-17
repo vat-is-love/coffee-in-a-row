@@ -213,7 +213,20 @@ test('endless board remains playable through 40 moves and pause blocks input', {
 });
 
 test('keyboard swap and resize during animation finish without losing input', { tag: '@classic' }, async ({ page }) => {
-  await ready(page);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Coffee Match' })).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(page.getByRole('button', { name: 'Competitive mode' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('KeyS');
+  await expect(page.getByRole('button', { name: /Match three/ })).toBeFocused();
+  await page.keyboard.press('Space');
+  await waitForBoard(page);
+  await expect.poll(() => page.evaluate(() => {
+    const scene = (window as any).__GAME__.scene.getScene('GameScene');
+    return [scene.cursor.visible, scene.activeCell];
+  })).toEqual([true, { row: 0, col: 4 }]);
   const move = await candidate(page);
   await page.mouse.click(move.a.x, move.a.y);
   const direction = Math.abs(move.b.x - move.a.x) > Math.abs(move.b.y - move.a.y) ? 'ArrowRight' : 'ArrowDown';
@@ -223,7 +236,8 @@ test('keyboard swap and resize during animation finish without losing input', { 
   expect((await snapshot(page)).state).toEqual(move.expected);
   const next = await candidate(page);
   await page.mouse.click(next.a.x, next.a.y);
-  await page.mouse.click(next.b.x, next.b.y);
+  await page.keyboard.press(next.a.y === next.b.y ? 'KeyD' : 'KeyS');
+  await page.keyboard.press('Enter');
   await settled(page);
   expect((await snapshot(page)).moves).toBe(2);
 });

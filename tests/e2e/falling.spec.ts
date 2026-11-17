@@ -321,3 +321,36 @@ test('pending outline skips singletons and moves with the last selected group', 
   expect(result.changed).toBe(true);
   expect(result.empty).toBe(0);
 });
+
+test('keyboard menus start a round with a visible cursor and remove groups', { tag: '@falling' }, async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await startFalling(page);
+  expect(await sceneValue(page, `${falling}.cursor.visible`)).toBe(false);
+
+  await page.keyboard.press('Escape');
+  const menu = page.getByRole('dialog', { name: 'Game menu' });
+  await expect(menu.getByRole('button', { name: 'Resume game' })).toBeFocused();
+  await page.keyboard.press('KeyW');
+  await expect(menu.getByRole('button', { name: 'Restart level' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => sceneValue(page, `(() => {
+    const { board, cursor, selected } = ${falling};
+    return [cursor.visible, selected.row === board.findIndex(row => row.some(Boolean)),
+      selected.col === Math.floor(board[0].length / 2)];
+  })()`)).toEqual([true, true, true]);
+
+  await page.evaluate(`(() => {
+    const scene = ${falling};
+    scene.remaining = 5000;
+    scene.state.grid.forEach(row => row.fill(-1));
+    const { row, col } = scene.selected;
+    scene.state.grid[row].splice(col - 3, 5, 1, 1, -1, 0, 0);
+    scene.renderBoard();
+  })()`);
+  await page.keyboard.press('KeyA');
+  await page.keyboard.press('Space');
+  await expect.poll(() => sceneValue(page, `${falling}.state.score`)).toBeGreaterThan(0);
+  await expect.poll(() => sceneValue(page, `${falling}.cursor.visible`)).toBe(true);
+  await page.keyboard.press('Enter');
+  await expect.poll(() => sceneValue(page, `${falling}.board.flat().filter(Boolean).length`)).toBe(0);
+});

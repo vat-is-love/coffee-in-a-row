@@ -1,3 +1,4 @@
+import { installMenuKeyboard, keyActivates, keyDirection } from './keyboard';
 import { backupControls, installBackupControls, refreshBackupStatus } from './backup';
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
@@ -25,10 +26,17 @@ export function installSettings(game: Game): void {
   gameMenu.setAttribute('aria-labelledby', 'game-menu-title');
   document.body.append(screen, dialog, gameMenu);
 
-  for (const modal of [dialog, gameMenu]) {
-    modal.addEventListener('keydown', event => event.stopPropagation());
-    modal.addEventListener('keyup', event => event.stopPropagation());
-  }
+  let backFromScreen: (() => void) | undefined;
+  installMenuKeyboard(screen, () => backFromScreen?.());
+  installMenuKeyboard(dialog);
+  installMenuKeyboard(gameMenu);
+
+  const usePointer = () => game.registry.set('keyboardInput', false);
+  const useKeyboard = (event: KeyboardEvent) => {
+    if (keyDirection(event) || keyActivates(event) || event.key === 'Tab') game.registry.set('keyboardInput', true);
+  };
+  window.addEventListener('pointerdown', usePointer, true);
+  window.addEventListener('keydown', useKeyboard, true);
 
   function startMode(mode: Mode, levelIndex = 0): void {
     savePreferences({ ...getPreferences(), mode });
@@ -41,6 +49,7 @@ export function installSettings(game: Game): void {
   }
 
   function showScreen(title: string, back?: () => void): void {
+    backFromScreen = back;
     screen.hidden = false;
     host.inert = true;
     screen.scrollTop = 0;
@@ -270,6 +279,8 @@ export function installSettings(game: Game): void {
   window.addEventListener('game-menu', openGameMenu);
   game.events.once('destroy', () => {
     window.removeEventListener('game-menu', openGameMenu);
+    window.removeEventListener('pointerdown', usePointer, true);
+    window.removeEventListener('keydown', useKeyboard, true);
     game.events.off('select-mode-after-story', selectAfterStory);
     game.events.off('return-to-story-map', returnToStoryMap);
     screen.remove();

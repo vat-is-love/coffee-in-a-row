@@ -1,3 +1,4 @@
+import { installMenuKeyboard } from './keyboard';
 import { readRecords, notifyDataChanged } from './storage';
 import { t, getPreferences } from './preferences';
 export const FALLING_RECORDS_KEY = 'coffee-falling-records';
@@ -94,8 +95,7 @@ function showLeaderboard(score: number, rows: number, restart: () => void, durat
   status.hidden = saved;
   status.textContent = t('This result could not be saved on this device.');
   dialog.addEventListener('close', () => dialog.remove(), { once: true });
-  dialog.addEventListener('keydown', event => event.stopPropagation());
-  dialog.addEventListener('keyup', event => event.stopPropagation());
+  installMenuKeyboard(dialog);
   dialog.querySelector('.settings-close')!.addEventListener('click', () => dialog.close());
   dialog.querySelector('.primary')!.addEventListener('click', () => {
     dialog.close();

@@ -1,3 +1,4 @@
+import { installMenuKeyboard } from './keyboard';
 import type { StoryMessages } from '../game/levels/story';
 import { t, type Mode } from './preferences';
 
@@ -30,7 +31,7 @@ export function showStoryResult(
         <label class="mode-option"><input type="radio" name="mode" value="falling"> ${t('Falling pieces')}</label>
       </fieldset>` : ''}
       <div class="settings-actions">
-        <button value="continue" ${victory ? 'formnovalidate' : 'class="primary"'}></button>
+        <button value="continue" ${victory ? 'formnovalidate' : 'class="primary" autofocus'}></button>
         ${victory ? '<button value="choose" class="primary"></button>' : ''}
       </div>
     </form>`;
@@ -47,8 +48,7 @@ export function showStoryResult(
     event.preventDefault();
     if (closeLabel) dialog.close('cancel');
   });
-  dialog.addEventListener('keydown', event => event.stopPropagation());
-  dialog.addEventListener('keyup', event => event.stopPropagation());
+  installMenuKeyboard(dialog);
   dialog.addEventListener('close', () => {
     const mode = dialog.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value;
     dialog.remove();

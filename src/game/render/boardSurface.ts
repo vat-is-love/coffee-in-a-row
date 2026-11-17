@@ -11,3 +11,21 @@ export function createBoardSurface(scene: Scene, { rows, cols }: { rows: number;
   for (let row = 0; row <= rows; row++) surface.lineBetween(0, row * 64, width, row * 64);
   return surface;
 }
+
+/** Marks the active cell separately from the selected swap tile or removal group. */
+export function createBoardCursor(scene: Scene, board: GameObjects.Container): GameObjects.Graphics {
+  const cursor = scene.add.graphics().setVisible(false);
+  cursor.lineStyle(5, 0x1a1a2e).strokeRoundedRect(3, 3, 58, 58, 10);
+  cursor.lineStyle(2, 0xffedc4).strokeRoundedRect(3, 3, 58, 58, 10);
+  board.add(cursor);
+  return cursor;
+}
+
+export function showBoardCursor(
+  board: GameObjects.Container, cursor: GameObjects.Graphics, position: { row: number; col: number } | null
+): void {
+  cursor.setVisible(Boolean(position));
+  if (!position) return;
+  cursor.setPosition(position.col * 64, position.row * 64);
+  board.bringToTop(cursor);
+}

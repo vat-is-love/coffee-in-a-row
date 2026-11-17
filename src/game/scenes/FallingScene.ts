@@ -1,5 +1,6 @@
+import { keyActivates, keyDirection } from '../../ui/keyboard';
 import { installPauseMask } from '../render/pauseMask';
-import { createBoardSurface } from '../render/boardSurface';
+import { createBoardCursor, createBoardSurface, showBoardCursor } from '../render/boardSurface';
 import { createHud, openGameMenu } from '../render/hud';
 import { createStoryLives, renderStoryLives, rowsPerLife, storyLives } from '../render/storyLives';
 import { getPreferences, getStoryStars, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
@@ -44,6 +45,7 @@ export class FallingScene extends Scene {
   private reducedMotion = false;
   private elapsed = 0;
   private selected!: Position;
+  private cursor!: GameObjects.Graphics;
   private failed = false;
   private level!: FallingLevel;
   private story?: ReturnType<typeof loadStory>;
@@ -87,7 +89,6 @@ export class FallingScene extends Scene {
     this.remaining = rowInterval(0, this.level) + this.previewHold;
     this.previewRow = [...this.state.nextRow];
     this.droppingRow = false;
-    this.selected = { row: this.level.board.rows - 1, col: 0 };
     this.isProcessing = this.briefingOpen = this.gameOver = false;
     this.cleared = 0;
     this.buffUsed = false;
@@ -108,6 +109,14 @@ export class FallingScene extends Scene {
     this.danger = this.add.graphics();
     this.boardContainer.add([surface, this.danger]);
     this.renderBoard();
+    const firstRow = this.board.findIndex(row => row.some(Boolean));
+    const center = (this.level.board.cols - 1) / 2;
+    const top = this.board[firstRow]?.filter(tile => tile !== null) ?? [];
+    const initial = top.reduce<TileView | null>((best, tile) =>
+      !best || Math.abs(tile.col - center) <= Math.abs(best.col - center) ? tile : best, null);
+    this.selected = { row: initial?.row ?? 0, col: initial?.col ?? Math.ceil(center) };
+    this.cursor = createBoardCursor(this, this.boardContainer);
+    this.refreshCursor();
     this.pendingOutline = this.add.graphics();
     this.boardContainer.add(this.pendingOutline);
     this.syncPauseMask = installPauseMask(this, () => [this.boardContainer, this.previewContainer],
@@ -124,8 +133,10 @@ export class FallingScene extends Scene {
       this.pendingOutline.clear();
     };
     this.events.on('pause', hideGroups);
+    this.events.on('resume', this.refreshCursor, this);
     this.events.once('shutdown', () => {
       this.events.off('pause', hideGroups);
+      this.events.off('resume', this.refreshCursor, this);
       this.settlingPreview = null;
       this.pendingTile = null;
       this.removingTiles.clear();
@@ -283,6 +294,7 @@ export class FallingScene extends Scene {
 
   private click(pointer: Input.Pointer): void {
     const pos = this.position(pointer);
+    showBoardCursor(this.boardContainer, this.cursor, null);
     if (!pos || this.gameOver) return;
     if (this.isProcessing) {
       // Follow the visible tile through gravity and column centering, not its old cell.
@@ -325,6 +337,7 @@ export class FallingScene extends Scene {
       void this.dropRow();
       return;
     }
+    this.refreshCursor();
     const tile = this.pendingTile;
     this.pendingTile = null;
     this.drawPendingOutline();
@@ -334,10 +347,14 @@ export class FallingScene extends Scene {
   }
 
   private hover(pointer: Input.Pointer): void {
-    this.showGroup(this.position(pointer));
+    const pos = this.position(pointer);
+    if (!pos && this.cursor.visible) return;
+    if (pos) this.registry.set('keyboardInput', false);
+    this.showGroup(pos);
   }
 
   private showGroup(pos: Position | null): void {
+    showBoardCursor(this.boardContainer, this.cursor, null);
     this.highlights.forEach(sprite => sprite.destroy());
     this.highlights = [];
     if (!pos || this.isProcessing || this.gameOver) return;
@@ -348,18 +365,51 @@ export class FallingScene extends Scene {
     });
   }
 
+  private nearestTile(direction?: [number, number]): TileView | null {
+    const { row, col } = this.selected;
+    let nearest: TileView | null = null;
+    let best = Infinity;
+    for (const cells of this.board) {
+      for (const tile of cells) {
+        if (!tile) continue;
+        const dr = tile.row - row;
+        const dc = tile.col - col;
+        if (direction && dr * direction[0] + dc * direction[1] <= 0) continue;
+        // Prefer the right-hand cell when two cells are equally close.
+        const distance = Math.abs(dr) + Math.abs(dc);
+        if (distance > best || (distance === best && nearest && tile.col <= nearest.col)) continue;
+        best = distance;
+        nearest = tile;
+      }
+    }
+    return nearest;
+  }
+
+  private refreshCursor(): void {
+    if (!this.registry.get('keyboardInput') || this.isProcessing || this.gameOver) return;
+    const tile = this.nearestTile();
+    if (tile) this.selected = { row: tile.row, col: tile.col };
+    this.showGroup(tile);
+    showBoardCursor(this.boardContainer, this.cursor, tile);
+  }
+
   private keyDown(event: KeyboardEvent): void {
-    if (event.key === 'Escape') { event.preventDefault(); openGameMenu(); return; }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      if (!event.repeat) openGameMenu();
+      return;
+    }
     if (this.isProcessing || this.gameOver) return;
-    const directions: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
-    const delta = directions[event.key];
+    const delta = keyDirection(event);
+    const activates = keyActivates(event);
+    if (!delta && !activates) return;
+    event.preventDefault();
     if (delta) {
-      const { rows, cols } = this.level.board;
-      event.preventDefault();
-      this.selected = { row: Math.max(0, Math.min(rows - 1, this.selected.row + delta[0])), col: Math.max(0, Math.min(cols - 1, this.selected.col + delta[1])) };
-      this.showGroup(this.selected);
-    } else if (event.key === ' ' || event.key === 'Enter') {
-      event.preventDefault();
+      const tile = this.nearestTile(delta);
+      if (tile) this.selected = { row: tile.row, col: tile.col };
+    }
+    this.refreshCursor();
+    if (activates && !event.repeat && this.board[this.selected.row]?.[this.selected.col]) {
       void this.remove(this.selected);
     }
   }

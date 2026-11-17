@@ -1,5 +1,6 @@
+import { keyActivates, keyDirection } from '../../ui/keyboard';
 import { installPauseMask } from '../render/pauseMask';
-import { createBoardSurface } from '../render/boardSurface';
+import { createBoardCursor, createBoardSurface, showBoardCursor } from '../render/boardSurface';
 import { showClassicLeaderboard, formatDuration } from '../../ui/fallingLeaderboard';
 import { createHud, openGameMenu } from '../render/hud';
 import { t, vibrate } from '../../ui/preferences';
@@ -29,6 +30,8 @@ export class GameScene extends Scene {
   private timerStarted = false;
   private state!: BoardState;
   private board: TileView[][] = [];
+  private activeCell!: Position;
+  private cursor!: GameObjects.Graphics;
   private selectedTile: TileView | null = null;
   private highlight: GameObjects.Image | null = null;
   private gesture: { tile: TileView; x: number; y: number; id: number } | null = null;
@@ -72,9 +75,12 @@ export class GameScene extends Scene {
     installPauseMask(this, () => [this.boardContainer],
       () => this.sys.isPaused(), () => this.completed || this.failed, this.reducedMotion);
     this.createBoardSurface();
+    this.activeCell = { row: 0, col: Math.floor(this.config.cols / 2) };
+    this.cursor = createBoardCursor(this, this.boardContainer);
     this.resizeLayout();
     try {
       this.renderBoard();
+      this.refreshCursor();
       this.updateHUD();
     } catch (error) { this.showError(error); }
     this.input.on('pointerdown', this.pointerDown, this);
@@ -87,10 +93,13 @@ export class GameScene extends Scene {
     const hideSelection = () => {
       this.cancelGesture();
       this.clearSelection();
+      showBoardCursor(this.boardContainer, this.cursor, null);
     };
     this.events.on('pause', hideSelection);
+    this.events.on('resume', this.refreshCursor, this);
     this.events.once('shutdown', () => {
       this.events.off('pause', hideSelection);
+      this.events.off('resume', this.refreshCursor, this);
       this.scale.off('resize', this.resizeLayout, this);
       this.game.events.off('language-changed', this.resizeLayout, this);
       this.input.off('pointerdown', this.pointerDown, this);
@@ -177,10 +186,13 @@ export class GameScene extends Scene {
   }
 
   private pointerDown(pointer: Input.Pointer): void {
+    showBoardCursor(this.boardContainer, this.cursor, null);
     if (this.isProcessing || this.failed || this.completed || this.gesture) return;
     const tile = this.tileAt(pointer.x, pointer.y);
-    if (tile) this.gesture = { tile, x: pointer.x, y: pointer.y, id: pointer.id };
-    else this.clearSelection();
+    if (tile) {
+      this.activeCell = { row: tile.row, col: tile.col };
+      this.gesture = { tile, x: pointer.x, y: pointer.y, id: pointer.id };
+    } else this.clearSelection();
   }
 
   private pointerUp(pointer: Input.Pointer): void {
@@ -222,24 +234,33 @@ export class GameScene extends Scene {
     this.selectedTile = null;
   }
 
+  private refreshCursor(): void {
+    const visible = this.registry.get('keyboardInput') && !this.isProcessing && !this.failed && !this.completed;
+    showBoardCursor(this.boardContainer, this.cursor, visible ? this.activeCell : null);
+  }
+
   private keyDown(event: KeyboardEvent): void {
-    if (event.key === 'Escape') { event.preventDefault(); openGameMenu(); return; }
-    if (this.isProcessing || this.failed || this.completed) return;
-    const directions: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
-    const delta = directions[event.key];
-    if (delta) {
+    if (event.key === 'Escape') {
       event.preventDefault();
-      const current = this.selectedTile ?? this.board[0][0];
-      const tile = this.board[current.row + delta[0]]?.[current.col + delta[1]];
-      if (event.shiftKey && tile && this.selectedTile) void this.attemptSwap(current, tile);
-      else {
-        this.clearSelection();
-        this.selectTile(tile ?? current);
-      }
-    } else if (event.key === ' ' || event.key === 'Enter') {
-      event.preventDefault();
-      if (!this.selectedTile) this.selectTile(this.board[0][0]);
+      if (!event.repeat) openGameMenu();
+      return;
     }
+    if (this.isProcessing || this.failed || this.completed) return;
+    const delta = keyDirection(event);
+    const activates = keyActivates(event);
+    if (!delta && !activates) return;
+    event.preventDefault();
+    const current = this.board[this.activeCell.row][this.activeCell.col];
+    if (delta) {
+      const next = this.board[current.row + delta[0]]?.[current.col + delta[1]];
+      if (next) {
+        this.activeCell = { row: next.row, col: next.col };
+        if (event.shiftKey) void this.attemptSwap(current, next);
+      }
+    } else if (!event.repeat) {
+      this.selectTile(current);
+    }
+    this.refreshCursor();
   }
 
   private animate(targets: GameObjects.Image | GameObjects.Image[], values: object, duration: number): Promise<void> {
@@ -252,6 +273,7 @@ export class GameScene extends Scene {
     if (this.isProcessing || this.failed || this.completed) return;
     this.timerStarted = true;
     this.isProcessing = true;
+    this.refreshCursor();
     this.clearSelection();
     this.cancelGesture();
     try {
@@ -288,7 +310,10 @@ export class GameScene extends Scene {
       }
       this.updateHUD(result.gameOver === 'reshuffle' ? t('Board shuffled · Keep playing') : t('Swipe or tap two tiles · Shift + Arrow swaps'));
     } catch (error) { this.showError(error); }
-    finally { this.isProcessing = false; }
+    finally {
+      this.isProcessing = false;
+      this.refreshCursor();
+    }
   }
 
   private async playFrame(frame: ResolutionFrame): Promise<void> {
