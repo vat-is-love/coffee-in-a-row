@@ -2,7 +2,7 @@
  * E2E tests for Coffee Match game
  */
 
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type CDPSession, type Page } from '@playwright/test';
 import { chooseCompetitive } from './menu';
 
 test.describe('Coffee Match: Match-3 Demo', () => {
@@ -123,6 +123,12 @@ async function settled(page: Page) {
   await page.waitForFunction(() => !(window as any).__GAME__.scene.getScene('GameScene').isProcessing);
 }
 
+async function swipe(cdp: CDPSession, from: { x: number; y: number }, to: { x: number; y: number }) {
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...from, id: 0 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...to, id: 0 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+
 async function snapshot(page: Page) {
   return page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('GameScene');
@@ -166,15 +172,13 @@ test('native touch swipe resolves a move after resizing', { tag: '@classic' }, a
   await page.setViewportSize({ width: 320, height: 568 });
   await page.waitForFunction(() => (window as any).__GAME__.scale.width === 320);
   const move = await candidate(page);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...move.a, id: 0 }] });
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ ...move.b, id: 0 }] });
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await swipe(cdp, move.a, move.b);
   await page.waitForFunction(() => (window as any).__GAME__.scene.getScene('GameScene').movesPlayed === 1);
   await settled(page);
   expect((await snapshot(page)).state).toEqual(move.expected);
 });
 
-test('endless board remains playable through 40 moves and pause blocks input', { tag: ['@classic', '@slow'] }, async ({ page }) => {
+test('endless board remains playable through 40 moves', { tag: ['@classic', '@slow'] }, async ({ page, context, hasTouch }) => {
   test.setTimeout(120000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await ready(page);
@@ -185,17 +189,21 @@ test('endless board remains playable through 40 moves and pause blocks input', {
     scene.renderBoard();
   });
   await page.keyboard.press('Escape');
-  const frozen = await snapshot(page);
-  const move = await candidate(page);
-  await page.mouse.click(move.a.x, move.a.y);
-  await page.mouse.click(move.b.x, move.b.y);
-  expect((await snapshot(page)).state).toEqual(frozen.state);
-  await page.keyboard.press('Escape');
+  const resume = page.getByRole('dialog', { name: 'Game menu' }).getByRole('button', { name: 'Resume game' });
+  if (hasTouch) await resume.tap();
+  else await resume.click();
+  await waitForBoard(page);
+  const cdp = hasTouch ? await context.newCDPSession(page) : undefined;
   let cascadeSeen = false;
   for (let i = 0; i < 40; i++) {
     const next = await candidate(page);
     cascadeSeen ||= next.cascades > 1;
-    if (i < 2) {
+    if (cdp && i < 2) {
+      await swipe(cdp, next.a, next.b);
+    } else if (cdp) {
+      await page.touchscreen.tap(next.a.x, next.a.y);
+      await page.touchscreen.tap(next.b.x, next.b.y);
+    } else if (i < 2) {
       await page.mouse.move(next.a.x, next.a.y);
       await page.mouse.down();
       await page.mouse.move(next.b.x, next.b.y, { steps: 3 });
@@ -204,6 +212,7 @@ test('endless board remains playable through 40 moves and pause blocks input', {
       await page.mouse.click(next.a.x, next.a.y);
       await page.mouse.click(next.b.x, next.b.y);
     }
+    await page.waitForFunction(n => (window as any).__GAME__.scene.getScene('GameScene').movesPlayed === n, i + 1);
     await settled(page);
     const current = await snapshot(page);
     expect(current.state).toEqual(next.expected);
@@ -305,6 +314,15 @@ test('classic timer stops during pause and settings', { tag: '@classic' }, async
   const originalTexture = await readTexture();
   await page.keyboard.press('Escape');
   await expect.poll(readTexture).toBe('tile-paused');
+  const frozen = await snapshot(page);
+  const pausedMove = await candidate(page);
+  const canvas = page.locator('canvas');
+  for (const point of [pausedMove.a, pausedMove.b]) {
+    const position = { clientX: point.x, clientY: point.y, button: 0 };
+    await canvas.dispatchEvent('mousedown', { ...position, buttons: 1 });
+    await canvas.dispatchEvent('mouseup', position);
+  }
+  expect(await snapshot(page)).toMatchObject({ state: frozen.state, moves: frozen.moves });
   const elapsed = await readElapsed();
   await page.waitForTimeout(200);
   expect(await readElapsed()).toBe(elapsed);

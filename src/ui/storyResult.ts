@@ -36,7 +36,6 @@ export function showStoryResult(
       </div>
     </form>`;
   dialog.querySelector('h1')!.textContent = title;
-  if (details) dialog.querySelector('h1')!.after(details);
   dialog.querySelector('button[value="continue"]')!.textContent = actionLabel;
   if (victory) {
     const { messages } = victory;
@@ -44,6 +43,7 @@ export function showStoryResult(
     dialog.querySelector('legend')!.textContent = messages.modeLabel;
     dialog.querySelector('button[value="choose"]')!.textContent = messages.choose;
   }
+  if (details) dialog.querySelector('h1')!.after(details);
   dialog.addEventListener('cancel', event => {
     event.preventDefault();
     if (closeLabel) dialog.close('cancel');

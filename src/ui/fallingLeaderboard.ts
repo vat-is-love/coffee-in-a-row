@@ -8,6 +8,7 @@ interface FallingRecord {
   rows: number;
   durationMs?: number;
   playedAt: number;
+  zen?: true;
 }
 
 function isRecord(value: unknown): value is FallingRecord {
@@ -30,24 +31,27 @@ export function showClassicLeaderboard(score: number, durationMs: number, restar
 }
 
 /** Returns cleanup so scene shutdown also removes the native modal. */
-export function showFallingLeaderboard(score: number, rows: number, restart: () => void): () => void {
-  return showLeaderboard(score, rows, restart);
+export function showFallingLeaderboard(score: number, rows: number, restart: () => void, zen = false): () => void {
+  return showLeaderboard(score, rows, restart, undefined, zen);
 }
 
-function showLeaderboard(score: number, rows: number, restart: () => void, durationMs?: number): () => void {
+function showLeaderboard(score: number, rows: number, restart: () => void, durationMs?: number, zen = false): () => void {
   const classic = durationMs !== undefined;
   const key = classic ? CLASSIC_RECORDS_KEY : FALLING_RECORDS_KEY;
   const stored = readRecords(key, (value): value is FallingRecord => isRecord(value) &&
     (!classic || (Number.isSafeInteger(value.durationMs) && value.durationMs! >= 0)));
-  const records = stored.records;
-  const current: FallingRecord = { score, rows, playedAt: Date.now(), ...(classic ? { durationMs } : {}) };
+  const records = stored.records.filter(record => (record.zen === true) === zen);
+  const current: FallingRecord = { score, rows, playedAt: Date.now(), ...(classic ? { durationMs } : {}), ...(zen ? { zen: true } : {}) };
   records.push(current);
   records.sort((a, b) => (classic
     ? a.durationMs! - b.durationMs! || b.score - a.score
     : b.score - a.score || b.rows - a.rows) || a.playedAt - b.playedAt);
   let saved = true;
-  try { if (!stored.writable) throw new Error('Original preserved'); localStorage.setItem(key, JSON.stringify(records)); }
-  catch { saved = false; }
+  try {
+    if (!stored.writable) throw new Error('Original preserved');
+    const otherRecords = stored.records.filter(record => (record.zen === true) !== zen);
+    localStorage.setItem(key, JSON.stringify([...records, ...otherRecords]));
+  } catch { saved = false; }
   if (saved) notifyDataChanged();
   const rank = records.indexOf(current);
   const dialog = document.createElement('dialog');

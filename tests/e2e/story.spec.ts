@@ -127,6 +127,7 @@ test('Story awards the second and third stars independently across attempts', { 
   await page.getByRole('dialog', { name: 'Level 2', exact: true }).getByRole('button', { name: 'Choose level' }).click();
   const completed = page.getByRole('button', { name: 'Level 1 · Completed' });
   await expect(completed.locator('.level-stars')).toHaveText('★☆★');
+  await expect(completed.locator('.blue-third-star')).toHaveCount(0);
   await completed.click();
   await beginStoryLevel(page, 1);
   await page.evaluate(`${scene}.cleared = 4; ${scene}.requestDrop()`);
@@ -134,6 +135,67 @@ test('Story awards the second and third stars independently across attempts', { 
   await page.reload();
   await openStoryMap(page, /^Getting to know the game/);
   await expect(completed.locator('.level-stars')).toHaveText('★★★');
+  await expect(completed.locator('.blue-third-star')).toHaveText('★');
+});
+
+for (const campaign of ['Getting to know the game', 'Shady Souls']) {
+  test(`${campaign} ends a no-lives attempt when the first tile reaches the top row`, { tag: '@story' }, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    if (campaign === 'Getting to know the game') {
+      await page.getByRole('button', { name: 'Settings' }).click();
+      await page.getByRole('checkbox', { name: /^Story without lives/ }).check();
+      await page.getByRole('button', { name: 'Apply' }).click();
+    }
+    await openStoryMap(page, new RegExp(`^${campaign}`));
+    await page.getByRole('button', { name: 'Level 1', exact: true }).click();
+    await beginStoryLevel(page, 1);
+    await page.waitForFunction(`${scene}?.hearts && !${scene}.isProcessing`);
+    expect(await page.evaluate(`${scene}.hearts.length`)).toBe(0);
+    await page.evaluate(`(async () => {
+      const scene = ${scene};
+      scene.state.grid.forEach((row, index) => {
+        row.fill(-1);
+        if (index > 0) row[0] = 0;
+      });
+      scene.renderBoard();
+      await scene.dropRow();
+    })()`);
+    await expect(page.getByRole('dialog', { name: 'Board full' })).toBeVisible();
+  });
+}
+
+test('level three requires both upper rows to stay empty until victory', { tag: '@story' }, async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+    localStorage.setItem('coffee-preferences', JSON.stringify({
+      language: 'en', vibration: false, largeStoryCheckpoint: 2
+    }));
+  });
+  for (const reachesSecondRow of [true, false]) {
+    await page.goto('/');
+    await openStoryMap(page, /^Getting to know the game/);
+    await page.getByRole('button', { name: 'Level 3', exact: true }).click();
+    await beginStoryLevel(page, 3);
+    await page.evaluate(`(async () => {
+      const scene = ${scene};
+      if (${reachesSecondRow}) {
+        scene.state.grid.forEach((row, index) => {
+          row.fill(-1);
+          if (index >= 2) row[0] = 0;
+        });
+        scene.renderBoard();
+        await scene.dropRow();
+      }
+      scene.state.grid.forEach(row => row.fill(-1));
+      scene.renderBoard();
+      scene.state.delivered = 2;
+      await scene.dropRow();
+    })()`);
+    const result = page.getByRole('dialog', { name: 'Story cleared' });
+    await expect(result).toBeVisible();
+    await expect(result.locator('.blue-third-star')).toHaveCount(reachesSecondRow ? 0 : 1);
+  }
 });
 
 test('Story spends hearts on overflow and restores one after twenty landed rows', { tag: '@story' }, async ({ page }) => {
@@ -289,7 +351,7 @@ test('story maps show separate checkpoints and allow replay without losing acces
   await page.reload();
   await openStoryMap(page, /^Getting to know the game/);
   await expect(page.getByRole('button', { name: 'Level 3', exact: true })).toBeEnabled();
-  await expect(levels.last()).toHaveAccessibleDescription('Stars 3/3');
+  await expect(levels.last()).toHaveAccessibleDescription('Stars 3/3 · Blue third star');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-preferences')!))).toMatchObject({
     storyCheckpoint: 8, shadySoulsCheckpoint: 1, largeStoryCheckpoint: 2
   });

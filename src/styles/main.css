@@ -275,6 +275,7 @@ canvas {
 .story-map { max-width: 300px; margin: 0 auto; }
 .story-map .mode-option { text-align: center; }
 .level-stars { margin-inline-start: 10px; color: #ffc766; white-space: nowrap; }
+.blue-third-star, .settings-dialog .blue-third-star { color: #73caff; }
 .settings-dialog .settings-close {
   position: sticky;
   top: 0;

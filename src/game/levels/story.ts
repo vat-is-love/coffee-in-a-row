@@ -7,8 +7,8 @@ const messageKeys = ['title', 'levelComplete', 'continue', 'victory', 'victoryPr
 export type StoryGrid = readonly (readonly number[])[];
 type PowerUp = keyof typeof import('../logic/falling').BUFF_TILES;
 export type StoryChallengeEvent = {
-  type: 'beforeDrop';
-  hasAvailableMove(): boolean;
+  type: 'board';
+  grid: StoryGrid;
 } | {
   type: 'clear';
   grid: StoryGrid;
@@ -34,6 +34,7 @@ export type StoryBriefing = {
 export type StoryConfig = {
   messages: Record<'en' | 'ru', StoryMessages>;
   thirdStar?: string;
+  withoutLives?: boolean;
   levels: {
     board: { rows: number; cols: number; filledBottomRows: number };
     tileTypes: number;
@@ -60,7 +61,7 @@ export function isStoryMode(mode: unknown): mode is StoryMode {
   return typeof mode === 'string' && Object.prototype.hasOwnProperty.call(stories, mode);
 }
 
-export function loadStory({ levels, messages, thirdStar }: StoryConfig) {
+export function loadStory({ levels, messages, thirdStar, withoutLives = false }: StoryConfig) {
   if (!Array.isArray(levels) || !levels.length) throw new RangeError('Story must contain at least one level');
   for (const language of ['en', 'ru'] as const) {
     if (messageKeys.some(key => {
@@ -95,5 +96,5 @@ export function loadStory({ levels, messages, thirdStar }: StoryConfig) {
     createFalling(0, level);
     return { level, target, briefing, thirdStar: getThirdStarChallenge(stageChallenge ?? thirdStar) };
   });
-  return { stages, messages };
+  return { stages, messages, withoutLives };
 }

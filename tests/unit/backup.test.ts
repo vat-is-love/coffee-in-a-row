@@ -34,14 +34,16 @@ test('restore merges results without duplicates and imports settings', () => {
   source.setItem(BACKUP_KEYS[0], JSON.stringify({
     version: 1, language: 'ru', vibration: false, mode: 'falling', storyMode: true, largeStoryMode: true,
     storyCheckpoint: 3, largeStoryCheckpoint: 2, shadySoulsCheckpoint: 1,
-    largeStoryThirdStars: [1], shadySoulsThirdStars: [0], largeStoryMissingSecondStars: [1]
+    largeStoryThirdStars: [1], shadySoulsThirdStars: [0], largeStoryMissingSecondStars: [1],
+    shadySoulsBlueThirdStars: [0], storyWithoutLives: true
   }));
-  source.setItem(BACKUP_KEYS[1], JSON.stringify([record]));
+  const zen = { ...record, zen: true };
+  source.setItem(BACKUP_KEYS[1], JSON.stringify([record, zen]));
   const newer = { ...record, playedAt: 2000, score: 500 };
   target.setItem(BACKUP_KEYS[1], JSON.stringify([newer, record]));
   const b = createBackup(source);
   restoreBackup(target, b); restoreBackup(target, b);
-  expect(JSON.parse(target.getItem(BACKUP_KEYS[1])!)).toEqual([newer, record]);
+  expect(JSON.parse(target.getItem(BACKUP_KEYS[1])!)).toEqual([newer, record, zen]);
   expect(target.getItem(BACKUP_KEYS[0])).toBe(source.getItem(BACKUP_KEYS[0]));
 });
 test('failed restore rolls back settings and records, and corrupt local records are preserved', () => {

@@ -3,7 +3,7 @@ import { backupControls, installBackupControls, refreshBackupStatus } from './ba
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
 import { isStoryMode, loadStory, stories, storyTitle, type StoryMode } from '../game/levels/story';
-import { t, getPreferences, getStoryCheckpoint, getStoryStars, resetIntroductionProgress, savePreferences, type Language, type Mode } from './preferences';
+import { t, getPreferences, getStoryCheckpoint, getStoryStars, hasBlueThirdStar, resetIntroductionProgress, savePreferences, type Language, type Mode } from './preferences';
 import { showStoryIntro } from './storyIntro';
 import type { Game } from 'phaser';
 
@@ -93,6 +93,7 @@ export function installSettings(game: Game): void {
     showScreen(t('Competitive mode'), mainMenu);
     addButton(`${t('Match three')} · 8 × 8`, () => startMode('classic'));
     addButton(`${t('Falling pieces')} · 8 × 8`, () => startMode('falling'));
+    addButton(`${t('Zen Mode')} · 8 × 8`, () => startMode('zen'));
   }
 
   function storyMenu(): void {
@@ -121,9 +122,16 @@ export function installSettings(game: Game): void {
       stars.className = 'level-stars';
       const earned = getStoryStars(mode, index);
       const starCount = earned.filter(Boolean).length;
-      stars.textContent = earned.map(star => star ? '★' : '☆').join('');
+      const blueThird = earned[2] && hasBlueThirdStar(mode, index);
+      stars.textContent = (blueThird ? earned.slice(0, 2) : earned).map(star => star ? '★' : '☆').join('');
+      if (blueThird) {
+        const star = document.createElement('span');
+        star.className = 'blue-third-star';
+        star.textContent = '★';
+        stars.append(star);
+      }
       stars.setAttribute('aria-hidden', 'true');
-      button.setAttribute('aria-description', `${t('Stars')} ${starCount}/3`);
+      button.setAttribute('aria-description', `${t('Stars')} ${starCount}/3${blueThird ? ` · ${t('Blue third star')}` : ''}`);
       button.append(stars);
     }
     if (mode === 'story-large') addButton(t('Reset progress'), completed ? () => {
@@ -155,6 +163,7 @@ export function installSettings(game: Game): void {
         <select name="language"><option value="en">English</option><option value="ru">Русский</option></select>
       </label>
       <label class="mode-option"><input type="checkbox" name="vibration"><span><strong>${t('Vibration')}</strong><small>${t('Light feedback for matches, stronger feedback on game over.')}</small></span></label>
+      <label class="mode-option"><input type="checkbox" name="storyWithoutLives"><span><strong>${t('Story without lives')}</strong><small>${t('From the next attempt, reaching the top row ends the level.')}</small></span></label>
       ${isAndroidApp() ? `<button type="button" data-update-game>${t(supportsApkUpdates() ? 'Check for updates' : 'Update game')}</button>
       <small>${t(supportsApkUpdates() ? 'Check for game and Android app updates. A game update restarts the current round.' : 'Download the latest version from GitHub Pages. The game will restart; scores and settings are kept.')}</small>
       <p data-update-status role="status"></p>` : ''}
@@ -166,6 +175,7 @@ export function installSettings(game: Game): void {
     const preferences = getPreferences();
     settings.querySelector<HTMLSelectElement>('[name="language"]')!.value = preferences.language;
     settings.querySelector<HTMLInputElement>('[name="vibration"]')!.checked = preferences.vibration;
+    settings.querySelector<HTMLInputElement>('[name="storyWithoutLives"]')!.checked = preferences.storyWithoutLives;
     void refreshBackupStatus();
   }
 
@@ -201,7 +211,8 @@ export function installSettings(game: Game): void {
     if (event.submitter?.getAttribute('value') === 'apply') {
       savePreferences({
         language: settings.querySelector<HTMLSelectElement>('[name="language"]')!.value as Language,
-        vibration: settings.querySelector<HTMLInputElement>('[name="vibration"]')!.checked
+        vibration: settings.querySelector<HTMLInputElement>('[name="vibration"]')!.checked,
+        storyWithoutLives: settings.querySelector<HTMLInputElement>('[name="storyWithoutLives"]')!.checked
       });
       game.events.emit('language-changed');
     }

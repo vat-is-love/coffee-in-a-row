@@ -23,6 +23,7 @@
       "choose": "Выбрать"
     }
   },
+  "withoutLives": true,
   "thirdStar": "emptyTopRow",
   "levels": [
     {

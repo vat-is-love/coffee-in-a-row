@@ -59,6 +59,7 @@
         "ru": "В новых рядах появляются чашки. Убирайте зёрна под чашкой, пока она не опустится до нижнего края поля.",
         "demo": "delivery"
       },
+      "thirdStar": "keepTopTwoRowsEmpty",
       "board": { "rows": 10, "cols": 10, "filledBottomRows": 3 },
       "tileTypes": 4,
       "rowIntervalMs": 5000,

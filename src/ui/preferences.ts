@@ -1,18 +1,21 @@
 import { notifyDataChanged } from './storage';
 import type { StoryMode } from '../game/levels/story';
 export type Language = 'en' | 'ru';
-export type Mode = 'classic' | 'falling' | StoryMode;
+export type Mode = 'classic' | 'falling' | 'zen' | StoryMode;
 const storyCheckpointKeys = { 'story-large': 'largeStoryCheckpoint', 'shady-souls': 'shadySoulsCheckpoint' } as const;
 const thirdStarKeys = { 'story-large': 'largeStoryThirdStars', 'shady-souls': 'shadySoulsThirdStars' } as const;
+const blueThirdStarKeys = { 'story-large': 'largeStoryBlueThirdStars', 'shady-souls': 'shadySoulsBlueThirdStars' } as const;
 // Older saves already displayed the second star for every completed level.
 const missingSecondStarKeys = { 'story-large': 'largeStoryMissingSecondStars', 'shady-souls': 'shadySoulsMissingSecondStars' } as const;
-type StarKey = (typeof thirdStarKeys | typeof missingSecondStarKeys)[StoryMode];
+const starKeys = [...Object.values(thirdStarKeys), ...Object.values(blueThirdStarKeys), ...Object.values(missingSecondStarKeys)];
+type StarKey = typeof starKeys[number];
 const pendingStoryStars: Partial<Record<StarKey, number[]>> = {};
 let mode: Mode | undefined;
 let languageChosen = false;
 export const PREFERENCES_KEY = 'coffee-preferences';
 let language: Language = 'en';
 let vibration = true;
+let storyWithoutLives = false;
 const pendingStoryCheckpoints: Partial<Record<StoryMode, number>> = {};
 function readStoredPreferences() {
   const saved = JSON.parse(localStorage.getItem(PREFERENCES_KEY) ?? '{}');
@@ -27,10 +30,11 @@ try {
   }
   if (saved.mode === 'classic' || saved.mode === 'falling') mode = saved.mode;
   if (typeof saved.vibration === 'boolean') vibration = saved.vibration;
+  storyWithoutLives = saved.storyWithoutLives === true;
 } catch { /* Preferences are optional when storage is unavailable. */ }
-export function getPreferences() { return { language, vibration }; }
+export function getPreferences() { return { language, vibration, storyWithoutLives }; }
 export function getStartupPreferences() {
-  return { mode: mode === 'story-large' || mode === 'shady-souls' ? 'falling' : mode, languageChosen };
+  return { mode: mode === 'classic' || mode === undefined ? mode : 'falling', languageChosen };
 }
 export function getStoryCheckpoint(storyMode: StoryMode): number {
   const pending = pendingStoryCheckpoints[storyMode];
@@ -56,6 +60,9 @@ export function getStoryStars(mode: StoryMode, levelIndex: number): [boolean, bo
     getStoryStarIndices(thirdStarKeys[mode]).includes(levelIndex)
   ];
 }
+export function hasBlueThirdStar(mode: StoryMode, levelIndex: number): boolean {
+  return getStoryStarIndices(blueThirdStarKeys[mode]).includes(levelIndex);
+}
 export function saveStoryCheckpoint(
   storyMode: StoryMode, levelIndex: number, { second, third }: { second: boolean; third: boolean }
 ): void {
@@ -70,6 +77,10 @@ export function saveStoryCheckpoint(
   if (third) {
     const key = thirdStarKeys[storyMode];
     pendingStoryStars[key] = [...new Set([...getStoryStarIndices(key), completed])];
+    if (second) {
+      const blueKey = blueThirdStarKeys[storyMode];
+      pendingStoryStars[blueKey] = [...new Set([...getStoryStarIndices(blueKey), completed])];
+    }
   }
   pendingStoryCheckpoints[storyMode] = Math.max(checkpoint, levelIndex);
   persistPreferences(true);
@@ -77,15 +88,17 @@ export function saveStoryCheckpoint(
 export function resetIntroductionProgress(): void {
   pendingStoryCheckpoints['story-large'] = 0;
   pendingStoryStars[thirdStarKeys['story-large']] = [];
+  pendingStoryStars[blueThirdStarKeys['story-large']] = [];
   pendingStoryStars[missingSecondStarKeys['story-large']] = [];
   persistPreferences(true);
 }
-export function savePreferences(next: { language: Language; vibration: boolean; mode?: Mode }): void {
+export function savePreferences(next: { language: Language; vibration: boolean; storyWithoutLives?: boolean; mode?: Mode }): void {
   if (next.mode) mode = next.mode;
   languageChosen = true;
   language = next.language;
   const cancelVibration = vibration && !next.vibration;
   vibration = next.vibration;
+  storyWithoutLives = next.storyWithoutLives ?? storyWithoutLives;
   document.documentElement.lang = language;
   persistPreferences();
   if (cancelVibration) requestVibration('cancel');
@@ -102,13 +115,13 @@ function persistPreferences(preserveStoredPreferences = false): void {
     try { saved = readStoredPreferences(); } catch { saved = {}; }
     const storyCheckpoint = Number.isSafeInteger(saved.storyCheckpoint) && saved.storyCheckpoint > 0
       ? saved.storyCheckpoint : undefined;
-    const starKeys = [...Object.values(thirdStarKeys), ...Object.values(missingSecondStarKeys)];
     const stars = Object.fromEntries(starKeys.map(key => {
       const indices = getStoryStarIndices(key);
       return [key, indices.length ? indices : undefined];
     }));
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify({
       language, vibration, ...storedMode, version: 1, ...(preserveStoredPreferences ? saved : {}),
+      storyWithoutLives: storyWithoutLives || undefined,
       storyCheckpoint, largeStoryCheckpoint: largeStoryCheckpoint || undefined, shadySoulsCheckpoint: shadySoulsCheckpoint || undefined,
       ...stars
     }));
@@ -151,6 +164,9 @@ const russian: Record<string, string> = {
   'Reset progress': 'Сбросить прогресс',
   'Reset all progress for Getting to know the game?': 'Сбросить весь прогресс в «Знакомстве с игрой»?',
   'Stars': 'Звёзды',
+  'Blue third star': 'Синяя третья звезда',
+  'Story without lives': 'История без жизней',
+  'From the next attempt, reaching the top row ends the level.': 'Со следующей попытки уровень заканчивается поражением, как только фишки достигают верхнего ряда.',
   'Next': 'Дальше',
   'Start level': 'Начать уровень',
   'Description': 'Описание',

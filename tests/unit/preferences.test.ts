@@ -16,14 +16,14 @@ test('preferences survive reload, localize text and suppress disabled or hidden 
   prefs.vibrate('match');
   prefs.vibrate('loss');
   expect(vibrate.mock.calls).toEqual([[25], [[80, 50, 120]]]);
-  prefs.savePreferences({ language: 'ru', vibration: false });
+  prefs.savePreferences({ language: 'ru', vibration: false, storyWithoutLives: true });
   vibrate.mockClear();
   prefs.vibrate('match');
   prefs.vibrate('loss');
   expect(vibrate).not.toHaveBeenCalled();
   vi.resetModules();
   prefs = await import('../../src/ui/preferences');
-  expect(prefs.getPreferences()).toEqual({ language: 'ru', vibration: false });
+  expect(prefs.getPreferences()).toEqual({ language: 'ru', vibration: false, storyWithoutLives: true });
   expect(prefs.t('Settings')).toBe('Настройки');
   expect(document.documentElement.lang).toBe('ru');
   prefs.savePreferences({ language: 'en', vibration: true });

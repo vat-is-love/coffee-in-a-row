@@ -11,6 +11,41 @@ async function startFalling(page: Page) {
 }
 const falling = `(window.__GAME__.scene.getScene('FallingScene'))`;
 
+test('Zen Mode restores lives after twenty rows and keeps separate rankings', { tag: '@falling' }, async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+    localStorage.setItem('coffee-preferences', JSON.stringify({ language: 'en', vibration: false, storyWithoutLives: true }));
+    localStorage.setItem('coffee-falling-records', JSON.stringify([{ score: 999, rows: 99, playedAt: 1 }]));
+  });
+  await page.goto('/');
+  await chooseCompetitive(page, /Zen Mode/);
+  await page.waitForFunction(`${falling}?.hearts.length === 3`);
+
+  const drop = (overflow: boolean) => page.evaluate(`(async () => {
+    const scene = ${falling};
+    scene.state.grid.forEach(row => {
+      row.fill(-1);
+      if (${overflow}) row[0] = 0;
+    });
+    scene.renderBoard();
+    await scene.dropRow();
+    return scene.lifeCharge;
+  })()`);
+  expect(await sceneValue(page, `${falling}.lifeCharge`)).toBe(60);
+  expect(await drop(true)).toBe(40);
+  for (let row = 1; row <= 20; row++) expect(await drop(false)).toBe(40 + row);
+  for (const charge of [40, 20, 0]) expect(await drop(true)).toBe(charge);
+  await drop(true);
+
+  const leaderboard = page.getByRole('dialog', { name: 'Game over · Top 10' });
+  await expect(leaderboard.locator('tbody tr')).toHaveCount(1);
+  const records = await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-falling-records')!));
+  expect(records).toEqual([
+    { score: 0, rows: 20, playedAt: expect.any(Number), zen: true },
+    { score: 999, rows: 99, playedAt: 1 }
+  ]);
+});
+
 test('game menu and settings suspend the round and can resume it', { tag: ['@falling', '@smoke'] }, async ({ page, hasTouch }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await startFalling(page);

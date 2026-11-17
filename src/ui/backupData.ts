@@ -1,6 +1,6 @@
 /** Only durable game data is backed up; cached assets and diagnostic logs are excluded. */
 export const BACKUP_KEYS = ['coffee-preferences', 'coffee-falling-records', 'coffee-classic-records'] as const;
-type RecordEntry = { score: number; rows: number; playedAt: number; durationMs?: number };
+type RecordEntry = { score: number; rows: number; playedAt: number; durationMs?: number; zen?: true };
 export interface Backup {
   format: 'coffee-match-backup'; version: 1; savedAt: number;
   data: Record<string, string>;
@@ -13,6 +13,7 @@ function validateData(key: string, raw: string): void {
   if (key === BACKUP_KEYS[0]) {
     if (!object(v) || (v.version !== undefined && v.version !== 1) ||
       !['ru', 'en'].includes(v.language as string) || typeof v.vibration !== 'boolean' ||
+      (v.storyWithoutLives !== undefined && typeof v.storyWithoutLives !== 'boolean') ||
       (v.mode !== undefined && v.mode !== 'classic' && v.mode !== 'falling') ||
       (v.storyCheckpoint !== undefined && !uint(v.storyCheckpoint)) ||
       (v.largeStoryCheckpoint !== undefined && !uint(v.largeStoryCheckpoint)) ||
@@ -21,10 +22,13 @@ function validateData(key: string, raw: string): void {
       (v.shadySoulsMissingSecondStars !== undefined && !levelIndices(v.shadySoulsMissingSecondStars)) ||
       (v.largeStoryThirdStars !== undefined && !levelIndices(v.largeStoryThirdStars)) ||
       (v.shadySoulsThirdStars !== undefined && !levelIndices(v.shadySoulsThirdStars)) ||
+      (v.largeStoryBlueThirdStars !== undefined && !levelIndices(v.largeStoryBlueThirdStars)) ||
+      (v.shadySoulsBlueThirdStars !== undefined && !levelIndices(v.shadySoulsBlueThirdStars)) ||
       (v.largeStoryMode !== undefined && (v.largeStoryMode !== true || v.storyMode !== true)) ||
       (v.storyMode !== undefined && (v.storyMode !== true || v.mode !== 'falling'))) throw Error('Invalid preferences');
   } else if (!Array.isArray(v) || !v.every(r => object(r) && uint(r.score) && uint(r.rows) &&
     uint(r.playedAt) && r.playedAt <= 8640000000000000 &&
+    (r.zen === undefined || (key === 'coffee-falling-records' && r.zen === true)) &&
     (r.durationMs === undefined || uint(r.durationMs)) && (key !== BACKUP_KEYS[2] || uint(r.durationMs)))) {
     throw Error('Invalid records');
   }
@@ -61,7 +65,7 @@ export function restoreBackup(storage: Storage, backup: Backup): void {
     const merged = [...JSON.parse(old), ...JSON.parse(raw)] as RecordEntry[];
     const seen = new Set<string>();
     next.set(key, JSON.stringify(merged.filter(r => {
-      const id = JSON.stringify([r.score, r.rows, r.playedAt, r.durationMs]);
+      const id = JSON.stringify([r.score, r.rows, r.playedAt, r.durationMs, r.zen]);
       if (seen.has(id)) return false;
       seen.add(id); return true;
     })));

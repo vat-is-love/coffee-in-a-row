@@ -3,7 +3,7 @@ import { installPauseMask } from '../render/pauseMask';
 import { createBoardCursor, createBoardSurface, showBoardCursor } from '../render/boardSurface';
 import { createHud, openGameMenu } from '../render/hud';
 import { createStoryLives, renderStoryLives, rowsPerLife, storyLives } from '../render/storyLives';
-import { getPreferences, getStoryStars, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
+import { getPreferences, getStoryStars, hasBlueThirdStar, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { fallingLevel, createFalling, clearAt, findRemoval, addFallingRow, recoverOverflow, rowInterval, ROW_CLEAR_ITEM, COLUMN_CLEAR_ITEM, STORY_ITEM, BUFF_TILES, turnDuration, type FallingLevel, type FallingState } from '../logic/falling';
 import { isStoryMode, loadStory, storyTitle, stories, type StoryChallenge, type StoryChallengeEvent } from '../levels/story';
@@ -39,6 +39,7 @@ export class FallingScene extends Scene {
   private settlingPreview: { grid: number[][]; board: (TileView | null)[][] } | null = null;
   private pendingTile: TileView | null = null;
   private removingTiles = new Set<TileView>();
+  private readonly handledKeyboardEvents = new WeakSet<KeyboardEvent>();
   private briefingOpen = false;
   private syncPauseMask?: () => void;
   private gameOver = false;
@@ -56,6 +57,8 @@ export class FallingScene extends Scene {
   private activeChallenge?: StoryChallenge;
   private hearts: GameObjects.Image[] = [];
   private lifeCharge = 0;
+  private storyWithoutLives = false;
+  private hasLives = false;
   private lifeLost = false;
   private displayedLifeCharge = 0;
 
@@ -93,10 +96,13 @@ export class FallingScene extends Scene {
     this.cleared = 0;
     this.buffUsed = false;
     this.challengeProgress = 0;
-    this.lifeCharge = this.displayedLifeCharge = this.storyStage ? maxLifeCharge : 0;
+    this.storyWithoutLives = !!this.storyStage && (this.story?.withoutLives === true || getPreferences().storyWithoutLives);
+    this.hasLives = mode === 'zen' || (!!this.storyStage && !this.storyWithoutLives);
+    this.lifeCharge = this.displayedLifeCharge = this.hasLives ? maxLifeCharge : 0;
     this.lifeLost = false;
-    this.activeChallenge = isStoryMode(mode) && !getStoryStars(mode, levelIndex)[2]
+    this.activeChallenge = isStoryMode(mode) && !hasBlueThirdStar(mode, levelIndex)
       ? this.storyStage?.thirdStar : undefined;
+    this.advanceChallenge({ type: 'board', grid: this.state.grid });
     this.elapsed = 0;
     this.pendingTile = null;
     this.settlingPreview = null;
@@ -228,13 +234,13 @@ export class FallingScene extends Scene {
     const mode: unknown = this.registry.get('gameMode');
     const title = this.story && isStoryMode(mode)
       ? `${storyTitle(mode, getPreferences().language)} · ${t('Level')} ${this.levelIndex + 1}/${this.story.stages.length}`
-      : t('FALLING ROWS');
+      : t(mode === 'zen' ? 'Zen Mode' : 'FALLING ROWS');
     const hud = createHud(this, title, this.gameOver ? () => this.scene.restart({ levelIndex: this.levelIndex }) : undefined);
     this.hudContainer = hud.container;
     this.scoreText = hud.score;
     this.timerText = hud.progress;
     this.statusText = hud.status;
-    this.hearts = this.storyStage ? createStoryLives(this, hud.container, hud.width) : [];
+    this.hearts = this.hasLives ? createStoryLives(this, hud.container, hud.width) : [];
     renderStoryLives(this.hearts, this.displayedLifeCharge);
     if (this.level.incomingRows.previewNextRow) this.createPreview();
     this.updateHUD();
@@ -379,6 +385,9 @@ export class FallingScene extends Scene {
   }
 
   private keyDown(event: KeyboardEvent): void {
+    // Phaser can replay a queued DOM event before the next frame.
+    if (this.handledKeyboardEvents.has(event)) return;
+    this.handledKeyboardEvents.add(event);
     if (event.key === 'Escape') {
       event.preventDefault();
       if (!event.repeat) openGameMenu();
@@ -503,14 +512,18 @@ export class FallingScene extends Scene {
     const next = this.levelIndex + 1;
     const finished = next === this.story.stages.length;
     const earnedThirdStar = this.activeChallenge?.qualifies(this.state.grid, this.challengeProgress) === true;
+    const showThirdStar = earnedThirdStar && (!getStoryStars(mode, this.levelIndex)[2] || !this.lifeLost);
     saveStoryCheckpoint(mode, next, { second: !this.lifeLost, third: earnedThirdStar });
     this.gameOver = true;
     this.refreshCursor();
     this.pendingTile = null;
     this.updateHUD();
     const messages = this.story.messages[getPreferences().language];
-    const details = earnedThirdStar ? document.createElement('p') : undefined;
-    if (details) details.textContent = t('Third star earned!');
+    const details = showThirdStar ? document.createElement('p') : undefined;
+    if (details) {
+      details.textContent = t('Third star earned!');
+      if (!this.lifeLost) details.classList.add('blue-third-star');
+    }
     const cleanup = showStoryResult(
       finished ? messages.victory : messages.levelComplete,
       finished ? messages.restart : messages.continue,
@@ -558,6 +571,21 @@ export class FallingScene extends Scene {
     this.processPending();
   }
 
+  private loseRound(): void {
+    this.gameOver = true;
+    this.refreshCursor();
+    this.pendingTile = null;
+    this.drawPendingOutline();
+    vibrate('loss');
+    this.isProcessing = false;
+    this.droppingRow = false;
+    this.createHUD();
+    const cleanup = this.storyStage
+      ? showStoryResult(t('Board full'), t('Retry level'), () => this.scene.restart({ levelIndex: this.levelIndex }))
+      : showFallingLeaderboard(this.state.score, this.state.rowsAdded, () => this.scene.restart(), this.registry.get('gameMode') === 'zen');
+    this.events.once('shutdown', cleanup);
+  }
+
   private async dropRow(): Promise<void> {
     if (this.isProcessing || this.gameOver) return;
     this.isProcessing = true;
@@ -566,30 +594,11 @@ export class FallingScene extends Scene {
     this.showGroup(null);
     const result = addFallingRow(this.state, this.level);
     if (result.overflow) {
-      if (this.lifeCharge >= rowsPerLife) {
-        await this.spendLife();
-        return;
-      }
-      this.gameOver = true;
-      this.refreshCursor();
-      this.pendingTile = null;
-      this.drawPendingOutline();
-      vibrate('loss');
-      this.isProcessing = false;
-      this.droppingRow = false;
-      this.createHUD();
-      const cleanup = this.storyStage
-        ? showStoryResult(t('Board full'), t('Retry level'), () => this.scene.restart({ levelIndex: this.levelIndex }))
-        : showFallingLeaderboard(this.state.score, this.state.rowsAdded, () => this.scene.restart());
-      this.events.once('shutdown', cleanup);
+      if (this.hasLives && this.lifeCharge >= rowsPerLife) await this.spendLife();
+      else this.loseRound();
       return;
     }
     const { nextRow: incoming, grid, delivered } = this.state;
-    this.advanceChallenge({
-      type: 'beforeDrop',
-      hasAvailableMove: () => grid.some((cells, row) =>
-        cells.some((tile, col) => tile >= 0 && findRemoval(grid, { row, col }).length > 0))
-    });
     this.state = { ...result.state, grid: grid.map(row => [...row]), delivered };
     // Start the next interval when the row is released, including its fall time.
     this.remaining = rowInterval(this.state.rowsAdded, this.level) + this.previewHold;
@@ -599,6 +608,7 @@ export class FallingScene extends Scene {
       this.board[pos.row][pos.col] = tile;
       return tile;
     });
+    this.advanceChallenge({ type: 'board', grid: this.state.grid });
     this.refreshCursor();
     const deliveries = result.deliveries.map(({ from }) => this.board[from.row][from.col]!);
     this.removingTiles = new Set(deliveries);
@@ -631,11 +641,15 @@ export class FallingScene extends Scene {
     for (const { tile, to } of survivors) Object.assign(tile, to);
     this.board = board;
     this.state = result.state;
-    if (this.storyStage) this.lifeCharge = Math.min(maxLifeCharge, this.lifeCharge + 1);
+    if (this.hasLives) this.lifeCharge = Math.min(maxLifeCharge, this.lifeCharge + 1);
     this.settlingPreview = null;
     this.removingTiles.clear();
     this.droppingRow = false;
     this.previewRow = [...this.state.nextRow];
+    if (this.storyWithoutLives && result.added.some(({ row }) => row === 0)) {
+      this.loseRound();
+      return;
+    }
     this.isProcessing = false;
     this.createHUD();
     if (this.finishStoryStage()) return;
