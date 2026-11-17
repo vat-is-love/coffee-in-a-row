@@ -387,11 +387,14 @@ export class FallingScene extends Scene {
     if (this.gameOver) return;
     const delta = keyDirection(event);
     const activates = keyActivates(event);
-    if (!delta && !activates) return;
+    const dropsRow = this.dropButton && event.code === 'KeyE' && !event.altKey && !event.ctrlKey && !event.metaKey;
+    if (!delta && !activates && !dropsRow) return;
     event.preventDefault();
+    if (dropsRow) this.registry.set('keyboardInput', true);
     if (delta) this.selected = moveBoardCursor(this.selected, delta, this.level.board);
     this.refreshCursor();
     if (activates && !event.repeat) this.requestRemoval(this.selected);
+    if (dropsRow && !event.repeat) this.requestDrop();
   }
 
   private animate(targets: GameObjects.Image[], values: object, duration: number): Promise<void> {

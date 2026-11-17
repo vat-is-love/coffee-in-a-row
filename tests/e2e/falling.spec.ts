@@ -208,19 +208,18 @@ test('preview builds left to right, survives resize, and early drop releases exa
   expect(await sceneValue(page, `${falling}.remaining`)).toBeGreaterThan(3500);
 });
 
-test('early drop completes the preview and waits for the current spinning removal', { tag: '@falling' }, async ({ page }) => {
+test('E completes the row preview and waits for the current spinning removal', { tag: '@falling' }, async ({ page }) => {
   await startFalling(page);
-  const points = await page.evaluate(() => {
+  const point = await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
     scene.state.grid = Array.from({ length: 8 }, () => Array(8).fill(-1));
     scene.state.grid[7] = [0, 0, 1, 1, 2, 2, 3, 3];
     scene.renderBoard();
     const tile = scene.board[7][0].sprite;
-    const b = scene.dropButton.getBounds();
-    return { tile: { x: scene.boardContainer.x + tile.x * scene.boardContainer.scaleX,
-      y: scene.boardContainer.y + tile.y * scene.boardContainer.scaleY }, button: { x: b.centerX, y: b.centerY } };
+    return { x: scene.boardContainer.x + tile.x * scene.boardContainer.scaleX,
+      y: scene.boardContainer.y + tile.y * scene.boardContainer.scaleY };
   });
-  await page.mouse.click(points.tile.x, points.tile.y);
+  await page.mouse.click(point.x, point.y);
   await page.waitForTimeout(90);
   const spin = await page.evaluate(() => {
     const tile = (window as any).__GAME__.scene.getScene('FallingScene').board[7][0].sprite;
@@ -228,7 +227,7 @@ test('early drop completes the preview and waits for the current spinning remova
   });
   expect(spin.y).toBe(1);
   expect(spin.x).toBeLessThan(0.9);
-  await page.mouse.click(points.button.x, points.button.y);
+  await page.keyboard.down('KeyE');
   expect(await sceneValue(page, `${falling}.state.rowsAdded`)).toBe(0);
   expect(await sceneValue(page, `${falling}.preview.map(s=>s.alpha)`)).toEqual(Array(8).fill(1));
   await page.waitForFunction(() => (window as any).__GAME__.scene.getScene('FallingScene').state.rowsAdded === 1);
@@ -238,6 +237,18 @@ test('early drop completes the preview and waits for the current spinning remova
     .toEqual([true, true, (row + 1) % 8]);
   await page.waitForFunction(() => !(window as any).__GAME__.scene.getScene('FallingScene').isProcessing);
   expect(await sceneValue(page, `${falling}.state.grid.flat().filter(n=>n>=0).length`)).toBe(14);
+  await page.keyboard.down('KeyE');
+  await page.keyboard.up('KeyE');
+  expect(await sceneValue(page, `${falling}.state.rowsAdded`)).toBe(1);
+
+  for (const [index, key] of ['E', 'у', 'У'].entries()) {
+    await page.evaluate(key => {
+      const init = { code: 'KeyE', key, bubbles: true, modifierCapsLock: key !== 'у' };
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', init));
+      document.activeElement!.dispatchEvent(new KeyboardEvent('keyup', init));
+    }, key);
+    await page.waitForFunction(`${falling}.state.rowsAdded === ${index + 2} && !${falling}.isProcessing`);
+  }
 });
 
 
