@@ -1,3 +1,5 @@
+import type { Position } from '../game/logic/types';
+
 const directions = new Map<string, [number, number]>([
   ['ArrowUp', [-1, 0]], ['KeyW', [-1, 0]],
   ['ArrowDown', [1, 0]], ['KeyS', [1, 0]],
@@ -8,6 +10,12 @@ const directions = new Map<string, [number, number]>([
 export function keyDirection(event: KeyboardEvent): [number, number] | undefined {
   if (event.altKey || event.ctrlKey || event.metaKey) return;
   return directions.get(event.code || event.key);
+}
+
+export function moveBoardCursor(
+  { row, col }: Position, [dr, dc]: [number, number], { rows, cols }: { rows: number; cols: number }
+): Position {
+  return { row: (row + dr + rows) % rows, col: (col + dc + cols) % cols };
 }
 
 export function keyActivates(event: KeyboardEvent): boolean {

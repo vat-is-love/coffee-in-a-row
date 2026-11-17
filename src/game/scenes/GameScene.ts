@@ -1,4 +1,4 @@
-import { keyActivates, keyDirection } from '../../ui/keyboard';
+import { keyActivates, keyDirection, moveBoardCursor } from '../../ui/keyboard';
 import { installPauseMask } from '../render/pauseMask';
 import { createBoardCursor, createBoardSurface, showBoardCursor } from '../render/boardSurface';
 import { showClassicLeaderboard, formatDuration } from '../../ui/fallingLeaderboard';
@@ -235,7 +235,7 @@ export class GameScene extends Scene {
   }
 
   private refreshCursor(): void {
-    const visible = this.registry.get('keyboardInput') && !this.isProcessing && !this.failed && !this.completed;
+    const visible = this.registry.get('keyboardInput') && !this.failed && !this.completed;
     showBoardCursor(this.boardContainer, this.cursor, visible ? this.activeCell : null);
   }
 
@@ -252,10 +252,9 @@ export class GameScene extends Scene {
     event.preventDefault();
     const current = this.board[this.activeCell.row][this.activeCell.col];
     if (delta) {
-      const next = this.board[current.row + delta[0]]?.[current.col + delta[1]];
-      if (next) {
-        this.activeCell = { row: next.row, col: next.col };
-        if (event.shiftKey) void this.attemptSwap(current, next);
+      this.activeCell = moveBoardCursor(this.activeCell, delta, this.config);
+      if (event.shiftKey && areAdjacent(current, this.activeCell)) {
+        void this.attemptSwap(current, this.board[this.activeCell.row][this.activeCell.col]);
       }
     } else if (!event.repeat) {
       this.selectTile(current);
@@ -339,6 +338,7 @@ export class GameScene extends Scene {
       }
     }
     this.board = next;
+    this.refreshCursor();
     await Promise.all(falls);
     this.state = { ...frame.boardState, score: this.state.score + frame.scoreDelta };
     this.updateHUD(t('Resolving…'));

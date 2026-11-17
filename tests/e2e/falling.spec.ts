@@ -322,7 +322,7 @@ test('pending outline skips singletons and moves with the last selected group', 
   expect(result.empty).toBe(0);
 });
 
-test('keyboard menus start a round with a visible cursor and remove groups', { tag: '@falling' }, async ({ page }) => {
+test('keyboard cursor wraps across empty cells and stays visible while removing groups', { tag: '@falling' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await startFalling(page);
   expect(await sceneValue(page, `${falling}.cursor.visible`)).toBe(false);
@@ -343,14 +343,29 @@ test('keyboard menus start a round with a visible cursor and remove groups', { t
     const scene = ${falling};
     scene.remaining = 5000;
     scene.state.grid.forEach(row => row.fill(-1));
-    const { row, col } = scene.selected;
-    scene.state.grid[row].splice(col - 3, 5, 1, 1, -1, 0, 0);
+    scene.state.grid.at(-1).splice(0, 8, 1, 1, -1, -1, -1, -1, 0, 0);
     scene.renderBoard();
+    scene.selected = { row: 0, col: 0 };
   })()`);
-  await page.keyboard.press('KeyA');
+  const cursor = () => sceneValue(page, `(() => {
+    const { cursor, selected } = ${falling};
+    return [cursor.visible, cursor.y / 64, cursor.x / 64, selected.row, selected.col];
+  })()`);
+  for (const [key, row, col] of [
+    ['KeyA', 0, 7], ['ArrowRight', 0, 0], ['ArrowUp', 7, 0],
+    ['KeyS', 0, 0], ['Enter', 0, 0], ['ArrowUp', 7, 0]
+  ] as const) {
+    await page.keyboard.press(key);
+    await expect.poll(cursor).toEqual([true, row, col, row, col]);
+  }
+  expect(await sceneValue(page, `${falling}.state.score`)).toBe(0);
+
   await page.keyboard.press('Space');
-  await expect.poll(() => sceneValue(page, `${falling}.state.score`)).toBeGreaterThan(0);
-  await expect.poll(() => sceneValue(page, `${falling}.cursor.visible`)).toBe(true);
+  await expect.poll(() => sceneValue(page, `[${falling}.isProcessing, ${falling}.cursor.visible]`)).toEqual([true, true]);
+  await expect.poll(() => sceneValue(page, `${falling}.isProcessing`)).toBe(false);
+  expect(await cursor()).toEqual([true, 7, 0, 7, 0]);
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Enter');
   await expect.poll(() => sceneValue(page, `${falling}.board.flat().filter(Boolean).length`)).toBe(0);
+  expect(await cursor()).toEqual([true, 7, 3, 7, 3]);
 });

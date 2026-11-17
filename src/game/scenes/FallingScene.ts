@@ -1,4 +1,4 @@
-import { keyActivates, keyDirection } from '../../ui/keyboard';
+import { keyActivates, keyDirection, moveBoardCursor } from '../../ui/keyboard';
 import { installPauseMask } from '../render/pauseMask';
 import { createBoardCursor, createBoardSurface, showBoardCursor } from '../render/boardSurface';
 import { createHud, openGameMenu } from '../render/hud';
@@ -130,6 +130,7 @@ export class FallingScene extends Scene {
     this.game.events.on('language-changed', this.layout, this);
     const hideGroups = () => {
       this.showGroup(null);
+      showBoardCursor(this.boardContainer, this.cursor, null);
       this.pendingOutline.clear();
     };
     this.events.on('pause', hideGroups);
@@ -350,11 +351,11 @@ export class FallingScene extends Scene {
     const pos = this.position(pointer);
     if (!pos && this.cursor.visible) return;
     if (pos) this.registry.set('keyboardInput', false);
+    showBoardCursor(this.boardContainer, this.cursor, null);
     this.showGroup(pos);
   }
 
   private showGroup(pos: Position | null): void {
-    showBoardCursor(this.boardContainer, this.cursor, null);
     this.highlights.forEach(sprite => sprite.destroy());
     this.highlights = [];
     if (!pos || this.isProcessing || this.gameOver) return;
@@ -365,32 +366,10 @@ export class FallingScene extends Scene {
     });
   }
 
-  private nearestTile(direction?: [number, number]): TileView | null {
-    const { row, col } = this.selected;
-    let nearest: TileView | null = null;
-    let best = Infinity;
-    for (const cells of this.board) {
-      for (const tile of cells) {
-        if (!tile) continue;
-        const dr = tile.row - row;
-        const dc = tile.col - col;
-        if (direction && dr * direction[0] + dc * direction[1] <= 0) continue;
-        // Prefer the right-hand cell when two cells are equally close.
-        const distance = Math.abs(dr) + Math.abs(dc);
-        if (distance > best || (distance === best && nearest && tile.col <= nearest.col)) continue;
-        best = distance;
-        nearest = tile;
-      }
-    }
-    return nearest;
-  }
-
   private refreshCursor(): void {
-    if (!this.registry.get('keyboardInput') || this.isProcessing || this.gameOver) return;
-    const tile = this.nearestTile();
-    if (tile) this.selected = { row: tile.row, col: tile.col };
-    this.showGroup(tile);
-    showBoardCursor(this.boardContainer, this.cursor, tile);
+    const visible = this.registry.get('keyboardInput') && !this.gameOver;
+    if (visible) this.showGroup(this.selected);
+    showBoardCursor(this.boardContainer, this.cursor, visible ? this.selected : null);
   }
 
   private keyDown(event: KeyboardEvent): void {
@@ -404,10 +383,7 @@ export class FallingScene extends Scene {
     const activates = keyActivates(event);
     if (!delta && !activates) return;
     event.preventDefault();
-    if (delta) {
-      const tile = this.nearestTile(delta);
-      if (tile) this.selected = { row: tile.row, col: tile.col };
-    }
+    if (delta) this.selected = moveBoardCursor(this.selected, delta, this.level.board);
     this.refreshCursor();
     if (activates && !event.repeat && this.board[this.selected.row]?.[this.selected.col]) {
       void this.remove(this.selected);
@@ -522,6 +498,7 @@ export class FallingScene extends Scene {
     const earnedThirdStar = this.activeChallenge?.qualifies(this.state.grid, this.challengeProgress) === true;
     saveStoryCheckpoint(mode, next, { second: !this.lifeLost, third: earnedThirdStar });
     this.gameOver = true;
+    this.refreshCursor();
     this.pendingTile = null;
     this.updateHUD();
     const messages = this.story.messages[getPreferences().language];
@@ -587,6 +564,7 @@ export class FallingScene extends Scene {
         return;
       }
       this.gameOver = true;
+      this.refreshCursor();
       this.pendingTile = null;
       this.drawPendingOutline();
       vibrate('loss');
@@ -614,6 +592,7 @@ export class FallingScene extends Scene {
       this.board[pos.row][pos.col] = tile;
       return tile;
     });
+    this.refreshCursor();
     const deliveries = result.deliveries.map(({ from }) => this.board[from.row][from.col]!);
     this.removingTiles = new Set(deliveries);
     const animations = tiles.map(tile => this.animate([tile.sprite], { y: tile.row * 64 + 32 }, 280));

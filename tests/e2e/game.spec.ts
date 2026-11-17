@@ -223,10 +223,15 @@ test('keyboard swap and resize during animation finish without losing input', { 
   await expect(page.getByRole('button', { name: /Match three/ })).toBeFocused();
   await page.keyboard.press('Space');
   await waitForBoard(page);
-  await expect.poll(() => page.evaluate(() => {
+  const cursor = () => page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('GameScene');
     return [scene.cursor.visible, scene.activeCell];
-  })).toEqual([true, { row: 0, col: 4 }]);
+  });
+  await expect.poll(cursor).toEqual([true, { row: 0, col: 4 }]);
+  await page.keyboard.press('ArrowUp');
+  await expect.poll(cursor).toEqual([true, { row: 7, col: 4 }]);
+  await page.keyboard.press('ArrowDown');
+  await expect.poll(cursor).toEqual([true, { row: 0, col: 4 }]);
   const move = await candidate(page);
   await page.mouse.click(move.a.x, move.a.y);
   const direction = Math.abs(move.b.x - move.a.x) > Math.abs(move.b.y - move.a.y) ? 'ArrowRight' : 'ArrowDown';
@@ -238,6 +243,10 @@ test('keyboard swap and resize during animation finish without losing input', { 
   await page.mouse.click(next.a.x, next.a.y);
   await page.keyboard.press(next.a.y === next.b.y ? 'KeyD' : 'KeyS');
   await page.keyboard.press('Enter');
+  await expect.poll(() => page.evaluate(() => {
+    const scene = (window as any).__GAME__.scene.getScene('GameScene');
+    return [scene.isProcessing, scene.cursor.visible, scene.boardContainer.list.at(-1) === scene.cursor];
+  })).toEqual([true, true, true]);
   await settled(page);
   expect((await snapshot(page)).moves).toBe(2);
 });
