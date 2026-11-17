@@ -232,6 +232,10 @@ test('early drop completes the preview and waits for the current spinning remova
   expect(await sceneValue(page, `${falling}.state.rowsAdded`)).toBe(0);
   expect(await sceneValue(page, `${falling}.preview.map(s=>s.alpha)`)).toEqual(Array(8).fill(1));
   await page.waitForFunction(() => (window as any).__GAME__.scene.getScene('FallingScene').state.rowsAdded === 1);
+  const row = await sceneValue(page, `${falling}.selected.row`) as number;
+  await page.keyboard.press('ArrowDown');
+  expect(await sceneValue(page, `[${falling}.droppingRow, ${falling}.cursor.visible, ${falling}.cursor.y / 64]`))
+    .toEqual([true, true, (row + 1) % 8]);
   await page.waitForFunction(() => !(window as any).__GAME__.scene.getScene('FallingScene').isProcessing);
   expect(await sceneValue(page, `${falling}.state.grid.flat().filter(n=>n>=0).length`)).toBe(14);
 });
@@ -268,19 +272,23 @@ test('leaderboard keeps top ten, shows a lower current rank, and persists across
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-falling-records')!).length)).toBe(14);
 });
 
-test('buffers only the last tapped tile and follows it as columns move', { tag: '@falling' }, async ({ page }) => {
+test('shares the last buffered tile between pointer and keyboard and follows it as columns move', { tag: '@falling' }, async ({ page }) => {
   await startFalling(page);
   const points = await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
     scene.state.grid = Array.from({ length: 8 }, () => Array(8).fill(-1));
     scene.state.grid[7] = [0, 0, 1, 1, 2, 2, 3, 3];
     scene.renderBoard();
-    return [0, 4, 6].map(col => ({
+    scene.selected = { row: 7, col: 7 };
+    return [0, 4].map(col => ({
       x: scene.boardContainer.x + (col * 64 + 32) * scene.boardContainer.scaleX,
       y: scene.boardContainer.y + 480 * scene.boardContainer.scaleY
     }));
   });
   for (const point of points) await page.mouse.click(point.x, point.y);
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('Enter');
+  expect(await sceneValue(page, `[${falling}.isProcessing, ${falling}.pendingTile?.col]`)).toEqual([true, 6]);
   expect(await sceneValue(page, `${falling}.pendingOutline.commandBuffer.length`)).toBeGreaterThan(0);
   await page.waitForFunction(() => {
     const scene = (window as any).__GAME__.scene.getScene('FallingScene');
@@ -361,10 +369,12 @@ test('keyboard cursor wraps across empty cells and stays visible while removing 
   expect(await sceneValue(page, `${falling}.state.score`)).toBe(0);
 
   await page.keyboard.press('Space');
-  await expect.poll(() => sceneValue(page, `[${falling}.isProcessing, ${falling}.cursor.visible]`)).toEqual([true, true]);
+  await page.keyboard.press('ArrowRight');
+  expect(await sceneValue(page, `[${falling}.isProcessing, ${falling}.cursor.visible, ${falling}.cursor.x / 64]`))
+    .toEqual([true, true, 1]);
   await expect.poll(() => sceneValue(page, `${falling}.isProcessing`)).toBe(false);
-  expect(await cursor()).toEqual([true, 7, 0, 7, 0]);
-  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
+  expect(await cursor()).toEqual([true, 7, 1, 7, 1]);
+  for (let i = 0; i < 2; i++) await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Enter');
   await expect.poll(() => sceneValue(page, `${falling}.board.flat().filter(Boolean).length`)).toBe(0);
   expect(await cursor()).toEqual([true, 7, 3, 7, 3]);

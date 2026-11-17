@@ -242,11 +242,17 @@ test('keyboard swap and resize during animation finish without losing input', { 
   const next = await candidate(page);
   await page.mouse.click(next.a.x, next.a.y);
   await page.keyboard.press(next.a.y === next.b.y ? 'KeyD' : 'KeyS');
-  await page.keyboard.press('Enter');
-  await expect.poll(() => page.evaluate(() => {
+  const target = await page.evaluate(() => {
     const scene = (window as any).__GAME__.scene.getScene('GameScene');
-    return [scene.isProcessing, scene.cursor.visible, scene.boardContainer.list.at(-1) === scene.cursor];
-  })).toEqual([true, true, true]);
+    return scene.activeCell as { row: number; col: number };
+  });
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Shift+ArrowUp');
+  expect(await page.evaluate(() => {
+    const scene = (window as any).__GAME__.scene.getScene('GameScene');
+    return [scene.isProcessing, scene.cursor.visible, scene.cursor.y / 64, scene.cursor.x / 64,
+      scene.boardContainer.list.at(-1) === scene.cursor];
+  })).toEqual([true, true, (target.row + 7) % 8, target.col, true]);
   await settled(page);
   expect((await snapshot(page)).moves).toBe(2);
 });

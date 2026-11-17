@@ -296,11 +296,16 @@ export class FallingScene extends Scene {
   private click(pointer: Input.Pointer): void {
     const pos = this.position(pointer);
     showBoardCursor(this.boardContainer, this.cursor, null);
-    if (!pos || this.gameOver) return;
+    if (!pos) return;
+    const x = (pointer.x - this.boardContainer.x) / this.boardContainer.scaleX;
+    const y = (pointer.y - this.boardContainer.y) / this.boardContainer.scaleY;
+    this.requestRemoval(pos, x, y);
+  }
+
+  private requestRemoval(pos: Position, x = pos.col * 64 + 32, y = pos.row * 64 + 32): void {
+    if (this.gameOver) return;
     if (this.isProcessing) {
       // Follow the visible tile through gravity and column centering, not its old cell.
-      const x = (pointer.x - this.boardContainer.x) / this.boardContainer.scaleX;
-      const y = (pointer.y - this.boardContainer.y) / this.boardContainer.scaleY;
       this.pendingTile = this.board.flat().find(tile => tile && tile.sprite.active
         && !this.removingTiles.has(tile)
         && Math.abs(tile.sprite.x - x) <= 32 && Math.abs(tile.sprite.y - y) <= 32) ?? null;
@@ -329,6 +334,7 @@ export class FallingScene extends Scene {
     });
     // Newly dropped tiles may have been added above this overlay.
     this.boardContainer.bringToTop(this.pendingOutline);
+    if (this.cursor.visible) this.boardContainer.bringToTop(this.cursor);
   }
 
   private processPending(): void {
@@ -378,16 +384,14 @@ export class FallingScene extends Scene {
       if (!event.repeat) openGameMenu();
       return;
     }
-    if (this.isProcessing || this.gameOver) return;
+    if (this.gameOver) return;
     const delta = keyDirection(event);
     const activates = keyActivates(event);
     if (!delta && !activates) return;
     event.preventDefault();
     if (delta) this.selected = moveBoardCursor(this.selected, delta, this.level.board);
     this.refreshCursor();
-    if (activates && !event.repeat && this.board[this.selected.row]?.[this.selected.col]) {
-      void this.remove(this.selected);
-    }
+    if (activates && !event.repeat) this.requestRemoval(this.selected);
   }
 
   private animate(targets: GameObjects.Image[], values: object, duration: number): Promise<void> {

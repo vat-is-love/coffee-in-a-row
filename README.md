@@ -1,6 +1,7 @@
 # Coffee Match — лучшая версия игры «три в ряд»
 
 Браузерная кофейная Match-3 игра.
+https://vat-is-love.github.io/coffee-in-a-row/
 
 ## Быстрый старт
 

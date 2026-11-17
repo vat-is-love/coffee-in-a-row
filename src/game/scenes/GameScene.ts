@@ -245,19 +245,19 @@ export class GameScene extends Scene {
       if (!event.repeat) openGameMenu();
       return;
     }
-    if (this.isProcessing || this.failed || this.completed) return;
+    if (this.failed || this.completed) return;
     const delta = keyDirection(event);
     const activates = keyActivates(event);
     if (!delta && !activates) return;
     event.preventDefault();
-    const current = this.board[this.activeCell.row][this.activeCell.col];
+    const previous = this.activeCell;
     if (delta) {
-      this.activeCell = moveBoardCursor(this.activeCell, delta, this.config);
-      if (event.shiftKey && areAdjacent(current, this.activeCell)) {
-        void this.attemptSwap(current, this.board[this.activeCell.row][this.activeCell.col]);
+      this.activeCell = moveBoardCursor(previous, delta, this.config);
+      if (!this.isProcessing && event.shiftKey && areAdjacent(previous, this.activeCell)) {
+        void this.attemptSwap(this.board[previous.row][previous.col], this.board[this.activeCell.row][this.activeCell.col]);
       }
-    } else if (!event.repeat) {
-      this.selectTile(current);
+    } else if (!this.isProcessing && !event.repeat) {
+      this.selectTile(this.board[previous.row][previous.col]);
     }
     this.refreshCursor();
   }
