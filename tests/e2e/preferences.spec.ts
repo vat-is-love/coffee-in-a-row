@@ -37,6 +37,34 @@ test('language and vibration apply without resetting the board and persist on re
   expect(await page.evaluate(() => (window as any).vibrations)).toEqual([]);
 });
 
+test('keyboard navigation returns after using the mouse in menus', { tag: ['@preferences', '@classic'] }, async ({ page }) => {
+  await page.goto('/');
+  const heading = page.getByRole('heading', { name: 'Coffee Match' });
+  const competitive = page.getByRole('button', { name: 'Competitive mode' });
+  await expect(heading).toBeFocused();
+  await competitive.hover();
+  await expect(heading).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(competitive).toBeFocused();
+  await page.mouse.click(2, 2);
+  await page.keyboard.press('Enter');
+  await expect(competitive).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Competitive mode' })).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('KeyS');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('GameScene'));
+  await page.keyboard.press('Escape');
+  const menu = page.getByRole('dialog', { name: 'Game menu' });
+  await expect(menu.getByRole('button', { name: 'Resume game' })).toBeFocused();
+  await menu.getByRole('heading').click();
+  await page.keyboard.press('Space');
+  await expect(menu.getByRole('button', { name: 'Main menu' })).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await expect(menu.getByRole('button', { name: 'Settings' })).toBeFocused();
+});
+
 test('main menu settings apply on a separate screen and persist after reload', { tag: ['@preferences', '@smoke'] }, async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Settings' }).click();
