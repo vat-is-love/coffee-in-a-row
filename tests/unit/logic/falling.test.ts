@@ -17,7 +17,7 @@ function empty(): FallingState {
 const count = (state: FallingState) => state.grid.flat().filter(n => n >= 0).length;
 
 describe('Falling rows', () => {
-  it('lowers the columns in the top two rows, delivering their cups and preserving the preview', () => {
+  it('lowers the columns in the top two rows and delivers only cups pushed off the board', () => {
     const state = empty();
     state.grid.forEach((row, index) => {
       row[0] = index % 4;
@@ -25,14 +25,16 @@ describe('Falling rows', () => {
       if (index >= 2) row[2] = 2;
     });
     state.grid[1][0] = STORY_ITEM;
-    state.grid[7][1] = STORY_ITEM;
+    state.grid[4][0] = STORY_ITEM;
+    state.grid[5][1] = STORY_ITEM;
+    state.grid[7][2] = STORY_ITEM;
     const { state: recovered, motions } = recoverOverflow(state);
     expect(recovered.grid.map(row => row.slice(0, 3))).toEqual([
-      [-1, -1, -1], [-1, -1, -1], [-1, -1, 2], [-1, -1, 2],
-      [0, 1, 2], [2, 1, 2], [3, 1, 2], [0, 1, 2]
+      [-1, -1, -1], [-1, -1, -1], [-1, -1, 2], [0, -1, 2],
+      [STORY_ITEM, 1, 2], [2, 1, 2], [3, 1, 2], [STORY_ITEM, 1, STORY_ITEM]
     ]);
     expect(motions).toContainEqual({ from: { row: 1, col: 1 }, to: { row: 4, col: 1 } });
-    expect(recovered).toMatchObject({ delivered: 2, rowsAdded: 0, nextRow: state.nextRow });
+    expect(recovered).toMatchObject({ delivered: 1, rowsAdded: 0, nextRow: state.nextRow });
     expect(state.grid[0][0]).toBe(0);
   });
 

@@ -34,7 +34,7 @@ test('restore merges results without duplicates and imports settings', () => {
   source.setItem(BACKUP_KEYS[0], JSON.stringify({
     version: 1, language: 'ru', vibration: false, mode: 'falling', storyMode: true, largeStoryMode: true,
     storyCheckpoint: 3, largeStoryCheckpoint: 2, shadySoulsCheckpoint: 1,
-    largeStoryThirdStars: [1], shadySoulsThirdStars: [0]
+    largeStoryThirdStars: [1], shadySoulsThirdStars: [0], largeStoryMissingSecondStars: [1]
   }));
   source.setItem(BACKUP_KEYS[1], JSON.stringify([record]));
   const newer = { ...record, playedAt: 2000, score: 500 };

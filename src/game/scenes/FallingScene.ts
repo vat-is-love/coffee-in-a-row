@@ -54,6 +54,7 @@ export class FallingScene extends Scene {
   private activeChallenge?: StoryChallenge;
   private hearts: GameObjects.Image[] = [];
   private lifeCharge = 0;
+  private lifeLost = false;
   private displayedLifeCharge = 0;
 
   private get storyStage() { return this.story?.stages[this.levelIndex]; }
@@ -92,7 +93,8 @@ export class FallingScene extends Scene {
     this.buffUsed = false;
     this.challengeProgress = 0;
     this.lifeCharge = this.displayedLifeCharge = this.storyStage ? maxLifeCharge : 0;
-    this.activeChallenge = isStoryMode(mode) && getStoryStars(mode, levelIndex) < 3
+    this.lifeLost = false;
+    this.activeChallenge = isStoryMode(mode) && !getStoryStars(mode, levelIndex)[2]
       ? this.storyStage?.thirdStar : undefined;
     this.elapsed = 0;
     this.pendingTile = null;
@@ -468,7 +470,7 @@ export class FallingScene extends Scene {
     const next = this.levelIndex + 1;
     const finished = next === this.story.stages.length;
     const earnedThirdStar = this.activeChallenge?.qualifies(this.state.grid, this.challengeProgress) === true;
-    saveStoryCheckpoint(mode, next, earnedThirdStar);
+    saveStoryCheckpoint(mode, next, { second: !this.lifeLost, third: earnedThirdStar });
     this.gameOver = true;
     this.pendingTile = null;
     this.updateHUD();
@@ -489,6 +491,7 @@ export class FallingScene extends Scene {
   }
 
   private async spendLife(): Promise<void> {
+    this.lifeLost = true;
     this.lifeCharge -= rowsPerLife;
     this.displayedLifeCharge = this.lifeCharge;
     renderStoryLives(this.hearts, this.displayedLifeCharge);

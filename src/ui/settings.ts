@@ -110,8 +110,9 @@ export function installSettings(game: Game): void {
         index <= completed ? () => previewStoryLevel(mode, index) : undefined, map);
       const stars = document.createElement('span');
       stars.className = 'level-stars';
-      const starCount = getStoryStars(mode, index);
-      stars.textContent = '★'.repeat(starCount) + '☆'.repeat(3 - starCount);
+      const earned = getStoryStars(mode, index);
+      const starCount = earned.filter(Boolean).length;
+      stars.textContent = earned.map(star => star ? '★' : '☆').join('');
       stars.setAttribute('aria-hidden', 'true');
       button.setAttribute('aria-description', `${t('Stars')} ${starCount}/3`);
       button.append(stars);

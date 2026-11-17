@@ -101,6 +101,36 @@ test('Story retries after defeat and requires both the tile goal and a buff when
   await expect(page.getByRole('dialog', { name: 'Level 3', exact: true })).toBeVisible();
 });
 
+test('Story awards the second and third stars independently across attempts', { tag: '@story' }, async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await openStoryMap(page, /^Getting to know the game/);
+  await page.getByRole('button', { name: 'Level 1', exact: true }).click();
+  await beginStoryLevel(page, 1);
+  await page.evaluate(`(async () => {
+    const scene = ${scene};
+    scene.state.grid.forEach(row => { row.fill(-1); row[0] = 0; });
+    scene.renderBoard();
+    await scene.dropRow();
+    scene.lifeCharge = 60;
+    scene.cleared = 4;
+    await scene.dropRow();
+  })()`);
+  const result = page.getByRole('dialog', { name: 'Stage cleared' });
+  await expect(result.getByText('Third star earned!')).toBeVisible();
+  await result.getByRole('button', { name: 'Next stage' }).click();
+  await page.getByRole('dialog', { name: 'Level 2', exact: true }).getByRole('button', { name: 'Choose level' }).click();
+  const completed = page.getByRole('button', { name: 'Level 1 · Completed' });
+  await expect(completed.locator('.level-stars')).toHaveText('★☆★');
+  await completed.click();
+  await beginStoryLevel(page, 1);
+  await page.evaluate(`${scene}.cleared = 4; ${scene}.requestDrop()`);
+  await expect(result).toBeVisible();
+  await page.reload();
+  await openStoryMap(page, /^Getting to know the game/);
+  await expect(completed.locator('.level-stars')).toHaveText('★★★');
+});
+
 test('Story spends hearts on overflow and restores one after twenty landed rows', { tag: '@story' }, async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.addInitScript(() => {
@@ -116,7 +146,7 @@ test('Story spends hearts on overflow and restores one after twenty landed rows'
     const scene = ${scene};
     scene.state.grid.forEach((row, index) => {
       row.fill(-1);
-      if (${overflow}) row[0] = ${withCup} && index === 1 ? ${STORY_ITEM} : 0;
+      if (${overflow}) row[0] = ${withCup} && (index === 1 || index === scene.state.grid.length - 3) ? ${STORY_ITEM} : 0;
     });
     scene.state.nextRow = scene.state.nextRow.map(() => 0);
     scene.renderBoard();
@@ -125,6 +155,7 @@ test('Story spends hearts on overflow and restores one after twenty landed rows'
   })()`);
   expect(await page.evaluate(`${scene}.hearts.map(heart => heart.visible)`)).toEqual([true, true, true]);
   expect(await tryDrop(true, true)).toEqual([40, 0, 1]);
+  expect(await page.evaluate(`${scene}.state.grid[4][0]`)).toBe(STORY_ITEM);
   await expect.poll(() => page.evaluate(`${scene}.hearts.map(heart => heart.visible)`)).toEqual([true, true, false]);
   for (let row = 1; row <= 20; row++) {
     expect(await tryDrop(false)).toEqual([40 + row, row, 1]);

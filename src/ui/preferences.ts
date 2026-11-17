@@ -3,8 +3,11 @@ import type { StoryMode } from '../game/levels/story';
 export type Language = 'en' | 'ru';
 export type Mode = 'classic' | 'falling' | StoryMode;
 const storyCheckpointKeys = { 'story-large': 'largeStoryCheckpoint', 'shady-souls': 'shadySoulsCheckpoint' } as const;
-const storyStarKeys = { 'story-large': 'largeStoryThirdStars', 'shady-souls': 'shadySoulsThirdStars' } as const;
-const pendingStoryStars: Partial<Record<StoryMode, number[]>> = {};
+const thirdStarKeys = { 'story-large': 'largeStoryThirdStars', 'shady-souls': 'shadySoulsThirdStars' } as const;
+// Older saves already displayed the second star for every completed level.
+const missingSecondStarKeys = { 'story-large': 'largeStoryMissingSecondStars', 'shady-souls': 'shadySoulsMissingSecondStars' } as const;
+type StarKey = (typeof thirdStarKeys | typeof missingSecondStarKeys)[StoryMode];
+const pendingStoryStars: Partial<Record<StarKey, number[]>> = {};
 let mode: Mode | undefined;
 let languageChosen = false;
 export const PREFERENCES_KEY = 'coffee-preferences';
@@ -37,28 +40,44 @@ export function getStoryCheckpoint(storyMode: StoryMode): number {
     return Number.isSafeInteger(saved) && saved > 0 ? saved : 0;
   } catch { return 0; }
 }
-function getStoryThirdStars(mode: StoryMode): number[] {
-  const pending = pendingStoryStars[mode];
+function getStoryStarIndices(key: StarKey): number[] {
+  const pending = pendingStoryStars[key];
   if (pending) return pending;
   try {
-    const saved = readStoredPreferences()[storyStarKeys[mode]];
+    const saved = readStoredPreferences()[key];
     return Array.isArray(saved) ? saved.filter(index => Number.isSafeInteger(index) && index >= 0) : [];
   } catch { return []; }
 }
-export function getStoryStars(mode: StoryMode, levelIndex: number): number {
-  if (levelIndex >= getStoryCheckpoint(mode)) return 0;
-  return getStoryThirdStars(mode).includes(levelIndex) ? 3 : 2;
+export function getStoryStars(mode: StoryMode, levelIndex: number): [boolean, boolean, boolean] {
+  if (levelIndex >= getStoryCheckpoint(mode)) return [false, false, false];
+  return [
+    true,
+    !getStoryStarIndices(missingSecondStarKeys[mode]).includes(levelIndex),
+    getStoryStarIndices(thirdStarKeys[mode]).includes(levelIndex)
+  ];
 }
-export function saveStoryCheckpoint(storyMode: StoryMode, levelIndex: number, earnThirdStar = false): void {
-  if (earnThirdStar) {
-    pendingStoryStars[storyMode] = [...new Set([...getStoryThirdStars(storyMode), levelIndex - 1])];
+export function saveStoryCheckpoint(
+  storyMode: StoryMode, levelIndex: number, { second, third }: { second: boolean; third: boolean }
+): void {
+  const checkpoint = getStoryCheckpoint(storyMode);
+  const completed = levelIndex - 1;
+  const missingKey = missingSecondStarKeys[storyMode];
+  if (second) {
+    pendingStoryStars[missingKey] = getStoryStarIndices(missingKey).filter(index => index !== completed);
+  } else if (levelIndex > checkpoint) {
+    pendingStoryStars[missingKey] = [...getStoryStarIndices(missingKey), completed];
   }
-  pendingStoryCheckpoints[storyMode] = Math.max(getStoryCheckpoint(storyMode), levelIndex);
+  if (third) {
+    const key = thirdStarKeys[storyMode];
+    pendingStoryStars[key] = [...new Set([...getStoryStarIndices(key), completed])];
+  }
+  pendingStoryCheckpoints[storyMode] = Math.max(checkpoint, levelIndex);
   persistPreferences(true);
 }
 export function resetIntroductionProgress(): void {
   pendingStoryCheckpoints['story-large'] = 0;
-  pendingStoryStars['story-large'] = [];
+  pendingStoryStars[thirdStarKeys['story-large']] = [];
+  pendingStoryStars[missingSecondStarKeys['story-large']] = [];
   persistPreferences(true);
 }
 export function savePreferences(next: { language: Language; vibration: boolean; mode?: Mode }): void {
@@ -83,18 +102,19 @@ function persistPreferences(preserveStoredPreferences = false): void {
     try { saved = readStoredPreferences(); } catch { saved = {}; }
     const storyCheckpoint = Number.isSafeInteger(saved.storyCheckpoint) && saved.storyCheckpoint > 0
       ? saved.storyCheckpoint : undefined;
-    const largeStoryThirdStars = getStoryThirdStars('story-large');
-    const shadySoulsThirdStars = getStoryThirdStars('shady-souls');
+    const starKeys = [...Object.values(thirdStarKeys), ...Object.values(missingSecondStarKeys)];
+    const stars = Object.fromEntries(starKeys.map(key => {
+      const indices = getStoryStarIndices(key);
+      return [key, indices.length ? indices : undefined];
+    }));
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify({
       language, vibration, ...storedMode, version: 1, ...(preserveStoredPreferences ? saved : {}),
       storyCheckpoint, largeStoryCheckpoint: largeStoryCheckpoint || undefined, shadySoulsCheckpoint: shadySoulsCheckpoint || undefined,
-      largeStoryThirdStars: largeStoryThirdStars.length ? largeStoryThirdStars : undefined,
-      shadySoulsThirdStars: shadySoulsThirdStars.length ? shadySoulsThirdStars : undefined
+      ...stars
     }));
     delete pendingStoryCheckpoints['story-large'];
     delete pendingStoryCheckpoints['shady-souls'];
-    delete pendingStoryStars['story-large'];
-    delete pendingStoryStars['shady-souls'];
+    for (const key of starKeys) delete pendingStoryStars[key];
   } catch { /* Pending checkpoints remain available when storage is unavailable. */ }
   notifyDataChanged();
 }

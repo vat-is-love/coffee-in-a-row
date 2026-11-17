@@ -204,20 +204,20 @@ export function recoverOverflow(state: FallingState) {
   const grid = state.grid.map(row => [...row]);
   const motions: TileMotion[] = [];
   const removed: Position[] = [];
+  const shift = 3;
   let delivered = state.delivered;
   for (let col = 0; col < grid[0].length; col++) {
     if (grid[0][col] < 0 && grid[1][col] < 0) continue;
-    let landing = grid.length - 1;
     for (let row = grid.length - 1; row >= 0; row--) {
       const tile = state.grid[row][col];
       grid[row][col] = -1;
       if (tile < 0) continue;
       const from = { row, col };
-      if (tile === STORY_ITEM) delivered++;
-      if (tile === STORY_ITEM || row >= grid.length - 3) {
+      const to = { row: row + shift, col };
+      if (to.row >= grid.length) {
+        if (tile === STORY_ITEM) delivered++;
         removed.push(from);
       } else {
-        const to = { row: landing--, col };
         grid[to.row][col] = tile;
         motions.push({ from, to });
       }

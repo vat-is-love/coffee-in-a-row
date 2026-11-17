@@ -17,6 +17,8 @@ function validateData(key: string, raw: string): void {
       (v.storyCheckpoint !== undefined && !uint(v.storyCheckpoint)) ||
       (v.largeStoryCheckpoint !== undefined && !uint(v.largeStoryCheckpoint)) ||
       (v.shadySoulsCheckpoint !== undefined && !uint(v.shadySoulsCheckpoint)) ||
+      (v.largeStoryMissingSecondStars !== undefined && !levelIndices(v.largeStoryMissingSecondStars)) ||
+      (v.shadySoulsMissingSecondStars !== undefined && !levelIndices(v.shadySoulsMissingSecondStars)) ||
       (v.largeStoryThirdStars !== undefined && !levelIndices(v.largeStoryThirdStars)) ||
       (v.shadySoulsThirdStars !== undefined && !levelIndices(v.shadySoulsThirdStars)) ||
       (v.largeStoryMode !== undefined && (v.largeStoryMode !== true || v.storyMode !== true)) ||
