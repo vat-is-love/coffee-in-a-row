@@ -275,12 +275,13 @@ canvas {
 .story-map { max-width: 300px; margin: 0 auto; }
 .story-map .mode-option { text-align: center; }
 .level-stars { margin-inline-start: 10px; color: #ffc766; white-space: nowrap; }
-.settings-close {
+.settings-dialog .settings-close {
   position: sticky;
   top: 0;
   float: right;
   width: 44px;
   height: 44px;
+  padding: 0;
   border: 1px solid #e4cfad66;
   border-radius: 8px;
   background: var(--color-bg-secondary);
@@ -291,6 +292,10 @@ canvas {
 
 .story-intro h2 { font-size: 17px; margin: 12px 0 6px; color: #ffc766; }
 .story-intro section + section { border-top: 1px solid #e4cfad44; }
+.story-hint-locked { display: grid; overflow: hidden; }
+.story-hint-locked p { grid-area: 1 / 1; align-self: center; }
+.story-hint-locked p[inert] { filter: blur(12px); }
+.story-hint-locked p:last-child { z-index: 1; color: var(--color-text); text-align: center; }
 .story-demo {
   position: relative;
   overflow: hidden;

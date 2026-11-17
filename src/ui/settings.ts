@@ -1,8 +1,9 @@
 import { backupControls, installBackupControls, refreshBackupStatus } from './backup';
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
-import { isStoryMode, stories, storyTitle, type StoryMode } from '../game/levels/story';
+import { isStoryMode, loadStory, stories, storyTitle, type StoryMode } from '../game/levels/story';
 import { t, getPreferences, getStoryCheckpoint, getStoryStars, resetIntroductionProgress, savePreferences, type Language, type Mode } from './preferences';
+import { showStoryIntro } from './storyIntro';
 import type { Game } from 'phaser';
 
 export function installSettings(game: Game): void {
@@ -36,7 +37,7 @@ export function installSettings(game: Game): void {
     host.inert = false;
     game.scene.stop('GameScene');
     game.scene.stop('FallingScene');
-    game.scene.start(mode === 'classic' ? 'GameScene' : 'FallingScene', { levelIndex });
+    game.scene.start(mode === 'classic' ? 'GameScene' : 'FallingScene', { levelIndex, skipBriefing: true });
   }
 
   function showScreen(title: string, back?: () => void): void {
@@ -106,7 +107,7 @@ export function installSettings(game: Game): void {
       const state = index < completed ? t('Completed') : index > completed ? t('Locked') : '';
       const label = `${t('Level')} ${index + 1}`;
       const button = addButton(state ? `${label} · ${state}${index > completed ? ' 🔒' : ''}` : label,
-        index <= completed ? () => startMode(mode, index) : undefined, map);
+        index <= completed ? () => previewStoryLevel(mode, index) : undefined, map);
       const stars = document.createElement('span');
       stars.className = 'level-stars';
       const starCount = getStoryStars(mode, index);
@@ -121,6 +122,18 @@ export function installSettings(game: Game): void {
       storyMap(mode);
     } : undefined);
     map.children[Math.max(0, count - 1 - completed)].scrollIntoView({ block: 'center' });
+  }
+
+  function previewStoryLevel(mode: StoryMode, index: number): void {
+    let story: ReturnType<typeof loadStory>;
+    try {
+      story = loadStory(stories[mode]);
+    } catch (error) {
+      console.error('Unable to load Story levels', error);
+      window.CoffeeRecovery?.fail('invalid-falling-level');
+      return;
+    }
+    showStoryIntro(mode, index, story.stages[index], game.textures, () => startMode(mode, index), screen);
   }
 
   function renderSettings(inGame: boolean): void {
@@ -211,6 +224,14 @@ export function installSettings(game: Game): void {
     addButton(t('Main menu'), () => leaveGame(mainMenu), actions, '');
     if (isStoryMode(mode)) addButton(t('Choose level'), () => leaveGame(() => storyMap(mode)), actions, '');
     const settingsButton = addButton(t('Settings'), openSettings, actions, '');
+    addButton(t('Restart level'), () => {
+      if (!suspended) return;
+      const scene = game.scene.getScene(suspended);
+      suspended = undefined;
+      gameMenu.close();
+      const { levelIndex } = scene.sys.settings.data as { levelIndex?: number };
+      scene.scene.restart({ levelIndex, skipBriefing: true });
+    }, actions, '');
     const resumeButton = addButton(t('Resume game'), () => gameMenu.close(), actions, 'primary');
     resumeButton.autofocus = true;
     return settingsButton;

@@ -1,6 +1,7 @@
-import { BOMB_ITEM, clearAt, COLUMN_CLEAR_ITEM, ROW_CLEAR_ITEM, STORY_ITEM, type FallingState } from '../game/logic/falling';
-import type { StoryBriefing } from '../game/levels/story';
-import { getPreferences, t } from './preferences';
+import { BOMB_ITEM, clearAt, COLUMN_CLEAR_ITEM, createFalling, ROW_CLEAR_ITEM, STORY_ITEM } from '../game/logic/falling';
+import type { loadStory, StoryMode } from '../game/levels/story';
+import type { Textures } from 'phaser';
+import { getPreferences, getStoryCheckpoint, t } from './preferences';
 import { showStoryResult } from './storyResult';
 
 const demoTiles = new Map([
@@ -8,7 +9,7 @@ const demoTiles = new Map([
   ['bomb', BOMB_ITEM], ['delivery', 0]
 ]);
 
-function makeDemo(demo: string, state: FallingState, tileImage: (tile: number) => string): HTMLElement | undefined {
+function makeDemo(demo: string, textures: Textures.TextureManager): HTMLElement | undefined {
   const tile = demoTiles.get(demo);
   if (tile === undefined) return;
   const row = demo === 'delivery' ? 4 : 3;
@@ -21,7 +22,7 @@ function makeDemo(demo: string, state: FallingState, tileImage: (tile: number) =
     [ 2,  0, demo === 'delivery' ? tile : 1,  1,  2]
   ];
   if (demo === 'group') grid[3][1] = 0;
-  const { removed, motions, deliveries } = clearAt({ ...state, grid }, { row, col });
+  const { removed, motions, deliveries } = clearAt({ ...createFalling(0), grid }, { row, col });
   const board = document.createElement('div');
   board.className = 'story-demo';
   board.setAttribute('aria-hidden', 'true');
@@ -30,7 +31,8 @@ function makeDemo(demo: string, state: FallingState, tileImage: (tile: number) =
     if (value < 0) return;
     const sprite = document.createElement('img');
     sprite.alt = '';
-    sprite.src = tileImage(value);
+    const image = textures.get(`tile-${value}`).getSourceImage();
+    sprite.src = image instanceof HTMLCanvasElement ? image.toDataURL() : (image as HTMLImageElement).src;
     sprite.style.top = `${r * 20}%`;
     sprite.style.left = `${c * 20}%`;
     if (r === row && c === col) sprite.className = 'story-demo-target';
@@ -56,9 +58,11 @@ function makeDemo(demo: string, state: FallingState, tileImage: (tile: number) =
 }
 
 export function showStoryIntro(
-  title: string, briefing: StoryBriefing | undefined, goal: string, challengeHint: string | undefined | null,
-  state: FallingState, tileImage: (tile: number) => string, start: () => void
+  mode: StoryMode, levelIndex: number, stage: ReturnType<typeof loadStory>['stages'][number],
+  textures: Textures.TextureManager, start: () => void, mapScreen?: HTMLElement
 ): () => void {
+  const { briefing, level, thirdStar, target } = stage;
+  const { language } = getPreferences();
   const details = document.createElement('div');
   details.className = 'story-intro';
   const addSection = (label: string, text: string) => {
@@ -71,14 +75,31 @@ export function showStoryIntro(
     details.append(section);
     return section;
   };
-  const description = addSection(t('Description'), briefing?.[getPreferences().language] ?? '');
+  const description = addSection(t('Description'), briefing?.[language] ?? '');
   if (briefing?.demo) {
-    const demo = makeDemo(briefing.demo, state, tileImage);
+    const demo = makeDemo(briefing.demo, textures);
     if (demo) description.append(demo);
   }
-  addSection(t('Victory conditions'), goal);
-  if (challengeHint !== null) {
-    addSection(t('Third star'), challengeHint ?? t('This level has no third-star challenge.'));
+  const objective = `${t(level.delivery ? 'Items to deliver' : 'Tiles to clear')}: ${target}`;
+  addSection(t('Victory conditions'), level.buffs && !level.delivery ? `${objective} · ${t('Use a power-up')}` : objective);
+  const completed = levelIndex < getStoryCheckpoint(mode);
+  if (completed || (mapScreen && thirdStar)) {
+    const section = addSection(t('Third star'), thirdStar?.hint[language] ?? t('This level has no third-star challenge.'));
+    if (!completed) {
+      const hint = section.querySelector('p')!;
+      hint.inert = true;
+      const overlay = document.createElement('p');
+      overlay.textContent = t('Clear this level to reveal the hint.');
+      const locked = document.createElement('div');
+      locked.className = 'story-hint-locked';
+      hint.replaceWith(locked);
+      locked.append(hint, overlay);
+    }
   }
-  return showStoryResult(title, t('Next'), start, { details, className: 'story-briefing' });
+  return showStoryResult(`${t('Level')} ${levelIndex + 1}`, t(mapScreen ? 'Start level' : 'Next'), start, {
+    details,
+    className: mapScreen ? undefined : 'story-briefing',
+    closeLabel: mapScreen ? t('Close level description') : undefined,
+    parent: mapScreen
+  });
 }

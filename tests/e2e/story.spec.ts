@@ -10,18 +10,26 @@ test('Story retries after defeat and requires both the tile goal and a buff when
   await page.goto('/');
   await openStoryMap(page, /^Getting to know the game/);
   await expect(page.getByRole('button', { name: /^Level 2 · Locked/ })).toBeDisabled();
-  await page.getByRole('button', { name: 'Level 1', exact: true }).click();
+  const level = page.getByRole('button', { name: 'Level 1', exact: true });
+  await level.click();
   const briefing = page.getByRole('dialog', { name: 'Level 1', exact: true });
-  await expect(briefing.locator('section h2')).toHaveText(['Description', 'Victory conditions']);
+  await expect(briefing.locator('section h2')).toHaveText(['Description', 'Victory conditions', 'Third star']);
   await expect(briefing.locator('section').nth(0).locator('.story-demo-target')).toBeVisible();
   await expect(briefing.locator('section').nth(1)).toContainText('Tiles to clear: 4');
-  expect(await briefing.evaluate(dialog => getComputedStyle(dialog, '::backdrop').backgroundColor))
-    .toBe('rgba(0, 0, 0, 0)');
-  expect(await page.evaluate(`${scene}.board.flat().filter(Boolean).map(tile => tile.sprite.texture.key)`))
-    .not.toContain('tile-paused');
-  expect(await page.evaluate(`[${scene}.remaining, ${scene}.elapsed]`)).toEqual([4150, 0]);
+  await expect(briefing.getByText('Clear this level to reveal the hint.')).toBeVisible();
+  const hiddenHint = briefing.locator('p[inert]');
+  await expect(hiddenHint).toHaveText('Complete the level with the entire top row empty.');
+  await expect(hiddenHint).toHaveCSS('filter', 'blur(12px)');
+  await expect(page.locator('.menu-screen .story-map')).toBeVisible();
+  await expect(briefing.locator('xpath=..')).toHaveClass(/menu-screen/);
+  expect(await page.evaluate(`Boolean(${scene}.state)`)).toBe(false);
+  await briefing.getByRole('button', { name: 'Close level description' }).click();
+  await expect(briefing).toBeHidden();
+  await expect(level).toBeFocused();
+  await level.click();
   await page.keyboard.press('Escape');
-  await expect(briefing).toBeVisible();
+  await expect(briefing).toBeHidden();
+  await level.click();
   await beginStoryLevel(page, 1);
 
   const completed = page.getByRole('dialog', { name: 'Stage cleared' });
@@ -74,7 +82,12 @@ test('Story retries after defeat and requires both the tile goal and a buff when
   await expect.poll(() => page.evaluate(`[${scene}.levelIndex, ${scene}.scoreText.text]`)).toEqual([2, 'Items delivered: 0 / 2']);
   await page.keyboard.press('Escape');
   const menu = page.getByRole('dialog', { name: 'Game menu' });
-  await expect(menu.getByRole('button')).toHaveText(['Main menu', 'Choose level', 'Settings', 'Resume game']);
+  await expect(menu.getByRole('button')).toHaveText(['Main menu', 'Choose level', 'Settings', 'Restart level', 'Resume game']);
+  await page.evaluate(`${scene}.state.delivered = 1`);
+  await menu.getByRole('button', { name: 'Restart level' }).click();
+  await expect.poll(() => page.evaluate(`[${scene}.levelIndex, ${scene}.state.delivered, ${scene}.state.rowsAdded]`)).toEqual([2, 0, 0]);
+  await expect(page.locator('dialog[open]')).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await menu.getByRole('button', { name: 'Choose level' }).click();
   await expect(page.getByRole('heading', { name: 'Getting to know the game' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Level 2 · Completed' })).toBeEnabled();
@@ -216,7 +229,7 @@ test('story maps show separate checkpoints and allow replay without losing acces
   await expect(page.getByRole('button', { name: 'Reset progress' })).toBeDisabled();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('coffee-preferences')!).largeStoryThirdStars)).toBeUndefined();
   await page.getByRole('button', { name: 'Level 1', exact: true }).click();
-  await expect(briefing.locator('section h2')).toHaveText(['Description', 'Victory conditions']);
+  await expect(briefing.getByText('Clear this level to reveal the hint.')).toBeVisible();
 });
 
 test('story selection shows Russian titles and descriptions', { tag: ['@story', '@preferences'] }, async ({ page }) => {
@@ -232,7 +245,7 @@ test('story selection shows Russian titles and descriptions', { tag: ['@story', 
   const briefing = page.getByRole('dialog', { name: 'Уровень 1', exact: true });
   await expect(briefing.locator('section h2')).toHaveText(['Описание', 'Условия победы', 'Третья звезда']);
   await expect(briefing.getByText('Завершите уровень с полностью пустым верхним рядом.')).toBeVisible();
-  await expect(briefing.getByRole('button', { name: 'Дальше' })).toBeVisible();
+  await expect(briefing.getByRole('button', { name: 'Начать уровень' })).toBeVisible();
 });
 
 test('a settled tile flips into lightning during a drop and clears its whole row outward', { tag: '@story' }, async ({ page }) => {

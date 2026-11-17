@@ -1,7 +1,7 @@
 import { installPauseMask } from '../render/pauseMask';
 import { createBoardSurface } from '../render/boardSurface';
 import { createHud, openGameMenu } from '../render/hud';
-import { getPreferences, getStoryCheckpoint, getStoryStars, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
+import { getPreferences, getStoryStars, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { fallingLevel, createFalling, clearAt, findRemoval, addFallingRow, rowInterval, ROW_CLEAR_ITEM, COLUMN_CLEAR_ITEM, STORY_ITEM, BUFF_TILES, turnDuration, type FallingLevel, type FallingState } from '../logic/falling';
 import { isStoryMode, loadStory, storyTitle, stories, type StoryChallenge, type StoryChallengeEvent } from '../levels/story';
@@ -64,7 +64,7 @@ export class FallingScene extends Scene {
 
   constructor() { super({ key: 'FallingScene' }); }
 
-  create({ levelIndex = 0 }: { levelIndex?: number } = {}): void {
+  create({ levelIndex = 0, skipBriefing = false }: { levelIndex?: number; skipBriefing?: boolean } = {}): void {
     const mode: unknown = this.registry.get('gameMode');
     try {
       this.story = isStoryMode(mode) ? loadStory(stories[mode]) : undefined;
@@ -128,19 +128,11 @@ export class FallingScene extends Scene {
       this.game.events.off('language-changed', this.layout, this);
     });
     const stage = this.storyStage;
-    if (stage && isStoryMode(mode)) {
+    if (stage && isStoryMode(mode) && !skipBriefing) {
       this.briefingOpen = true;
       this.scene.pause();
-      const objective = `${t(this.level.delivery ? 'Items to deliver' : 'Tiles to clear')}: ${stage.target}`;
-      const goal = this.requiresBuff ? `${objective} · ${t('Use a power-up')}` : objective;
-      const hint = levelIndex < getStoryCheckpoint(mode)
-        ? stage.thirdStar?.hint[getPreferences().language] : null;
       const cleanup = showStoryIntro(
-        `${t('Level')} ${levelIndex + 1}`, stage.briefing, goal, hint,
-        this.state, tile => {
-          const image = this.textures.get(`tile-${tile}`).getSourceImage();
-          return image instanceof HTMLCanvasElement ? image.toDataURL() : (image as HTMLImageElement).src;
-        },
+        mode, levelIndex, stage, this.textures,
         () => {
           this.events.off('shutdown', cleanup);
           this.briefingOpen = false;

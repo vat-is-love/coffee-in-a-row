@@ -59,7 +59,7 @@ test('game menu and settings suspend the round and can resume it', { tag: ['@fal
   await watchTurn('tile-paused');
   await openMenu();
   const menu = page.getByRole('dialog', { name: 'Game menu' });
-  await expect(menu.getByRole('button')).toHaveText(['Main menu', 'Settings', 'Resume game']);
+  await expect(menu.getByRole('button')).toHaveText(['Main menu', 'Settings', 'Restart level', 'Resume game']);
   await menu.getByRole('button', { name: 'Settings' }).click();
   const settings = page.getByRole('dialog', { name: 'Settings' });
   await expect(settings).toBeVisible();

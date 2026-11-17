@@ -5,10 +5,12 @@ export function showStoryResult(
   title: string,
   actionLabel: string,
   restartOrContinue: () => void,
-  { victory, details, className }: {
+  { victory, details, className, closeLabel, parent = document.body }: {
     victory?: { messages: StoryMessages; chooseMode: (mode: Mode) => void };
     details?: HTMLElement;
     className?: string;
+    closeLabel?: string;
+    parent?: HTMLElement;
   } = {}
 ): () => void {
   const dialog = document.createElement('dialog');
@@ -17,6 +19,7 @@ export function showStoryResult(
   dialog.setAttribute('aria-labelledby', 'story-result-title');
   dialog.innerHTML = `
     <form method="dialog">
+      ${closeLabel ? `<button class="settings-close" value="cancel" aria-label="${closeLabel}">×</button>` : ''}
       <h1 id="story-result-title"></h1>
       ${victory ? `
       <p></p>
@@ -39,16 +42,20 @@ export function showStoryResult(
     dialog.querySelector('legend')!.textContent = messages.modeLabel;
     dialog.querySelector('button[value="choose"]')!.textContent = messages.choose;
   }
-  dialog.addEventListener('cancel', event => event.preventDefault());
+  dialog.addEventListener('cancel', event => {
+    event.preventDefault();
+    if (closeLabel) dialog.close('cancel');
+  });
   dialog.addEventListener('keydown', event => event.stopPropagation());
   dialog.addEventListener('keyup', event => event.stopPropagation());
   dialog.addEventListener('close', () => {
     const mode = dialog.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value;
     dialog.remove();
+    if (dialog.returnValue === 'cancel') return;
     if (victory && dialog.returnValue === 'choose' && (mode === 'classic' || mode === 'falling')) victory.chooseMode(mode);
     else restartOrContinue();
   }, { once: true });
-  document.body.append(dialog);
+  parent.append(dialog);
   dialog.showModal();
   return () => dialog.remove();
 }
