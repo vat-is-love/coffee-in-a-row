@@ -15,16 +15,16 @@ test('language and vibration apply without resetting the board and persist on re
   });
   await openGameSettings(page);
   await page.getByRole('combobox', { name: 'Language' }).selectOption('ru');
-  await page.getByRole('checkbox', { name: /Vibration/ }).uncheck();
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Язык' })).toBeFocused();
+  await page.getByRole('checkbox', { name: /Вибрация/ }).uncheck();
+  await page.getByRole('button', { name: 'Закрыть настройки', exact: true }).click();
   expect(await page.evaluate(() => (window as any).__GAME__.scene.getScene('FallingScene').state.score)).toBe(123);
   const menu = page.getByRole('dialog', { name: 'Меню игры' });
   await expect(menu).toBeVisible();
   await menu.getByRole('button', { name: 'Настройки' }).click();
   await expect(page.getByRole('heading', { name: 'Настройки' })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: /Вибрация/ })).not.toBeChecked();
-  await page.getByRole('combobox', { name: 'Язык' }).selectOption('en');
-  await page.getByRole('button', { name: 'Отмена', exact: true }).click();
+  await page.keyboard.press('Escape');
   await page.reload();
   await chooseCompetitive(page, /Падающие ряды/);
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
@@ -72,7 +72,9 @@ test('main menu settings apply on a separate screen and persist after reload', {
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('radio')).toHaveCount(0);
   await page.getByRole('combobox', { name: 'Language' }).selectOption('ru');
-  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByRole('heading', { name: 'Настройки' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Применить' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Назад' }).click();
   await expect(page.getByRole('button', { name: 'Настройки' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('button', { name: 'Настройки' })).toBeVisible();
@@ -88,7 +90,7 @@ test('update control is exclusive to APK and handles a failed check', { tag: '@p
   await page.waitForFunction(() => (window as any).__GAME__.scene.isActive('FallingScene'));
   await openGameSettings(page);
   await expect(page.locator('[data-update-game]')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Close settings', exact: true }).click();
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'userAgent', { value: navigator.userAgent + ' CoffeeAPK/1.0.3' });
     Object.defineProperty(navigator, 'onLine', { value: false });

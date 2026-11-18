@@ -57,7 +57,6 @@ export class FallingScene extends Scene {
   private activeChallenge?: StoryChallenge;
   private hearts: GameObjects.Image[] = [];
   private lifeCharge = 0;
-  private storyWithoutLives = false;
   private hasLives = false;
   private lifeLost = false;
   private displayedLifeCharge = 0;
@@ -96,8 +95,8 @@ export class FallingScene extends Scene {
     this.cleared = 0;
     this.buffUsed = false;
     this.challengeProgress = 0;
-    this.storyWithoutLives = !!this.storyStage && (this.story?.withoutLives === true || getPreferences().storyWithoutLives);
-    this.hasLives = mode === 'zen' || (!!this.storyStage && !this.storyWithoutLives);
+    const storyWithoutLives = !!this.storyStage && (this.story?.withoutLives === true || getPreferences().storyWithoutLives);
+    this.hasLives = mode === 'zen' || (!!this.storyStage && !storyWithoutLives);
     this.lifeCharge = this.displayedLifeCharge = this.hasLives ? maxLifeCharge : 0;
     this.lifeLost = false;
     this.activeChallenge = isStoryMode(mode) && !hasBlueThirdStar(mode, levelIndex)
@@ -646,10 +645,6 @@ export class FallingScene extends Scene {
     this.removingTiles.clear();
     this.droppingRow = false;
     this.previewRow = [...this.state.nextRow];
-    if (this.storyWithoutLives && result.added.some(({ row }) => row === 0)) {
-      this.loseRound();
-      return;
-    }
     this.isProcessing = false;
     this.createHUD();
     if (this.finishStoryStage()) return;

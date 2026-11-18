@@ -139,13 +139,13 @@ test('Story awards the second and third stars independently across attempts', { 
 });
 
 for (const campaign of ['Getting to know the game', 'Shady Souls']) {
-  test(`${campaign} ends a no-lives attempt when the first tile reaches the top row`, { tag: '@story' }, async ({ page }) => {
+  test(`${campaign} ends a no-lives attempt only when the next row cannot land`, { tag: '@story' }, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
     if (campaign === 'Getting to know the game') {
       await page.getByRole('button', { name: 'Settings' }).click();
       await page.getByRole('checkbox', { name: /^Story without lives/ }).check();
-      await page.getByRole('button', { name: 'Apply' }).click();
+      await page.getByRole('button', { name: 'Back' }).click();
     }
     await openStoryMap(page, new RegExp(`^${campaign}`));
     await page.getByRole('button', { name: 'Level 1', exact: true }).click();
@@ -158,10 +158,15 @@ for (const campaign of ['Getting to know the game', 'Shady Souls']) {
         row.fill(-1);
         if (index > 0) row[0] = 0;
       });
+      scene.state.nextRow[0] = 0;
       scene.renderBoard();
       await scene.dropRow();
     })()`);
+    expect(await page.evaluate(`[${scene}.state.grid[0][0], ${scene}.state.rowsAdded, ${scene}.gameOver]`))
+      .toEqual([0, 1, false]);
+    await page.evaluate(`${scene}.dropRow()`);
     await expect(page.getByRole('dialog', { name: 'Board full' })).toBeVisible();
+    expect(await page.evaluate(`${scene}.state.rowsAdded`)).toBe(1);
   });
 }
 
@@ -209,11 +214,11 @@ test('Story spends hearts on overflow and restores one after twenty landed rows'
   await openStoryMap(page, /^Getting to know the game/);
   await page.getByRole('button', { name: 'Level 3', exact: true }).click();
   await beginStoryLevel(page, 3);
-  const tryDrop = (overflow: boolean, withCup = false) => page.evaluate(`(async () => {
+  const tryDrop = (overflow: boolean, withCup = false, reachesTop = false) => page.evaluate(`(async () => {
     const scene = ${scene};
     scene.state.grid.forEach((row, index) => {
       row.fill(-1);
-      if (${overflow}) row[0] = ${withCup} && (index === 1 || index === scene.state.grid.length - 3) ? ${STORY_ITEM} : 0;
+      if (${overflow} || (${reachesTop} && index > 0)) row[0] = ${withCup} && (index === 1 || index === scene.state.grid.length - 3) ? ${STORY_ITEM} : 0;
     });
     scene.state.nextRow = scene.state.nextRow.map(() => 0);
     scene.renderBoard();
@@ -221,16 +226,18 @@ test('Story spends hearts on overflow and restores one after twenty landed rows'
     return [scene.lifeCharge, scene.state.rowsAdded, scene.state.delivered];
   })()`);
   expect(await page.evaluate(`${scene}.hearts.map(heart => heart.visible)`)).toEqual([true, true, true]);
-  expect(await tryDrop(true, true)).toEqual([40, 0, 1]);
+  expect(await tryDrop(false, false, true)).toEqual([60, 1, 0]);
+  expect(await page.evaluate(`[${scene}.state.grid[0][0], ${scene}.gameOver]`)).toEqual([0, false]);
+  expect(await tryDrop(true, true)).toEqual([40, 1, 1]);
   expect(await page.evaluate(`${scene}.state.grid[4][0]`)).toBe(STORY_ITEM);
   await expect.poll(() => page.evaluate(`${scene}.hearts.map(heart => heart.visible)`)).toEqual([true, true, false]);
   for (let row = 1; row <= 20; row++) {
-    expect(await tryDrop(false)).toEqual([40 + row, row, 1]);
+    expect(await tryDrop(false)).toEqual([40 + row, row + 1, 1]);
     if (row === 1) {
       await expect.poll(() => page.evaluate(`${scene}.hearts[2].visible`)).toBe(true);
     }
   }
-  for (const charge of [40, 20, 0]) expect(await tryDrop(true)).toEqual([charge, 20, 1]);
+  for (const charge of [40, 20, 0]) expect(await tryDrop(true)).toEqual([charge, 21, 1]);
   await tryDrop(true);
   await expect(page.getByRole('dialog', { name: 'Board full' })).toBeVisible();
 });

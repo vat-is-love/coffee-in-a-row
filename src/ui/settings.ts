@@ -19,7 +19,7 @@ export function installSettings(game: Game): void {
   const dialog = document.createElement('dialog');
   dialog.className = 'settings-dialog';
   dialog.setAttribute('aria-labelledby', 'settings-title');
-  const settings = document.createElement('form');
+  const settings = document.createElement('div');
   installBackupControls(settings);
   const gameMenu = document.createElement('dialog');
   gameMenu.className = 'settings-dialog';
@@ -156,22 +156,18 @@ export function installSettings(game: Game): void {
 
   function renderSettings(inGame: boolean): void {
     settings.innerHTML = `
-      ${inGame ? `<button class="settings-close" type="submit" value="cancel" aria-label="${t('Close settings')}">×</button>
+      ${inGame ? `<button class="settings-close" type="button" data-close-settings aria-label="${t('Close settings')}">×</button>
       <h1 id="settings-title">${t('Settings')}</h1>` : ''}
       <p data-app-version>${t('Version')}: ${appVersion.endsWith('.0-local') ? `${appVersion.slice(0, -8)} (${t('local build')})` : appVersion}</p>
       <label class="preference-option">${t('Language')}
         <select name="language"><option value="en">English</option><option value="ru">Русский</option></select>
       </label>
       <label class="mode-option"><input type="checkbox" name="vibration"><span><strong>${t('Vibration')}</strong><small>${t('Light feedback for matches, stronger feedback on game over.')}</small></span></label>
-      <label class="mode-option"><input type="checkbox" name="storyWithoutLives"><span><strong>${t('Story without lives')}</strong><small>${t('From the next attempt, reaching the top row ends the level.')}</small></span></label>
+      <label class="mode-option"><input type="checkbox" name="storyWithoutLives"><span><strong>${t('Story without lives')}</strong><small>${t('From the next attempt, you lose if the next row has no room to land.')}</small></span></label>
       ${isAndroidApp() ? `<button type="button" data-update-game>${t(supportsApkUpdates() ? 'Check for updates' : 'Update game')}</button>
       <small>${t(supportsApkUpdates() ? 'Check for game and Android app updates. A game update restarts the current round.' : 'Download the latest version from GitHub Pages. The game will restart; scores and settings are kept.')}</small>
       <p data-update-status role="status"></p>` : ''}
-      ${backupControls()}
-      <div class="settings-actions">
-        ${inGame ? `<button type="submit" value="cancel">${t('Cancel')}</button>` : ''}
-        <button type="submit" value="apply" class="primary">${t('Apply')}</button>
-      </div>`;
+      ${backupControls()}`;
     const preferences = getPreferences();
     settings.querySelector<HTMLSelectElement>('[name="language"]')!.value = preferences.language;
     settings.querySelector<HTMLInputElement>('[name="vibration"]')!.checked = preferences.vibration;
@@ -181,7 +177,12 @@ export function installSettings(game: Game): void {
 
   let updating = false;
   settings.addEventListener('click', async event => {
-    if (!(event.target instanceof Element) || !event.target.closest('[data-update-game]') || updating) return;
+    if (!(event.target instanceof Element) || updating) return;
+    if (event.target.closest('[data-close-settings]')) {
+      dialog.close();
+      return;
+    }
+    if (!event.target.closest('[data-update-game]')) return;
     updating = true;
     const container = dialog.open ? dialog : panel;
     const controls = [...container.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>('button, input, select')];
@@ -205,19 +206,22 @@ export function installSettings(game: Game): void {
     }
     status.textContent = [webStatus, apkStatus].filter(Boolean).join(' ');
   });
-  settings.addEventListener('submit', event => {
-    event.preventDefault();
-    if (updating) return;
-    if (event.submitter?.getAttribute('value') === 'apply') {
-      savePreferences({
-        language: settings.querySelector<HTMLSelectElement>('[name="language"]')!.value as Language,
-        vibration: settings.querySelector<HTMLInputElement>('[name="vibration"]')!.checked,
-        storyWithoutLives: settings.querySelector<HTMLInputElement>('[name="storyWithoutLives"]')!.checked
-      });
+  settings.addEventListener('change', event => {
+    const field = event.target;
+    if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) return;
+    const preferences = getPreferences();
+    if (field instanceof HTMLSelectElement && field.name === 'language') {
+      savePreferences({ ...preferences, language: field.value as Language });
       game.events.emit('language-changed');
+      renderSettings(dialog.open);
+      if (!dialog.open) {
+        panel.querySelector('h1')!.textContent = t('Settings');
+        panel.querySelector('.menu-back')!.textContent = t('Back');
+      }
+      settings.querySelector('select')!.focus({ preventScroll: true });
+    } else if (field instanceof HTMLInputElement && (field.name === 'vibration' || field.name === 'storyWithoutLives')) {
+      savePreferences({ ...preferences, [field.name]: field.checked });
     }
-    if (dialog.open) dialog.close();
-    else mainMenu();
   });
 
   let suspended: string | undefined;
