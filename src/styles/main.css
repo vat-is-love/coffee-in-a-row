@@ -274,6 +274,7 @@ canvas {
 .menu-panel p { margin: 4px 0 20px; color: var(--color-text-muted); }
 .story-map { max-width: 300px; margin: 0 auto; }
 .story-map .mode-option { text-align: center; }
+.settings-dialog .story-attempt-stars { color: #ffc766; font-size: 2rem; }
 .level-stars { margin-inline-start: 10px; color: #ffc766; white-space: nowrap; }
 .blue-third-star, .settings-dialog .blue-third-star { color: #73caff; }
 .settings-dialog .settings-close {

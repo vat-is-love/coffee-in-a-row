@@ -1,5 +1,5 @@
 import { BOMB_ITEM, clearAt, COLUMN_CLEAR_ITEM, createFalling, ROW_CLEAR_ITEM, STORY_ITEM } from '../game/logic/falling';
-import type { loadStory, StoryMode } from '../game/levels/story';
+import { stories, type loadStory, type StoryMode } from '../game/levels/story';
 import type { Textures } from 'phaser';
 import { getPreferences, getStoryCheckpoint, t } from './preferences';
 import { showStoryResult } from './storyResult';
@@ -57,11 +57,10 @@ function makeDemo(demo: string, textures: Textures.TextureManager): HTMLElement 
   return board;
 }
 
-export function showStoryIntro(
+export function storyLevelDetails(
   mode: StoryMode, levelIndex: number, stage: ReturnType<typeof loadStory>['stages'][number],
-  textures: Textures.TextureManager, start: () => void,
-  { mapScreen, returnToMap }: { mapScreen?: HTMLElement; returnToMap?: () => void }
-): () => void {
+  textures: Textures.TextureManager, withoutLives: boolean, includeDescription = true
+): HTMLElement {
   const { briefing, level, thirdStar, target } = stage;
   const { language } = getPreferences();
   const details = document.createElement('div');
@@ -76,13 +75,20 @@ export function showStoryIntro(
     details.append(section);
     return section;
   };
-  const description = addSection(t('Description'), briefing?.[language] ?? '');
-  if (briefing?.demo) {
-    const demo = makeDemo(briefing.demo, textures);
-    if (demo) description.append(demo);
+  if (includeDescription) {
+    const description = addSection(t('Description'), briefing?.[language] ?? '');
+    if (briefing?.demo) {
+      const demo = makeDemo(briefing.demo, textures);
+      if (demo) description.append(demo);
+    }
   }
   const objective = `${t(level.delivery ? 'Items to deliver' : 'Tiles to clear')}: ${target}`;
-  addSection(t('Victory conditions'), level.buffs && !level.delivery ? `${objective} · ${t('Use a power-up')}` : objective);
+  const conditions = addSection(t('Victory conditions'), level.buffs && !level.delivery ? `${objective} · ${t('Use a power-up')}` : objective);
+  const stars = document.createElement('p');
+  stars.textContent = t(withoutLives
+    ? 'Without lives, winning earns two stars. The third star requires a separate challenge.'
+    : 'Win the level for the first star. Win without losing a life for the second star.');
+  conditions.append(stars);
   const completed = levelIndex < getStoryCheckpoint(mode);
   if (completed || thirdStar) {
     const section = addSection(t('Third star'), thirdStar?.hint[language] ?? t('This level has no third-star challenge.'));
@@ -97,6 +103,16 @@ export function showStoryIntro(
       locked.append(hint, overlay);
     }
   }
+  return details;
+}
+
+export function showStoryIntro(
+  mode: StoryMode, levelIndex: number, stage: ReturnType<typeof loadStory>['stages'][number],
+  textures: Textures.TextureManager, start: () => void,
+  { mapScreen, returnToMap }: { mapScreen?: HTMLElement; returnToMap?: () => void }
+): () => void {
+  const withoutLives = stories[mode].withoutLives === true || getPreferences().storyWithoutLives;
+  const details = storyLevelDetails(mode, levelIndex, stage, textures, withoutLives);
   return showStoryResult(`${t('Level')} ${levelIndex + 1}`, t(mapScreen ? 'Start level' : 'Next'), start, {
     details,
     className: mapScreen ? undefined : 'story-briefing',

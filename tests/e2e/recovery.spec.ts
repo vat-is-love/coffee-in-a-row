@@ -58,10 +58,10 @@ test('APK opens the main menu and starts a story without Object.hasOwn', { tag: 
   });
   await page.goto('/');
   await expect(page.locator('#recovery')).toBeHidden();
-  await openStoryMap(page, /^Shady Souls/);
+  await openStoryMap(page, /^No-lives test campaign/);
   await page.getByRole('button', { name: 'Level 1', exact: true }).click();
   await beginStoryLevel(page, 1);
-  await expect.poll(() => page.evaluate('window.__GAME__?.scene.getScene("FallingScene")?.scoreText?.text')).toBe('Items delivered: 0 / 5');
+  await expect.poll(() => page.evaluate('window.__GAME__?.scene.getScene("FallingScene")?.scoreText?.text')).toBe('Items delivered: 0 / 3');
   await expect(page.locator('#recovery')).toBeHidden();
 });
 

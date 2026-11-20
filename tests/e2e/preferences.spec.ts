@@ -71,6 +71,10 @@ test('main menu settings apply on a separate screen and persist after reload', {
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('radio')).toHaveCount(0);
+  const tileStyle = page.getByRole('combobox', { name: 'Tile style' });
+  await expect(tileStyle).toHaveValue('beans');
+  await tileStyle.selectOption('food');
+  await tileStyle.selectOption('emoji');
   await page.getByRole('combobox', { name: 'Language' }).selectOption('ru');
   await expect(page.getByRole('heading', { name: 'Настройки' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Применить' })).toHaveCount(0);
@@ -80,6 +84,7 @@ test('main menu settings apply on a separate screen and persist after reload', {
   await expect(page.getByRole('button', { name: 'Настройки' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
   await page.getByRole('button', { name: 'Настройки' }).click();
+  await expect(page.getByRole('combobox', { name: 'Стиль фишек' })).toHaveValue('emoji');
   await page.getByRole('button', { name: 'Назад' }).click();
   await expect(page.getByRole('heading', { name: 'Coffee Match' })).toBeVisible();
 });

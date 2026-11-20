@@ -3,7 +3,7 @@ import story from '@game/levels/story.json';
 import shadySouls from '@game/levels/shady-souls.json';
 import { createFalling, fallingLevel, type FallingLevel } from '../logic/falling';
 
-const messageKeys = ['title', 'levelComplete', 'continue', 'victory', 'victoryPrompt', 'restart', 'modeLabel', 'choose'] as const;
+const messageKeys = ['title', 'levelComplete', 'victory'] as const;
 export type StoryGrid = readonly (readonly number[])[];
 type PowerUp = keyof typeof import('../logic/falling').BUFF_TILES;
 export type StoryChallengeEvent = {
@@ -53,8 +53,7 @@ export const stories = { 'story-large': story, 'shady-souls': shadySouls };
 export type StoryMode = keyof typeof stories;
 
 export function storyTitle(mode: StoryMode, language: 'en' | 'ru'): string {
-  const introductionTitles = { en: 'Getting to know the game', ru: 'Знакомство с игрой' };
-  return mode === 'story-large' ? introductionTitles[language] : stories[mode].messages[language].title;
+  return stories[mode].messages[language].title;
 }
 
 export function isStoryMode(mode: unknown): mode is StoryMode {

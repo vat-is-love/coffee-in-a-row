@@ -3,7 +3,9 @@ import { backupControls, installBackupControls, refreshBackupStatus } from './ba
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
 import { isStoryMode, loadStory, stories, storyTitle, type StoryMode } from '../game/levels/story';
-import { t, getPreferences, getStoryCheckpoint, getStoryStars, hasBlueThirdStar, resetIntroductionProgress, savePreferences, type Language, type Mode } from './preferences';
+import { t, getPreferences, getStoryCheckpoint, getStoryStars, hasBlueThirdStar, resetIntroductionProgress, savePreferences, tileStyles, type Language, type Mode } from './preferences';
+import type { FallingScene } from '../game/scenes/FallingScene';
+import { showGameHelp } from './gameHelp';
 import { showStoryIntro } from './storyIntro';
 import type { Game } from 'phaser';
 
@@ -135,7 +137,7 @@ export function installSettings(game: Game): void {
       button.append(stars);
     }
     if (mode === 'story-large') addButton(t('Reset progress'), completed ? () => {
-      if (!window.confirm(t('Reset all progress for Getting to know the game?'))) return;
+      if (!window.confirm(t('Reset all progress for this campaign?'))) return;
       resetIntroductionProgress();
       storyMap(mode);
     } : undefined);
@@ -162,6 +164,13 @@ export function installSettings(game: Game): void {
       <label class="preference-option">${t('Language')}
         <select name="language"><option value="en">English</option><option value="ru">Русский</option></select>
       </label>
+      <label class="preference-option">${t('Tile style')}
+        <select name="tileStyle">
+          <option value="beans">${t('Coffee beans')}</option>
+          <option value="food">${t('Food sprites')}</option>
+          <option value="emoji">${t('Emoji')}</option>
+        </select>
+      </label>
       <label class="mode-option"><input type="checkbox" name="vibration"><span><strong>${t('Vibration')}</strong><small>${t('Light feedback for matches, stronger feedback on game over.')}</small></span></label>
       <label class="mode-option"><input type="checkbox" name="storyWithoutLives"><span><strong>${t('Story without lives')}</strong><small>${t('From the next attempt, you lose if the next row has no room to land.')}</small></span></label>
       ${isAndroidApp() ? `<button type="button" data-update-game>${t(supportsApkUpdates() ? 'Check for updates' : 'Update game')}</button>
@@ -170,6 +179,7 @@ export function installSettings(game: Game): void {
       ${backupControls()}`;
     const preferences = getPreferences();
     settings.querySelector<HTMLSelectElement>('[name="language"]')!.value = preferences.language;
+    settings.querySelector<HTMLSelectElement>('[name="tileStyle"]')!.value = preferences.tileStyle;
     settings.querySelector<HTMLInputElement>('[name="vibration"]')!.checked = preferences.vibration;
     settings.querySelector<HTMLInputElement>('[name="storyWithoutLives"]')!.checked = preferences.storyWithoutLives;
     void refreshBackupStatus();
@@ -218,7 +228,12 @@ export function installSettings(game: Game): void {
         panel.querySelector('h1')!.textContent = t('Settings');
         panel.querySelector('.menu-back')!.textContent = t('Back');
       }
-      settings.querySelector('select')!.focus({ preventScroll: true });
+      settings.querySelector<HTMLSelectElement>('[name="language"]')!.focus({ preventScroll: true });
+    } else if (field instanceof HTMLSelectElement && field.name === 'tileStyle') {
+      const tileStyle = tileStyles.find(style => style === field.value);
+      if (!tileStyle) return;
+      savePreferences({ ...preferences, tileStyle });
+      game.events.emit('tile-style-changed');
     } else if (field instanceof HTMLInputElement && (field.name === 'vibration' || field.name === 'storyWithoutLives')) {
       savePreferences({ ...preferences, [field.name]: field.checked });
     }
@@ -249,6 +264,10 @@ export function installSettings(game: Game): void {
     addButton(t('Main menu'), () => leaveGame(mainMenu), actions, '');
     if (isStoryMode(mode)) addButton(t('Choose level'), () => leaveGame(() => storyMap(mode)), actions, '');
     const settingsButton = addButton(t('Settings'), openSettings, actions, '');
+    addButton(t('How to play'), () => {
+      const rules = suspended === 'FallingScene' ? (game.scene.getScene(suspended) as FallingScene).roundRules : undefined;
+      showGameHelp(mode, game.textures, rules);
+    }, actions, '');
     addButton(t('Restart level'), () => {
       if (!suspended) return;
       const scene = game.scene.getScene(suspended);
@@ -284,19 +303,16 @@ export function installSettings(game: Game): void {
     mainMenu();
     requestAnimationFrame(() => window.CoffeeRecovery?.ready());
   });
-  const selectAfterStory = (mode: Mode) => startMode(mode);
   const returnToStoryMap = (mode: StoryMode) => {
     game.scene.stop('FallingScene');
     storyMap(mode);
   };
-  game.events.on('select-mode-after-story', selectAfterStory);
   game.events.on('return-to-story-map', returnToStoryMap);
   window.addEventListener('game-menu', openGameMenu);
   game.events.once('destroy', () => {
     window.removeEventListener('game-menu', openGameMenu);
     window.removeEventListener('pointerdown', usePointer, true);
     window.removeEventListener('keydown', useKeyboard, true);
-    game.events.off('select-mode-after-story', selectAfterStory);
     game.events.off('return-to-story-map', returnToStoryMap);
     screen.remove();
     dialog.remove();

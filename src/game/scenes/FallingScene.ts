@@ -3,7 +3,7 @@ import { installPauseMask } from '../render/pauseMask';
 import { createBoardCursor, createBoardSurface, showBoardCursor } from '../render/boardSurface';
 import { createHud, openGameMenu } from '../render/hud';
 import { createStoryLives, renderStoryLives, rowsPerLife, storyLives } from '../render/storyLives';
-import { getPreferences, getStoryStars, hasBlueThirdStar, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
+import { getPreferences, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { fallingLevel, createFalling, clearAt, findRemoval, addFallingRow, recoverOverflow, rowInterval, ROW_CLEAR_ITEM, COLUMN_CLEAR_ITEM, STORY_ITEM, BUFF_TILES, turnDuration, type FallingLevel, type FallingState } from '../logic/falling';
 import { isStoryMode, loadStory, storyTitle, stories, type StoryChallenge, type StoryChallengeEvent } from '../levels/story';
@@ -61,6 +61,10 @@ export class FallingScene extends Scene {
   private lifeLost = false;
   private displayedLifeCharge = 0;
 
+  get roundRules() {
+    return { stage: this.storyStage, levelIndex: this.levelIndex, hasLives: this.hasLives, level: this.level };
+  }
+
   private get storyStage() { return this.story?.stages[this.levelIndex]; }
   private get requiresBuff() { return !!this.level.buffs && !this.level.delivery; }
   private get storyProgress() { return this.level.delivery ? this.state.delivered : this.cleared; }
@@ -99,7 +103,7 @@ export class FallingScene extends Scene {
     this.hasLives = mode === 'zen' || (!!this.storyStage && !storyWithoutLives);
     this.lifeCharge = this.displayedLifeCharge = this.hasLives ? maxLifeCharge : 0;
     this.lifeLost = false;
-    this.activeChallenge = isStoryMode(mode) && !hasBlueThirdStar(mode, levelIndex)
+    this.activeChallenge = isStoryMode(mode)
       ? this.storyStage?.thirdStar : undefined;
     this.advanceChallenge({ type: 'board', grid: this.state.grid });
     this.elapsed = 0;
@@ -234,7 +238,7 @@ export class FallingScene extends Scene {
     const title = this.story && isStoryMode(mode)
       ? `${storyTitle(mode, getPreferences().language)} · ${t('Level')} ${this.levelIndex + 1}/${this.story.stages.length}`
       : t(mode === 'zen' ? 'Zen Mode' : 'FALLING ROWS');
-    const hud = createHud(this, title, this.gameOver ? () => this.scene.restart({ levelIndex: this.levelIndex }) : undefined);
+    const hud = createHud(this, title, this.gameOver ? () => this.replayRound() : undefined);
     this.hudContainer = hud.container;
     this.scoreText = hud.score;
     this.timerText = hud.progress;
@@ -511,26 +515,29 @@ export class FallingScene extends Scene {
     const next = this.levelIndex + 1;
     const finished = next === this.story.stages.length;
     const earnedThirdStar = this.activeChallenge?.qualifies(this.state.grid, this.challengeProgress) === true;
-    const showThirdStar = earnedThirdStar && (!getStoryStars(mode, this.levelIndex)[2] || !this.lifeLost);
+
     saveStoryCheckpoint(mode, next, { second: !this.lifeLost, third: earnedThirdStar });
     this.gameOver = true;
     this.refreshCursor();
     this.pendingTile = null;
     this.updateHUD();
     const messages = this.story.messages[getPreferences().language];
-    const details = showThirdStar ? document.createElement('p') : undefined;
-    if (details) {
-      details.textContent = t('Third star earned!');
-      if (!this.lifeLost) details.classList.add('blue-third-star');
-    }
+    const details = document.createElement('p');
+    details.className = 'story-attempt-stars';
+    details.setAttribute('role', 'img');
+    details.setAttribute('aria-label', `${t('Stars')}: ${1 + Number(!this.lifeLost) + Number(earnedThirdStar)}/3`);
+    const third = document.createElement('span');
+    third.textContent = earnedThirdStar ? '★' : '☆';
+    if (earnedThirdStar && !this.lifeLost) third.className = 'blue-third-star';
+    details.append(this.lifeLost ? '★☆' : '★★', third);
     const cleanup = showStoryResult(
       finished ? messages.victory : messages.levelComplete,
-      finished ? messages.restart : messages.continue,
-      () => this.scene.restart({ levelIndex: finished ? 0 : next }),
-      {
-        details,
-        victory: finished ? { messages, chooseMode: mode => this.game.events.emit('select-mode-after-story', mode) } : undefined
-      }
+      finished ? t('Back to map') : t('Next'),
+      () => {
+        if (finished) this.game.events.emit('return-to-story-map', mode);
+        else this.scene.restart({ levelIndex: next });
+      },
+      { details, secondary: { label: t('Replay'), action: () => this.replayRound() } }
     );
     this.events.once('shutdown', cleanup);
     return true;
@@ -561,6 +568,7 @@ export class FallingScene extends Scene {
     for (const { tile, to } of survivors) Object.assign(tile, to);
     this.board = board;
     this.state = result.state;
+    this.advanceChallenge({ type: 'board', grid: this.state.grid });
     this.settlingPreview = null;
     this.removingTiles.clear();
     this.droppingRow = this.isProcessing = false;
@@ -568,6 +576,10 @@ export class FallingScene extends Scene {
     if (this.finishStoryStage()) return;
     this.updateHUD();
     this.processPending();
+  }
+
+  private replayRound(): void {
+    this.scene.restart({ levelIndex: this.levelIndex, skipBriefing: true });
   }
 
   private loseRound(): void {
@@ -580,7 +592,9 @@ export class FallingScene extends Scene {
     this.droppingRow = false;
     this.createHUD();
     const cleanup = this.storyStage
-      ? showStoryResult(t('Board full'), t('Retry level'), () => this.scene.restart({ levelIndex: this.levelIndex }))
+      ? showStoryResult(t('Board full'), t('Replay'), () => this.replayRound(), {
+        secondary: { label: t('View board') }
+      })
       : showFallingLeaderboard(this.state.score, this.state.rowsAdded, () => this.scene.restart(), this.registry.get('gameMode') === 'zen');
     this.events.once('shutdown', cleanup);
   }

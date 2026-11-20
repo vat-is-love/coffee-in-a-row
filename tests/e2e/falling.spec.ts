@@ -95,7 +95,13 @@ test('game menu and settings suspend the round and can resume it', { tag: ['@fal
   await watchTurn('tile-paused');
   await openMenu();
   const menu = page.getByRole('dialog', { name: 'Game menu' });
-  await expect(menu.getByRole('button')).toHaveText(['Main menu', 'Settings', 'Restart level', 'Resume game']);
+  await expect(menu.getByRole('button')).toHaveText(['Main menu', 'Settings', 'How to play', 'Restart level', 'Resume game']);
+  await menu.getByRole('button', { name: 'How to play' }).click();
+  const help = page.getByRole('dialog', { name: 'How to play' });
+  await expect(help).toContainText('Tap a group of two or more matching tiles');
+  await expect(help).toContainText('The round ends when a new row cannot fit.');
+  await help.getByRole('button', { name: 'Back' }).click();
+  await expect(help).toBeHidden();
   await menu.getByRole('button', { name: 'Settings' }).click();
   const settings = page.getByRole('dialog', { name: 'Settings' });
   await expect(settings).toBeVisible();

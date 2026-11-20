@@ -19,6 +19,19 @@ test.describe('Coffee Match: Match-3 Demo', () => {
     const box = await canvas.boundingBox();
     expect(box?.width).toBeGreaterThan(300);
     expect(box?.height).toBeGreaterThan(200);
+    const palette = await page.evaluate(() => {
+      const game = (window as any).__GAME__;
+      const scene = game.scene.getScene('GameScene');
+      return Array.from({ length: scene.config.tileTypes }, (_, index) => {
+        const source = game.textures.get(`tile-${index}`).getSourceImage();
+        const emoji = game.textures.get(`tile-emoji-${index}`).getSourceImage();
+        return [
+          source instanceof HTMLCanvasElement, source.width, source.height,
+          emoji instanceof HTMLImageElement, emoji.width, emoji.height
+        ];
+      });
+    });
+    expect(palette).toEqual(Array.from({ length: 6 }, () => [true, 64, 64, true, 64, 64]));
     expect(errors).toHaveLength(0);
   });
 

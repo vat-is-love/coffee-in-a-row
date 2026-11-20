@@ -1,6 +1,9 @@
 import { notifyDataChanged } from './storage';
 import type { StoryMode } from '../game/levels/story';
 export type Language = 'en' | 'ru';
+export const tileStyles = ['beans', 'food', 'emoji'] as const;
+export type TileStyle = typeof tileStyles[number];
+
 export type Mode = 'classic' | 'falling' | 'zen' | StoryMode;
 const storyCheckpointKeys = { 'story-large': 'largeStoryCheckpoint', 'shady-souls': 'shadySoulsCheckpoint' } as const;
 const thirdStarKeys = { 'story-large': 'largeStoryThirdStars', 'shady-souls': 'shadySoulsThirdStars' } as const;
@@ -15,6 +18,7 @@ let languageChosen = false;
 export const PREFERENCES_KEY = 'coffee-preferences';
 let language: Language = 'en';
 let vibration = true;
+let tileStyle: TileStyle = 'beans';
 let storyWithoutLives = false;
 const pendingStoryCheckpoints: Partial<Record<StoryMode, number>> = {};
 function readStoredPreferences() {
@@ -31,8 +35,9 @@ try {
   if (saved.mode === 'classic' || saved.mode === 'falling') mode = saved.mode;
   if (typeof saved.vibration === 'boolean') vibration = saved.vibration;
   storyWithoutLives = saved.storyWithoutLives === true;
+  tileStyle = tileStyles.find(style => style === saved.tileStyle) ?? tileStyle;
 } catch { /* Preferences are optional when storage is unavailable. */ }
-export function getPreferences() { return { language, vibration, storyWithoutLives }; }
+export function getPreferences() { return { language, vibration, storyWithoutLives, tileStyle }; }
 export function getStartupPreferences() {
   return { mode: mode === 'classic' || mode === undefined ? mode : 'falling', languageChosen };
 }
@@ -92,13 +97,14 @@ export function resetIntroductionProgress(): void {
   pendingStoryStars[missingSecondStarKeys['story-large']] = [];
   persistPreferences(true);
 }
-export function savePreferences(next: { language: Language; vibration: boolean; storyWithoutLives?: boolean; mode?: Mode }): void {
+export function savePreferences(next: { language: Language; vibration: boolean; storyWithoutLives?: boolean; tileStyle?: TileStyle; mode?: Mode }): void {
   if (next.mode) mode = next.mode;
   languageChosen = true;
   language = next.language;
   const cancelVibration = vibration && !next.vibration;
   vibration = next.vibration;
   storyWithoutLives = next.storyWithoutLives ?? storyWithoutLives;
+  tileStyle = next.tileStyle ?? tileStyle;
   document.documentElement.lang = language;
   persistPreferences();
   if (cancelVibration) requestVibration('cancel');
@@ -122,6 +128,7 @@ function persistPreferences(preserveStoredPreferences = false): void {
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify({
       language, vibration, ...storedMode, version: 1, ...(preserveStoredPreferences ? saved : {}),
       storyWithoutLives: storyWithoutLives || undefined,
+      tileStyle,
       storyCheckpoint, largeStoryCheckpoint: largeStoryCheckpoint || undefined, shadySoulsCheckpoint: shadySoulsCheckpoint || undefined,
       ...stars
     }));
@@ -162,7 +169,7 @@ const russian: Record<string, string> = {
   'Locked': 'Закрыт',
   'Close results': 'Закрыть результаты',
   'Reset progress': 'Сбросить прогресс',
-  'Reset all progress for Getting to know the game?': 'Сбросить весь прогресс в «Знакомстве с игрой»?',
+  'Reset all progress for this campaign?': 'Сбросить весь прогресс этой кампании?',
   'Stars': 'Звёзды',
   'Blue third star': 'Синяя третья звезда',
   'Story without lives': 'История без жизней',
@@ -177,11 +184,30 @@ const russian: Record<string, string> = {
   'Third star': 'Третья звезда',
   'Clear this level to reveal the hint.': 'Подсказка откроется после прохождения.',
   'This level has no third-star challenge.': 'На этом уровне нет условия для третьей звезды.',
-  'Third star earned!': 'Третья звезда получена!',
+  'Replay': 'Переиграть',
+  'Back to map': 'К карте',
+  'View board': 'Посмотреть поле',
+  'Without lives, winning earns two stars. The third star requires a separate challenge.': 'В режиме без жизней победа приносит две звезды. Для третьей нужно выполнить отдельное условие.',
   'Close settings': 'Закрыть настройки',
   'Game menu': 'Меню игры',
   'Choose level': 'Выбрать уровень',
   'Resume game': 'Продолжить игру',
+  'How to play': 'Как играть',
+  'Controls': 'Управление и правила',
+  'Win the level for the first star. Win without losing a life for the second star.': 'Пройдите уровень, чтобы получить первую звезду. Пройдите его без потери жизней, чтобы получить вторую.',
+  'Swap neighboring tiles with a swipe or by selecting two tiles. Match three or more in a line to clear their cells. Clear every shaded cell to win.': 'Меняйте соседние фишки местами свайпом или выбором двух фишек. Собирайте линии из трёх и более одинаковых фишек. Для победы очистите все клетки с покрытием.',
+  'Use the arrow keys or WASD to move and Enter or Space to select a tile.': 'Перемещайтесь стрелками или WASD. Нажмите Enter или пробел, чтобы выбрать фишку.',
+  'Tap a group of two or more matching tiles that touch along an edge. After a clear, the remaining columns move toward the center.': 'Нажмите на группу из двух или более одинаковых фишек, соприкасающихся сторонами. После удаления группы оставшиеся столбцы сдвигаются к центру.',
+  'Use the arrow keys or WASD to move and Enter or Space to clear a group.': 'Перемещайтесь стрелками или WASD. Нажмите Enter или пробел, чтобы убрать группу.',
+  'New rows arrive from above when the timer runs out.': 'Новые ряды падают сверху, когда заканчивается отсчёт.',
+  'Drop the next row early with the button below the board or the E key.': 'Чтобы сбросить ряд досрочно, нажмите кнопку под полем или клавишу E (У).',
+  'When a new row cannot fit, you spend a life to make room at the top. If you are out of lives, the round ends.': 'Если новый ряд не помещается, тратится жизнь и освобождается место вверху поля. Если жизней нет, партия заканчивается.',
+  'The round ends when a new row cannot fit.': 'Партия заканчивается, когда новый ряд не помещается на поле.',
+  'Every {rows} new rows restore one life.': 'Каждые {rows} новых рядов восстанавливают одну жизнь.',
+  'Clear tiles below an item so it reaches the bottom and is delivered.': 'Убирайте фишки под предметом, чтобы он достиг дна и засчитался как доставленный.',
+  'Tap horizontal lightning to clear its row.': 'Нажмите на горизонтальную молнию, чтобы очистить её ряд.',
+  'Tap vertical lightning to clear its column.': 'Нажмите на вертикальную молнию, чтобы очистить её столбец.',
+  'Tap a bomb to clear nearby tiles.': 'Нажмите на бомбу, чтобы убрать соседние фишки.',
   'Restart level': 'Начать уровень заново',
   'Leaving the game ends the current round.': 'При выходе текущая партия завершится.',
   'Main menu': 'Главное меню',
@@ -234,7 +260,7 @@ const russian: Record<string, string> = {
   "Tap the lightning tile to clear its row": "Нажмите на молнию, чтобы очистить её ряд",
   "Tap lightning to clear its row or column": "Нажмите на молнию, чтобы очистить её ряд или столбец",
   "Lightning clears lines · Bombs clear nearby tiles": "Молнии очищают ряды и столбцы · Бомбы убирают соседние фишки",
-  "Clear tiles beneath items to deliver them": "Убирайте фишки под предметами, чтобы опустить их вниз",
+  "Clear tiles beneath items to deliver them": "Убирайте фишки под предметами",
   "Tap connected groups of 2+ before the next row arrives.": "Убирайте группы от 2 фишек до появления нового ряда.",
   "Match three": "Три в ряд",
   "Swap tiles to make lines of 3.": "Меняйте фишки местами, собирая линии от 3.",
@@ -245,6 +271,10 @@ const russian: Record<string, string> = {
   "Tap connected groups of 2+. Columns gather in the center. Clear space before the next row arrives.": "Убирайте группы от 2 фишек. Столбцы сдвигаются к центру. Освобождайте место для нового ряда.",
   "Changing mode ends the current round.": "Смена режима завершает текущую партию.",
   "Language": "Язык",
+  "Tile style": "Стиль фишек",
+  "Coffee beans": "Кофейные зёрна",
+  "Food sprites": "Рисованная еда",
+  "Emoji": "Эмодзи",
   "Vibration": "Вибрация",
   "Light feedback for matches, stronger feedback on game over.": "Лёгкий отклик при удалении фишек, более заметный при проигрыше.",
   "Game over · Top 10": "Игра окончена · Топ-10",
@@ -260,7 +290,6 @@ const russian: Record<string, string> = {
   "Resume": "Продолжить",
   "Pause": "Пауза",
   "Board full": "Поле заполнено",
-  "Retry level": "Повторить уровень",
   "Board full · Restart to try again": "Поле заполнено · Начните заново",
   "Settling…": "Фишки перемещаются…",
   "Nearly full! Clear space for the next row": "Поле почти заполнено! Освободите место",

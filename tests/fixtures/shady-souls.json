@@ -1,46 +1,36 @@
 {
   "messages": {
     "en": {
-      "title": "Shady Souls",
-      "description": "Unfairly hard levels. Even a good move might be your last.",
+      "title": "No-lives test campaign",
+      "description": "Example without lives.",
       "levelComplete": "Stage cleared",
-      "continue": "Next stage",
-      "victory": "Story cleared",
-      "victoryPrompt": "Choose what to play next.",
-      "restart": "Replay story",
-      "modeLabel": "Game mode",
-      "choose": "Choose"
+      "victory": "Story cleared"
     },
     "ru": {
-      "title": "Неясные души",
-      "description": "Нечестно сложные уровни. Даже хороший ход может оказаться последним.",
+      "title": "Тестовая кампания без жизней",
+      "description": "Пример без жизней.",
       "levelComplete": "Этап пройден",
-      "continue": "Следующий этап",
-      "victory": "История пройдена",
-      "victoryPrompt": "Выберите, во что сыграть дальше.",
-      "restart": "Повторить историю",
-      "modeLabel": "Режим игры",
-      "choose": "Выбрать"
+      "victory": "История пройдена"
     }
   },
   "withoutLives": true,
-  "thirdStar": "emptyTopRow",
+  "thirdStar": "emptyCorner",
   "levels": [
     {
       "briefing": {
-        "en": "Deliver cups on a smaller board with five bean colours. Clear the beans beneath a cup to bring it to the bottom. Horizontal lightning clears its entire row.",
-        "ru": "Доставляйте чашки на уменьшенном поле с пятью цветами зёрен. Убирайте зёрна под чашкой, чтобы она опустилась до нижнего края. Горизонтальная молния очищает весь свой ряд.",
+        "en": "Example delivery briefing.",
+        "ru": "Пример описания доставки.",
         "demo": "delivery"
       },
-      "board": { "rows": 8, "cols": 8, "filledBottomRows": 3 },
+      "board": { "rows": 7, "cols": 8, "filledBottomRows": 3 },
       "tileTypes": 5,
       "rowIntervalMs": 4000,
       "removalDurationMs": 400,
-      "targetItems": 5,
+      "targetItems": 3,
       "delivery": { "firstRow": 2, "everyRows": 3 },
       "buffs": {
         "types": ["horizontal"],
-        "schedule": { "firstRow": 10, "everyRows": 10 }
+        "schedule": { "firstRow": 9, "everyRows": 9 }
       }
     }
   ]

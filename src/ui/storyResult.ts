@@ -1,13 +1,11 @@
 import { installMenuKeyboard } from './keyboard';
-import type { StoryMessages } from '../game/levels/story';
-import { t, type Mode } from './preferences';
 
 export function showStoryResult(
   title: string,
   actionLabel: string,
   restartOrContinue: () => void,
-  { victory, details, className, closeLabel, onClose, parent = document.body }: {
-    victory?: { messages: StoryMessages; chooseMode: (mode: Mode) => void };
+  { secondary, details, className, closeLabel, onClose, parent = document.body }: {
+    secondary?: { label: string; action?: () => void };
     details?: HTMLElement;
     className?: string;
     closeLabel?: string;
@@ -23,40 +21,28 @@ export function showStoryResult(
     <form method="dialog">
       ${closeLabel ? `<button class="settings-close" value="cancel" aria-label="${closeLabel}">☰</button>` : ''}
       <h1 id="story-result-title"></h1>
-      ${victory ? `
-      <p></p>
-      <fieldset>
-        <legend></legend>
-        <label class="mode-option"><input type="radio" name="mode" value="classic" required> ${t('Match three')}</label>
-        <label class="mode-option"><input type="radio" name="mode" value="falling"> ${t('Falling pieces')}</label>
-      </fieldset>` : ''}
       <div class="settings-actions">
-        <button value="continue" ${victory ? 'formnovalidate' : 'class="primary" autofocus'}></button>
-        ${victory ? '<button value="choose" class="primary"></button>' : ''}
+        <button value="continue" class="primary" autofocus></button>
+        ${secondary ? '<button value="secondary"></button>' : ''}
       </div>
     </form>`;
   dialog.querySelector('h1')!.textContent = title;
   dialog.querySelector('button[value="continue"]')!.textContent = actionLabel;
-  if (victory) {
-    const { messages } = victory;
-    dialog.querySelector('p')!.textContent = messages.victoryPrompt;
-    dialog.querySelector('legend')!.textContent = messages.modeLabel;
-    dialog.querySelector('button[value="choose"]')!.textContent = messages.choose;
-  }
+  if (secondary) dialog.querySelector('button[value="secondary"]')!.textContent = secondary.label;
   if (details) dialog.querySelector('h1')!.after(details);
   dialog.addEventListener('cancel', event => {
     event.preventDefault();
     if (closeLabel) dialog.close('cancel');
+    else if (secondary && !secondary.action) dialog.close('secondary');
   });
   installMenuKeyboard(dialog);
   dialog.addEventListener('close', () => {
-    const mode = dialog.querySelector<HTMLInputElement>('input[name="mode"]:checked')?.value;
     dialog.remove();
     if (dialog.returnValue === 'cancel') {
       onClose?.();
       return;
     }
-    if (victory && dialog.returnValue === 'choose' && (mode === 'classic' || mode === 'falling')) victory.chooseMode(mode);
+    if (dialog.returnValue === 'secondary') secondary?.action?.();
     else restartOrContinue();
   }, { once: true });
   parent.append(dialog);
