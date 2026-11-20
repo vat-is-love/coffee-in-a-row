@@ -70,3 +70,65 @@ test('invalid copies do not activate or overwrite backup', { tag: '@backup' }, a
   await expect(checkbox).not.toBeChecked();
   expect(await page.evaluate(() => (window as any).backupCalls.some((r: any) => ['activate', 'write'].includes(r.action)))).toBe(false);
 });
+
+test('browser autosave updates the selected file and stops when disabled', { tag: '@backup' }, async ({ page }) => {
+  await page.addInitScript(() => {
+    const writes: string[] = [];
+    Object.assign(window, {
+      writes,
+      showSaveFilePicker: async () => ({
+        getFile: async () => new File([], 'coffee-match-backup.json'),
+        createWritable: async () => ({
+          write: async (data: string) => { writes.push(data); },
+          close: async () => {}
+        })
+      })
+    });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const autosave = page.getByRole('checkbox', { name: 'Save progress to a file' });
+  await autosave.check();
+  await expect(page.locator('[data-browser-backup-status]')).toContainText('Last backup');
+  await page.getByRole('checkbox', { name: /Vibration/ }).uncheck();
+  await expect.poll(() => page.evaluate(() => {
+    const writes = (window as unknown as { writes: string[] }).writes;
+    return JSON.parse(JSON.parse(writes.at(-1)!).data['coffee-preferences']).vibration;
+  })).toBe(false);
+  await autosave.uncheck();
+  await page.getByRole('checkbox', { name: /Vibration/ }).check();
+  expect(await page.evaluate(() => (window as unknown as { writes: string[] }).writes.length)).toBe(2);
+});
+
+test('browser backup restores story progress and records after site data is cleared', { tag: '@backup' }, async ({ page }) => {
+  await page.goto('/');
+  const records = [{ score: 123, rows: 2, playedAt: 1000 }];
+  await page.evaluate(records => {
+    localStorage.setItem('coffee-preferences', JSON.stringify({ language: 'en', vibration: true, shadySoulsCheckpoint: 4 }));
+    localStorage.setItem('coffee-falling-records', JSON.stringify(records));
+  }, records);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Download a copy' }).click()
+  ]);
+  const file = (await download.path())!;
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const input = page.locator('[data-browser-backup-file]');
+  await input.setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('{}') });
+  await expect(page.locator('[data-browser-backup-status]')).toContainText('Could not restore');
+  page.once('dialog', dialog => dialog.accept());
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('button', { name: 'Restore from file' }).click()
+  ]);
+  await chooser.setFiles(file);
+  await expect(page.getByRole('button', { name: 'Competitive mode' })).toBeVisible();
+  const restored = await page.evaluate(() => ({
+    checkpoint: JSON.parse(localStorage.getItem('coffee-preferences')!).shadySoulsCheckpoint,
+    records: JSON.parse(localStorage.getItem('coffee-falling-records')!)
+  }));
+  expect(restored).toEqual({ checkpoint: 4, records });
+});

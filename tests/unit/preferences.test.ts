@@ -23,7 +23,7 @@ test('preferences survive reload, localize text and suppress disabled or hidden 
   expect(vibrate).not.toHaveBeenCalled();
   vi.resetModules();
   prefs = await import('../../src/ui/preferences');
-  expect(prefs.getPreferences()).toEqual({ language: 'ru', vibration: false, storyWithoutLives: true });
+  expect(prefs.getPreferences()).toEqual({ language: 'ru', vibration: false, storyWithoutLives: true, tileStyle: 'beans' });
   expect(prefs.t('Settings')).toBe('Настройки');
   expect(document.documentElement.lang).toBe('ru');
   prefs.savePreferences({ language: 'en', vibration: true });

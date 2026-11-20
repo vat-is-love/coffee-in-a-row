@@ -1,3 +1,4 @@
+import { browserBackupControls, installBrowserBackup, refreshBrowserBackup } from './browserBackup';
 import { createBackup, parseBackup, restoreBackup } from './backupData';
 import { t } from './preferences';
 
@@ -42,7 +43,7 @@ function request(action: 'status' | 'choose' | 'enable' | 'activate' | 'disable'
   });
 }
 export async function refreshBackupStatus(): Promise<void> {
-  if (!supportsBackup()) return;
+  if (!supportsBackup()) { refreshBrowserBackup(); return; }
   try {
     const reply = await request('status');
     document.querySelectorAll<HTMLInputElement>('[data-backup-enabled]').forEach(control => { control.checked = !!reply.enabled; });
@@ -107,7 +108,7 @@ export async function disableBackup(): Promise<void> {
   }
 }
 export function backupControls(): string {
-  if (!supportsBackup()) return '';
+  if (!supportsBackup()) return browserBackupControls();
   return `<fieldset><legend>${t('Local backup')}</legend>
     ${automaticBackup() ? `<label class="mode-option"><input type="checkbox" data-backup-enabled><span><strong>${t('Save progress after uninstall')}</strong></span></label>
     <p>${t('Allow storage access when Android asks. Records and settings are saved automatically. After reinstalling, enable this option to restore. The current board is not saved.')}</p>` : `
@@ -116,6 +117,7 @@ export function backupControls(): string {
     <p data-backup-status role="status"></p></fieldset>`;
 }
 export function installBackupControls(container: HTMLElement): void {
+  if (!supportsBackup()) { installBrowserBackup(container); return; }
   container.addEventListener('click', event => {
     if (event.target instanceof Element && event.target.closest('[data-backup-choose]')) void chooseBackupFolder();
   });
