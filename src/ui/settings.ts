@@ -2,8 +2,9 @@ import { installMenuKeyboard, keyActivates, keyDirection } from './keyboard';
 import { backupControls, installBackupControls, refreshBackupStatus } from './backup';
 import { version as appVersion } from '../../package.json';
 import { checkApkUpdate, isAndroidApp, supportsApkUpdates, updateGame } from '../pwa';
-import { isStoryMode, loadStory, stories, storyTitle, type StoryMode } from '../game/levels/story';
-import { t, getPreferences, getStoryCheckpoint, getStoryStars, hasBlueThirdStar, resetIntroductionProgress, savePreferences, tileStyles, type Language, type Mode } from './preferences';
+import { getStoryConfig, isStoryMode, loadStory, registerBonusStory, storyTitle, type StoryMode } from '../game/levels/story';
+import { loadBonusStory } from '../game/levels/bonusStory';
+import { t, getCampaignPromoCode, getPreferences, getStoryCheckpoint, getStoryStars, hasBlueThirdStar, resetIntroductionProgress, saveCampaignPromoCode, savePreferences, tileStyles, type Language, type Mode } from './preferences';
 import type { FallingScene } from '../game/scenes/FallingScene';
 import { showGameHelp } from './gameHelp';
 import { showStoryIntro } from './storyIntro';
@@ -100,17 +101,54 @@ export function installSettings(game: Game): void {
 
   function storyMenu(): void {
     showScreen(t('Story mode'), mainMenu);
-    for (const mode of ['shady-souls', 'story-large'] as const) {
-      const button = addButton(storyTitle(mode, getPreferences().language), () => storyMap(mode));
-      const description = document.createElement('small');
-      description.textContent = stories[mode].messages[getPreferences().language].description ?? '';
-      button.append(description);
+    addCampaign('shady-souls');
+    addCampaign('story-large');
+    const code = getCampaignPromoCode();
+    if (!code) return;
+    if (isStoryMode('bonus-story')) {
+      addCampaign('bonus-story');
+      return;
     }
+    const status = document.createElement('p');
+    status.setAttribute('role', 'status');
+    const button = addButton(t('Load unlocked campaign'), async () => {
+      if (isStoryMode('bonus-story')) {
+        storyMap('bonus-story');
+        return;
+      }
+      button.disabled = true;
+      status.textContent = t('Loading campaign…');
+      try {
+        registerBonusStory(await loadBonusStory(code));
+        labelCampaign(button, 'bonus-story');
+        status.textContent = '';
+      } catch {
+        status.textContent = t('Could not load the campaign. Try again.');
+      } finally {
+        button.disabled = false;
+      }
+    });
+    panel.append(status);
+    button.click();
+  }
+
+  function labelCampaign(button: HTMLButtonElement, mode: StoryMode): void {
+    const { language } = getPreferences();
+    button.textContent = storyTitle(mode, language);
+    const description = document.createElement('small');
+    description.textContent = getStoryConfig(mode)?.messages[language].description ?? '';
+    button.append(description);
+  }
+
+  function addCampaign(mode: StoryMode): void {
+    labelCampaign(addButton('', () => storyMap(mode)), mode);
   }
 
   function storyMap(mode: StoryMode): void {
+    const config = getStoryConfig(mode);
+    if (!config) return;
     showScreen(storyTitle(mode, getPreferences().language), storyMenu);
-    const count = stories[mode].levels.length;
+    const count = config.levels.length;
     const completed = getStoryCheckpoint(mode);
     const map = document.createElement('div');
     map.className = 'story-map';
@@ -145,9 +183,11 @@ export function installSettings(game: Game): void {
   }
 
   function previewStoryLevel(mode: StoryMode, index: number): void {
+    const config = getStoryConfig(mode);
+    if (!config) return;
     let story: ReturnType<typeof loadStory>;
     try {
-      story = loadStory(stories[mode]);
+      story = loadStory(config);
     } catch (error) {
       console.error('Unable to load Story levels', error);
       window.CoffeeRecovery?.fail('invalid-falling-level');
@@ -173,6 +213,13 @@ export function installSettings(game: Game): void {
       </label>
       <label class="mode-option"><input type="checkbox" name="vibration"><span><strong>${t('Vibration')}</strong><small>${t('Light feedback for matches, stronger feedback on game over.')}</small></span></label>
       <label class="mode-option"><input type="checkbox" name="storyWithoutLives"><span><strong>${t('Story without lives')}</strong><small>${t('From the next attempt, you lose if the next row has no room to land.')}</small></span></label>
+      <form data-promo-form>
+        <label class="preference-option">${t('Promo code')}
+          <input name="promo" type="password" required maxlength="64" autocomplete="off" spellcheck="false">
+        </label>
+        <button type="submit">${t('Redeem')}</button>
+        <p data-promo-status role="status">${getCampaignPromoCode() ? t('Campaign unlocked.') : ''}</p>
+      </form>
       ${isAndroidApp() ? `<button type="button" data-update-game>${t(supportsApkUpdates() ? 'Check for updates' : 'Update game')}</button>
       <small>${t(supportsApkUpdates() ? 'Check for game and Android app updates. A game update restarts the current round.' : 'Download the latest version from GitHub Pages. The game will restart; scores and settings are kept.')}</small>
       <p data-update-status role="status"></p>` : ''}
@@ -184,6 +231,34 @@ export function installSettings(game: Game): void {
     settings.querySelector<HTMLInputElement>('[name="storyWithoutLives"]')!.checked = preferences.storyWithoutLives;
     void refreshBackupStatus();
   }
+
+  settings.addEventListener('submit', async event => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.matches('[data-promo-form]')) return;
+    event.preventDefault();
+    const button = form.querySelector('button')!;
+    if (button.disabled) return;
+    const input = form.querySelector('input')!;
+    const status = form.querySelector('[data-promo-status]')!;
+    input.readOnly = button.disabled = true;
+    status.textContent = t('Loading campaign…');
+    try {
+      const code = input.value.trim().toLowerCase();
+      const config = await loadBonusStory(code);
+      if (saveCampaignPromoCode(code)) {
+        registerBonusStory(config);
+        input.value = '';
+        status.textContent = t('Campaign unlocked.');
+      } else {
+        status.textContent = t('Could not save campaign access. Try again.');
+      }
+    } catch (error) {
+      status.textContent = t(error instanceof DOMException && error.name === 'OperationError'
+        ? 'Invalid promo code.' : 'Could not load the campaign. Try again.');
+    } finally {
+      input.readOnly = button.disabled = false;
+    }
+  });
 
   let updating = false;
   settings.addEventListener('click', async event => {

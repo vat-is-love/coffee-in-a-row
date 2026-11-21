@@ -42,6 +42,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             publish
+            restricted
             tests
       - run: npm ci
       - run: npm run typecheck
@@ -51,6 +52,8 @@ jobs:
       - name: Set application version for this build
         run: node scripts/set-ci-version.mjs
       - run: npm run build
+        env:
+          COFFEE_CAMPAIGN_PROMO_CODE: ${{ secrets.COFFEE_CAMPAIGN_PROMO_CODE }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

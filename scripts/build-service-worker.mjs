@@ -4,6 +4,7 @@ const files = [];
 async function walk(dir) {
   for (const entry of await readdir(`dist/${dir}`, { withFileTypes: true })) {
     const name = `${dir}${entry.name}`;
+    if (name === 'on-demand') continue;
     if (entry.isDirectory()) await walk(`${name}/`);
     else if (!name.endsWith('.map') && name !== 'sw.js') files.push(name);
   }

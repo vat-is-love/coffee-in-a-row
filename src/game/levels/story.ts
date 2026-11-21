@@ -50,14 +50,23 @@ export type StoryConfig = {
 };
 
 export const stories = { 'story-large': story, 'shady-souls': shadySouls };
-export type StoryMode = keyof typeof stories;
+export type StoryMode = keyof typeof stories | 'bonus-story';
+let bonusStory: StoryConfig | undefined;
+
+export function getStoryConfig(mode: StoryMode): StoryConfig | undefined {
+  return mode === 'bonus-story' ? bonusStory : stories[mode];
+}
+
+export function registerBonusStory(config: StoryConfig): void {
+  bonusStory = config;
+}
 
 export function storyTitle(mode: StoryMode, language: 'en' | 'ru'): string {
-  return stories[mode].messages[language].title;
+  return getStoryConfig(mode)?.messages[language].title ?? '';
 }
 
 export function isStoryMode(mode: unknown): mode is StoryMode {
-  return typeof mode === 'string' && Object.prototype.hasOwnProperty.call(stories, mode);
+  return mode === 'bonus-story' ? bonusStory !== undefined : typeof mode === 'string' && Object.hasOwn(stories, mode);
 }
 
 export function loadStory({ levels, messages, thirdStar, withoutLives = false }: StoryConfig) {

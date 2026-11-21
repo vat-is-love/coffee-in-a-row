@@ -1,0 +1,15 @@
+{
+  "messages": {
+    "en": { "title": "Promo test campaign", "levelComplete": "Stage cleared", "victory": "Story cleared" },
+    "ru": { "title": "Тестовая промокампания", "levelComplete": "Этап пройден", "victory": "История пройдена" }
+  },
+  "levels": [
+    {
+      "board": { "rows": 6, "cols": 7, "filledBottomRows": 2 },
+      "tileTypes": 3,
+      "rowIntervalMs": 5000,
+      "removalDurationMs": 350,
+      "targetTiles": 8
+    }
+  ]
+}

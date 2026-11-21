@@ -6,7 +6,7 @@ import { createStoryLives, renderStoryLives, rowsPerLife, storyLives } from '../
 import { getPreferences, saveStoryCheckpoint, t, vibrate } from '../../ui/preferences';
 import { Scene, GameObjects, Input } from 'phaser';
 import { fallingLevel, createFalling, clearAt, findRemoval, addFallingRow, recoverOverflow, rowInterval, ROW_CLEAR_ITEM, COLUMN_CLEAR_ITEM, STORY_ITEM, BUFF_TILES, turnDuration, type FallingLevel, type FallingState } from '../logic/falling';
-import { isStoryMode, loadStory, storyTitle, stories, type StoryChallenge, type StoryChallengeEvent } from '../levels/story';
+import { getStoryConfig, isStoryMode, loadStory, storyTitle, type StoryChallenge, type StoryChallengeEvent } from '../levels/story';
 import type { Position } from '../logic/types';
 import { showFallingLeaderboard } from '../../ui/fallingLeaderboard';
 import { showStoryIntro } from '../../ui/storyIntro';
@@ -81,7 +81,8 @@ export class FallingScene extends Scene {
   create({ levelIndex = 0, skipBriefing = false }: { levelIndex?: number; skipBriefing?: boolean } = {}): void {
     const mode: unknown = this.registry.get('gameMode');
     try {
-      this.story = isStoryMode(mode) ? loadStory(stories[mode]) : undefined;
+      const config = isStoryMode(mode) ? getStoryConfig(mode) : undefined;
+      this.story = config ? loadStory(config) : undefined;
       this.levelIndex = levelIndex;
       this.level = this.storyStage?.level ?? fallingLevel;
       this.state = createFalling(undefined, this.level);

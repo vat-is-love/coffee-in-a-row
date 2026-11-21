@@ -1,5 +1,5 @@
 import { BOMB_ITEM, clearAt, COLUMN_CLEAR_ITEM, createFalling, ROW_CLEAR_ITEM, STORY_ITEM } from '../game/logic/falling';
-import { stories, type loadStory, type StoryMode } from '../game/levels/story';
+import { getStoryConfig, type loadStory, type StoryMode } from '../game/levels/story';
 import type { Textures } from 'phaser';
 import { getPreferences, getStoryCheckpoint, t } from './preferences';
 import { showStoryResult } from './storyResult';
@@ -111,7 +111,7 @@ export function showStoryIntro(
   textures: Textures.TextureManager, start: () => void,
   { mapScreen, returnToMap }: { mapScreen?: HTMLElement; returnToMap?: () => void }
 ): () => void {
-  const withoutLives = stories[mode].withoutLives === true || getPreferences().storyWithoutLives;
+  const withoutLives = getStoryConfig(mode)?.withoutLives === true || getPreferences().storyWithoutLives;
   const details = storyLevelDetails(mode, levelIndex, stage, textures, withoutLives);
   return showStoryResult(`${t('Level')} ${levelIndex + 1}`, t(mapScreen ? 'Start level' : 'Next'), start, {
     details,

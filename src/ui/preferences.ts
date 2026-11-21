@@ -1,15 +1,16 @@
 import { notifyDataChanged } from './storage';
+import { promoCodePattern } from '../game/levels/promoCode';
 import type { StoryMode } from '../game/levels/story';
 export type Language = 'en' | 'ru';
 export const tileStyles = ['beans', 'food', 'emoji'] as const;
 export type TileStyle = typeof tileStyles[number];
 
 export type Mode = 'classic' | 'falling' | 'zen' | StoryMode;
-const storyCheckpointKeys = { 'story-large': 'largeStoryCheckpoint', 'shady-souls': 'shadySoulsCheckpoint' } as const;
-const thirdStarKeys = { 'story-large': 'largeStoryThirdStars', 'shady-souls': 'shadySoulsThirdStars' } as const;
-const blueThirdStarKeys = { 'story-large': 'largeStoryBlueThirdStars', 'shady-souls': 'shadySoulsBlueThirdStars' } as const;
+const storyCheckpointKeys = { 'story-large': 'largeStoryCheckpoint', 'shady-souls': 'shadySoulsCheckpoint', 'bonus-story': 'bonusStoryCheckpoint' } as const;
+const thirdStarKeys = { 'story-large': 'largeStoryThirdStars', 'shady-souls': 'shadySoulsThirdStars', 'bonus-story': 'bonusStoryThirdStars' } as const;
+const blueThirdStarKeys = { 'story-large': 'largeStoryBlueThirdStars', 'shady-souls': 'shadySoulsBlueThirdStars', 'bonus-story': 'bonusStoryBlueThirdStars' } as const;
 // Older saves already displayed the second star for every completed level.
-const missingSecondStarKeys = { 'story-large': 'largeStoryMissingSecondStars', 'shady-souls': 'shadySoulsMissingSecondStars' } as const;
+const missingSecondStarKeys = { 'story-large': 'largeStoryMissingSecondStars', 'shady-souls': 'shadySoulsMissingSecondStars', 'bonus-story': 'bonusStoryMissingSecondStars' } as const;
 const starKeys = [...Object.values(thirdStarKeys), ...Object.values(blueThirdStarKeys), ...Object.values(missingSecondStarKeys)];
 type StarKey = typeof starKeys[number];
 const pendingStoryStars: Partial<Record<StarKey, number[]>> = {};
@@ -109,13 +110,23 @@ export function savePreferences(next: { language: Language; vibration: boolean; 
   persistPreferences();
   if (cancelVibration) requestVibration('cancel');
 }
-function persistPreferences(preserveStoredPreferences = false): void {
+export function getCampaignPromoCode(): string | undefined {
+  try {
+    const code = readStoredPreferences().campaignPromoCode;
+    if (typeof code === 'string' && promoCodePattern.test(code)) return code;
+  } catch { /* Preferences are optional when storage is unavailable. */ }
+}
+export function saveCampaignPromoCode(code: string): boolean {
+  return persistPreferences(true, code);
+}
+function persistPreferences(preserveStoredPreferences = false, campaignPromoCode = getCampaignPromoCode()): boolean {
   // Installed Android wrappers only accept the original mode names in backups.
   const storedMode = mode === 'story-large'
     ? { mode: 'falling', storyMode: true, largeStoryMode: true }
     : { mode: getStartupPreferences().mode };
-  const largeStoryCheckpoint = getStoryCheckpoint('story-large');
-  const shadySoulsCheckpoint = getStoryCheckpoint('shady-souls');
+  const checkpoints = Object.fromEntries(
+    (Object.entries(storyCheckpointKeys) as [StoryMode, string][]).map(([mode, key]) => [key, getStoryCheckpoint(mode) || undefined])
+  );
   try {
     let saved;
     try { saved = readStoredPreferences(); } catch { saved = {}; }
@@ -129,14 +140,21 @@ function persistPreferences(preserveStoredPreferences = false): void {
       language, vibration, ...storedMode, version: 1, ...(preserveStoredPreferences ? saved : {}),
       storyWithoutLives: storyWithoutLives || undefined,
       tileStyle,
-      storyCheckpoint, largeStoryCheckpoint: largeStoryCheckpoint || undefined, shadySoulsCheckpoint: shadySoulsCheckpoint || undefined,
+      storyCheckpoint, campaignPromoCode,
+      ...checkpoints,
       ...stars
     }));
     delete pendingStoryCheckpoints['story-large'];
     delete pendingStoryCheckpoints['shady-souls'];
+    delete pendingStoryCheckpoints['bonus-story'];
     for (const key of starKeys) delete pendingStoryStars[key];
-  } catch { /* Pending checkpoints remain available when storage is unavailable. */ }
+  } catch {
+    // Pending checkpoints remain available when storage is unavailable.
+    notifyDataChanged();
+    return false;
+  }
   notifyDataChanged();
+  return true;
 }
 document.documentElement.lang = language;
 export function t(english: string): string {
@@ -161,6 +179,14 @@ export function vibrate(event: 'match' | 'loss'): void {
 const russian: Record<string, string> = {
   'Competitive mode': 'Соревновательный режим',
   'Story mode': 'Режим истории',
+  'Promo code': 'Промокод',
+  'Redeem': 'Активировать',
+  'Campaign unlocked.': 'Кампания открыта.',
+  'Invalid promo code.': 'Неверный промокод.',
+  'Could not save campaign access. Try again.': 'Не удалось сохранить доступ к кампании. Попробуйте снова.',
+  'Load unlocked campaign': 'Загрузить открытую кампанию',
+  'Loading campaign…': 'Загрузка кампании…',
+  'Could not load the campaign. Try again.': 'Не удалось загрузить кампанию. Попробуйте снова.',
   'Achievements': 'Достижения',
   'About the authors': 'Об авторах',
   'Exit': 'Выход',

@@ -1,3 +1,5 @@
+import { promoCodePattern } from '../game/levels/promoCode';
+
 /** Only durable game data is backed up; cached assets and diagnostic logs are excluded. */
 export const BACKUP_KEYS = ['coffee-preferences', 'coffee-falling-records', 'coffee-classic-records'] as const;
 type RecordEntry = { score: number; rows: number; playedAt: number; durationMs?: number; zen?: true };
@@ -15,6 +17,11 @@ function validateData(key: string, raw: string): void {
       !['ru', 'en'].includes(v.language as string) || typeof v.vibration !== 'boolean' ||
       (v.storyWithoutLives !== undefined && typeof v.storyWithoutLives !== 'boolean') ||
       (v.mode !== undefined && v.mode !== 'classic' && v.mode !== 'falling') ||
+      (v.campaignPromoCode !== undefined && (typeof v.campaignPromoCode !== 'string' || !promoCodePattern.test(v.campaignPromoCode))) ||
+      (v.bonusStoryCheckpoint !== undefined && !uint(v.bonusStoryCheckpoint)) ||
+      (v.bonusStoryMissingSecondStars !== undefined && !levelIndices(v.bonusStoryMissingSecondStars)) ||
+      (v.bonusStoryThirdStars !== undefined && !levelIndices(v.bonusStoryThirdStars)) ||
+      (v.bonusStoryBlueThirdStars !== undefined && !levelIndices(v.bonusStoryBlueThirdStars)) ||
       (v.storyCheckpoint !== undefined && !uint(v.storyCheckpoint)) ||
       (v.largeStoryCheckpoint !== undefined && !uint(v.largeStoryCheckpoint)) ||
       (v.shadySoulsCheckpoint !== undefined && !uint(v.shadySoulsCheckpoint)) ||

@@ -248,7 +248,11 @@ canvas {
 }
 
 .preference-option { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.preference-option input[name="promo"],
 .preference-option select { font: inherit; padding: 8px; color: #f5f0e8; background: #16213e; border: 1px solid #e4cfad66; border-radius: 8px; }
+
+[data-promo-form] { margin-block: 16px; }
+[data-promo-form] input { min-width: 0; width: min(60%, 240px); }
 
 .menu-screen {
   position: absolute;
